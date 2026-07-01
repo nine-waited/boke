@@ -1,0 +1,19 @@
+{
+  "name": "boke",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Markdown + Excalidraw knowledge manager",
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --filter @boke/web dev",
+    "dev:desktop": "pnpm --filter @boke/desktop tauri dev",
+    "build": "pnpm --filter @boke/web build",
+    "build:desktop": "pnpm --filter @boke/desktop tauri build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "boke",
+  "elements": [
+    {
+      "id": "rect-1",
+      "type": "rectangle",
+      "x": 100,
+      "y": 100,
+      "width": 200,
+      "height": 120,
+      "angle": 0,
+      "strokeColor": "#1e1e2e",
+      "backgroundColor": "#89b4fa",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "opacity": 100,
+      "seed": 1,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": { "type": 3 },
+      "boundElements": [],
+      "updated": 1,
+      "link": null,
+      "locked": false
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": 20
+  },
+  "files": {}
+}

@@ -1,0 +1,662 @@
+:root {
+  --boke-bg: #f7f8fa;
+  --boke-bg-secondary: #ffffff;
+  --boke-bg-tertiary: #eef0f3;
+  --boke-surface: #e4e7ec;
+  --boke-border: #d5d9e0;
+  --boke-text: #1f2328;
+  --boke-text-muted: #5c6370;
+  --boke-accent: #2563eb;
+  --boke-accent-hover: #1d4ed8;
+  --boke-success: #16a34a;
+  --boke-warning: #ca8a04;
+  --boke-error: #dc2626;
+  --boke-link: #0f766e;
+  --boke-tag: #7c3aed;
+  --boke-font: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --boke-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
+  --boke-radius: 8px;
+  --boke-sidebar-width: 260px;
+  --boke-status-height: 28px;
+  --boke-content-width: 820px;
+}
+
+[data-theme="dark"] {
+  --boke-bg: #1e1e2e;
+  --boke-bg-secondary: #181825;
+  --boke-bg-tertiary: #11111b;
+  --boke-surface: #313244;
+  --boke-border: #45475a;
+  --boke-text: #cdd6f4;
+  --boke-text-muted: #a6adc8;
+  --boke-accent: #89b4fa;
+  --boke-accent-hover: #b4befe;
+  --boke-success: #a6e3a1;
+  --boke-warning: #f9e2af;
+  --boke-error: #f38ba8;
+  --boke-link: #89dceb;
+  --boke-tag: #cba6f7;
+}
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  font-family: var(--boke-font);
+  background: var(--boke-bg);
+  color: var(--boke-text);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.boke-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.boke-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--boke-bg-secondary);
+  border-bottom: 1px solid var(--boke-border);
+}
+
+.boke-toolbar button {
+  background: var(--boke-surface);
+  border: 1px solid var(--boke-border);
+  color: var(--boke-text);
+  padding: 6px 12px;
+  border-radius: var(--boke-radius);
+  font-size: 13px;
+}
+
+.boke-toolbar button:hover {
+  border-color: var(--boke-accent);
+  color: var(--boke-accent);
+}
+
+.boke-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.boke-sidebar {
+  width: var(--boke-sidebar-width);
+  background: var(--boke-bg-secondary);
+  border-right: 1px solid var(--boke-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.boke-sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--boke-border);
+}
+
+.boke-sidebar-tabs button {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--boke-text-muted);
+  padding: 8px;
+  font-size: 12px;
+}
+
+.boke-sidebar-tabs button.active {
+  color: var(--boke-accent);
+  border-bottom: 2px solid var(--boke-accent);
+}
+
+.boke-sidebar-content {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+.boke-editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+}
+
+.boke-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 0;
+  background: var(--boke-bg-tertiary);
+  border-bottom: 1px solid var(--boke-border);
+  overflow-x: auto;
+}
+
+.boke-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--boke-bg-secondary);
+  border: 1px solid var(--boke-border);
+  border-bottom: none;
+  border-radius: var(--boke-radius) var(--boke-radius) 0 0;
+  color: var(--boke-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.boke-tab.active {
+  background: var(--boke-bg);
+  color: var(--boke-text);
+  border-color: var(--boke-accent);
+}
+
+.boke-tab-close {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.boke-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.boke-markdown-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.boke-markdown-shell .boke-note-layout {
+  flex: 1;
+}
+
+.boke-note-layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.boke-note-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.boke-note-toc {
+  width: 220px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--boke-border);
+  background: var(--boke-bg-secondary);
+  overflow: auto;
+  padding: 12px 8px;
+}
+
+.boke-note-toc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--boke-text-muted);
+  padding: 0 8px 8px;
+  letter-spacing: 0.04em;
+}
+
+.boke-note-toc-empty {
+  margin: 0;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--boke-text-muted);
+}
+
+.boke-note-toc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.boke-note-toc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--boke-text);
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+}
+
+.boke-note-toc-item:hover {
+  background: var(--boke-surface);
+  color: var(--boke-accent);
+}
+
+.boke-note-toc-item[data-level="1"] {
+  font-weight: 600;
+}
+
+.boke-statusbar {
+  height: var(--boke-status-height);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--boke-bg-tertiary);
+  border-top: 1px solid var(--boke-border);
+  font-size: 12px;
+  color: var(--boke-text-muted);
+}
+
+.boke-file-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--boke-text);
+}
+
+.boke-file-tree-item:hover {
+  background: var(--boke-surface);
+}
+
+.boke-file-tree-item.active {
+  background: var(--boke-surface);
+  color: var(--boke-accent);
+}
+
+.boke-file-tree-dir {
+  font-weight: 600;
+  color: var(--boke-text-muted);
+}
+
+.boke-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--boke-text-muted);
+}
+
+.boke-welcome h1 {
+  color: var(--boke-text);
+  margin: 0;
+}
+
+.boke-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.boke-welcome-actions button {
+  background: var(--boke-accent);
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--boke-radius);
+  font-weight: 600;
+}
+
+.boke-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  z-index: 1000;
+}
+
+.boke-palette {
+  width: min(560px, 90vw);
+  background: var(--boke-bg-secondary);
+  border: 1px solid var(--boke-border);
+  border-radius: var(--boke-radius);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.boke-palette input {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid var(--boke-border);
+  background: var(--boke-bg);
+  color: var(--boke-text);
+  font-size: 15px;
+  outline: none;
+}
+
+.boke-palette-list {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.boke-palette-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.boke-palette-item:hover,
+.boke-palette-item.selected {
+  background: var(--boke-surface);
+}
+
+.boke-palette-item small {
+  display: block;
+  color: var(--boke-text-muted);
+  font-size: 12px;
+}
+
+.boke-markdown-preview {
+  padding: 24px 32px;
+  overflow: auto;
+  height: 100%;
+  line-height: 1.7;
+}
+
+.boke-markdown-preview h1,
+.boke-markdown-preview h2,
+.boke-markdown-preview h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.boke-markdown-preview a {
+  color: var(--boke-link);
+}
+
+.boke-markdown-preview code {
+  font-family: var(--boke-mono);
+  background: var(--boke-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.boke-markdown-preview pre {
+  background: var(--boke-bg-tertiary);
+  padding: 16px;
+  border-radius: var(--boke-radius);
+  overflow: auto;
+}
+
+.boke-markdown-preview .wikilink {
+  color: var(--boke-link);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.boke-markdown-preview .tag {
+  color: var(--boke-tag);
+}
+
+.boke-markdown-preview .embed-image {
+  max-width: 100%;
+  border-radius: var(--boke-radius);
+  margin: 8px 0;
+}
+
+.boke-backlink-item {
+  padding: 8px;
+  border-bottom: 1px solid var(--boke-border);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boke-backlink-item:hover {
+  background: var(--boke-surface);
+}
+
+.boke-graph {
+  width: 100%;
+  height: 100%;
+  background: var(--boke-bg-tertiary);
+}
+
+.boke-settings {
+  padding: 24px;
+  overflow: auto;
+  height: 100%;
+}
+
+.boke-settings h2 {
+  margin-top: 0;
+}
+
+.boke-settings label {
+  display: block;
+  margin: 12px 0 4px;
+  font-size: 13px;
+  color: var(--boke-text-muted);
+}
+
+.boke-settings input,
+.boke-settings select {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px;
+  border-radius: var(--boke-radius);
+  border: 1px solid var(--boke-border);
+  background: var(--boke-bg);
+  color: var(--boke-text);
+}
+
+.boke-milkdown-wrap {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--boke-bg-secondary);
+}
+
+.boke-milkdown-wrap [data-milkdown-root] {
+  height: 100%;
+  min-height: 100%;
+  overflow: auto;
+}
+
+.boke-milkdown-wrap .milkdown {
+  min-height: 100%;
+}
+
+.boke-note-pane {
+  height: 100%;
+  min-height: 0;
+}
+
+.boke-note-pane--live,
+.boke-note-pane--source {
+  display: block;
+  background: var(--boke-bg-secondary);
+}
+
+.boke-source-pane {
+  max-width: var(--boke-content-width);
+  margin: 0 auto;
+  height: 100%;
+  padding: 0 24px;
+}
+
+.boke-source-editor {
+  height: 100%;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+}
+
+.boke-source-editor .cm-editor,
+.boke-source-editor .cm-scroller,
+.boke-source-editor .cm-content,
+.boke-source-editor .cm-line,
+.boke-source-editor .cm-gutters {
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+}
+
+.boke-source-editor .cm-wikilink {
+  color: var(--boke-link);
+}
+
+.boke-source-editor .cm-tag {
+  color: var(--boke-tag);
+}
+
+/* 隐藏编辑器滚动条，保留滚轮滚动 */
+.boke-milkdown-wrap [data-milkdown-root],
+.boke-milkdown-wrap .ProseMirror,
+.boke-source-editor .cm-scroller {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.boke-milkdown-wrap [data-milkdown-root]::-webkit-scrollbar,
+.boke-milkdown-wrap .ProseMirror::-webkit-scrollbar,
+.boke-source-editor .cm-scroller::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.boke-note-editor,
+.boke-note-preview {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.boke-live-pane {
+  background: var(--boke-bg-secondary);
+}
+
+.boke-live-editor-shell {
+  display: flex;
+  height: 100%;
+  max-width: var(--boke-content-width);
+  margin: 0 auto;
+  padding: 8px 0 48px;
+}
+
+.boke-live-editor-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.boke-live-line-gutter {
+  width: 52px;
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 12px 10px 12px 0;
+  border-right: 1px solid var(--boke-border);
+  background: var(--boke-bg-tertiary);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.boke-live-line-gutter::-webkit-scrollbar {
+  display: none;
+}
+
+.boke-live-line-num {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  line-height: 24px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--boke-text-muted);
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-size: 12px;
+  text-align: right;
+  cursor: pointer;
+  user-select: none;
+}
+
+.boke-live-line-num:hover {
+  color: var(--boke-accent);
+}
+
+.boke-live-pane .milkdown {
+  max-width: none;
+  margin: 0;
+  padding: 8px 24px 0;
+}
+
+.boke-mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--boke-border);
+  background: var(--boke-bg-secondary);
+}
+
+.boke-mode-toggle button {
+  font-size: 11px;
+  padding: 2px 10px;
+  background: var(--boke-surface);
+  color: var(--boke-text);
+  border: none;
+  border-radius: 4px;
+}
+
+.boke-mode-toggle button.active {
+  background: var(--boke-accent);
+  color: #ffffff;
+}
+
+.boke-excalidraw-wrap {
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  position: relative;
+}
+
+.boke-excalidraw-wrap .excalidraw {
+  height: 100%;
+}
+
+.boke-publish {
+  padding: 24px;
+  overflow: auto;
+  height: 100%;
+}
+
+.boke-publish pre {
+  background: var(--boke-bg-tertiary);
+  padding: 16px;
+  border-radius: var(--boke-radius);
+  overflow: auto;
+  font-size: 12px;
+}

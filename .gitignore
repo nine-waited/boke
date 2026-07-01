@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.turbo/
+*.local
+.DS_Store
+Thumbs.db
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+*.log
+.env
+.env.*
+!.env.example
+coverage/
+.vite/

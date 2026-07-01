@@ -1,0 +1,9 @@
+{
+  "id": "hello-world",
+  "name": "Hello World",
+  "version": "0.1.0",
+  "description": "Example Boke plugin — adds a greeting command",
+  "author": "Boke",
+  "main": "main.js",
+  "minAppVersion": "0.1.0"
+}
