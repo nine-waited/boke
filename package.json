@@ -6,9 +6,9 @@
   "license": "MIT",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "pnpm --filter @boke/desktop tauri dev",
+    "dev": "pnpm --filter @boke/desktop tauri dev -t x86_64-pc-windows-msvc",
     "build": "pnpm --filter @boke/desktop build",
-    "build:desktop": "pnpm --filter @boke/desktop tauri build",
+    "build:desktop": "pnpm --filter @boke/desktop tauri build -t x86_64-pc-windows-msvc",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"
   },

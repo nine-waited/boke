@@ -110,7 +110,7 @@ export class VaultService {
       path = `${base}/${title} ${i}.md`;
       i++;
     }
-    const content = `---\ntitle: ${title}\ntags: []\ncreated: ${new Date().toISOString().slice(0, 10)}\n---\n\n`;
+    const content = "";
     await this.adapter.write(path, content);
     this.afterSave(path, content);
     return path;
