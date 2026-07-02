@@ -43,7 +43,7 @@ git reset --soft HEAD~1   # 保留改动在暂存区
 除 `.gitignore` 外，特别注意：
 
 - `node_modules/`
-- `apps/web/dist/`
+- `apps/desktop/dist/`
 - `server/.env`
 - `*.local`
 

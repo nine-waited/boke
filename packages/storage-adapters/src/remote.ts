@@ -67,7 +67,10 @@ export class RemoteRestAdapter implements VaultAdapter {
         Authorization: `Bearer ${this.config.token}`,
         "Content-Type": "application/octet-stream",
       },
-      body: content,
+      body: content.buffer.slice(
+        content.byteOffset,
+        content.byteOffset + content.byteLength,
+      ) as ArrayBuffer,
     });
     if (!res.ok) throw new Error(`Remote binary write failed: ${res.status}`);
   }
@@ -122,17 +125,3 @@ export class RemoteRestAdapter implements VaultAdapter {
   }
 }
 
-export function loadRemoteConfig(): RemoteConfig | null {
-  try {
-    const raw = localStorage.getItem("boke-remote-config");
-    if (!raw) return null;
-    return JSON.parse(raw) as RemoteConfig;
-  } catch {
-    return null;
-  }
-}
-
-export function saveRemoteConfig(config: RemoteConfig | null): void {
-  if (config) localStorage.setItem("boke-remote-config", JSON.stringify(config));
-  else localStorage.removeItem("boke-remote-config");
-}

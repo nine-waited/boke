@@ -1,17 +1,17 @@
 # Boke — Knowledge Manager
 
-Local-first **Markdown + Excalidraw** knowledge manager with Obsidian-style wikilinks, plugins, and optional remote storage.
+Desktop-first **Markdown + Excalidraw** knowledge manager with Obsidian-style wikilinks, plugins, local folders, and optional cloud storage via REST API.
 
 ## Features
 
 - **Local-first**: vault = plain files on disk (`notes/`, `attachments/`, `.boke/`)
+- **Desktop app**: Tauri 2 — open any local folder with full filesystem access
+- **Cloud storage**: configure REST API endpoint (see `server/` reference implementation)
 - **Markdown**: CodeMirror 6 editor, wikilinks `[[note]]`, embeds `![[file]]`, YAML frontmatter
 - **Excalidraw**: edit `.excalidraw` files in-app (lazy-loaded)
 - **Backlinks, tags, graph view, full-text search**
 - **Plugins**: ES modules in `.boke/plugins/` (see `examples/plugins/hello-world`)
-- **Remote mode**: FastAPI server + `RemoteRestAdapter`
 - **Blog publish**: notes with `publish: true` → static HTML + RSS export
-- **Dual runtime**: Web PWA + Tauri 2 desktop
 
 ## Quick start
 
@@ -19,73 +19,47 @@ Local-first **Markdown + Excalidraw** knowledge manager with Obsidian-style wiki
 
 - Node.js 20+
 - pnpm 9+
-- (Desktop) Rust + [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+- Rust + [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) (Windows: MSVC Build Tools)
 
-### Install
+### Install & run
 
 ```bash
 cd boke
 pnpm install
-```
-
-### Web (browser)
-
-```bash
 pnpm dev
-# open http://localhost:5173
-# Click "Open vault folder" (Chromium) or use OPFS sandbox
 ```
 
-Or use the launcher scripts:
+First release build — generate icons:
 
 ```bash
-# Windows
-scripts\start-web.bat
-
-# Linux/macOS
-./scripts/start-web.sh
-```
-
-### Desktop (Tauri)
-
-```bash
-pnpm dev:desktop
-# First release build — generate icons:
-cd apps/desktop && pnpm tauri icon ../../apps/web/public/favicon.svg
+cd apps/desktop && pnpm tauri icon public/favicon.svg
 pnpm build:desktop
 ```
+
+### Storage modes
+
+| Mode | How |
+|------|-----|
+| **Local folder** | Welcome screen → 打开本地文件夹 |
+| **Cloud (REST)** | Settings → configure Base URL / Token / Vault path → 连接云端 vault |
+
+Cloud API contract: see [docs/cloud-storage.md](docs/cloud-storage.md) and `server/main.py`.
 
 ### Sample vault
 
 Open `examples/sample-vault` as your vault folder to try wikilinks, Excalidraw, and the hello-world plugin.
 
-### Remote server
-
-```bash
-cd server
-python -m venv .venv
-.venv\Scripts\activate   # Windows
-pip install -r requirements.txt
-copy .env.example .env
-python main.py
-```
-
-Configure in app Settings: Base URL `http://localhost:8787`, Token from `.env`, Vault path `default`.
-
-See [docs/self-host.md](docs/self-host.md) for Nginx deployment.
-
 ## Project structure
 
 ```
 boke/
-├── apps/web          # Vite PWA
-├── apps/desktop      # Tauri 2 shell
+├── apps/desktop      # Tauri 2 desktop app (primary)
 ├── packages/
 │   ├── core          # Vault service, metadata, search, plugins
 │   ├── ui            # React UI
 │   ├── plugin-sdk    # Plugin API types
-│   └── storage-adapters
-├── server/           # FastAPI remote vault API
+│   └── storage-adapters  # Tauri local FS + REST cloud
+├── server/           # Reference cloud storage API (FastAPI)
 ├── examples/         # Sample vault & plugins
 └── docs/
 ```

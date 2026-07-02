@@ -23,7 +23,6 @@ export interface AppState {
   sidebarTab: "files" | "backlinks" | "tags";
   enabledPlugins: string[];
   remoteConfig: RemoteConfig | null;
-  lastFsaVaultId: string | null;
   statusText: string;
 }
 
@@ -36,7 +35,6 @@ export interface AppActions {
   setSidebarTab: (tab: AppState["sidebarTab"]) => void;
   setEnabledPlugins: (ids: string[]) => void;
   setRemoteConfig: (config: RemoteConfig | null) => void;
-  setLastFsaVaultId: (id: string | null) => void;
   setStatusText: (text: string) => void;
 }
 
@@ -57,7 +55,6 @@ function saveSettings(state: AppState): void {
     JSON.stringify({
       enabledPlugins: state.enabledPlugins,
       remoteConfig: state.remoteConfig,
-      lastFsaVaultId: state.lastFsaVaultId,
     }),
   );
 }
@@ -130,7 +127,7 @@ function buildPluginApi(pluginId: string): PluginApi {
       active: {
         id: adapter?.id ?? "",
         name: adapter?.name ?? "",
-        kind: adapter?.kind ?? "fsa",
+        kind: adapter?.kind ?? "tauri",
       },
       read: (path) => vaultService.read(path),
       write: (path, content) => vaultService.write(path, content, true),
@@ -176,7 +173,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   sidebarTab: "files",
   enabledPlugins: saved.enabledPlugins ?? [],
   remoteConfig: saved.remoteConfig ?? null,
-  lastFsaVaultId: saved.lastFsaVaultId ?? null,
   statusText: "",
 
   mountVault: async (adapter) => {
@@ -220,10 +216,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
   setRemoteConfig: (config) => {
     set({ remoteConfig: config });
-    saveSettings(get());
-  },
-  setLastFsaVaultId: (id) => {
-    set({ lastFsaVaultId: id });
     saveSettings(get());
   },
   setStatusText: (text) => set({ statusText: text }),

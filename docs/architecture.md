@@ -2,17 +2,16 @@
 
 ## Overview
 
-Boke is a pnpm monorepo with shared TypeScript packages and two app shells (Web PWA, Tauri desktop).
+Boke is a pnpm monorepo: **Tauri desktop app** + shared TypeScript packages. v0.1 focuses on local folder access and configurable cloud storage via REST API.
 
 ```mermaid
 flowchart LR
-  Web[apps/web] --> UI[packages/ui]
-  Desktop[apps/desktop] --> UI
+  Desktop[apps/desktop] --> UI[packages/ui]
   UI --> Core[packages/core]
   UI --> Adapters[packages/storage-adapters]
   Core --> SDK[packages/plugin-sdk]
   Adapters --> Core
-  Remote[server FastAPI] -.-> Adapters
+  Cloud[server FastAPI] -.-> Adapters
 ```
 
 ## Vault layout
@@ -31,12 +30,10 @@ my-vault/
 
 | Adapter | Runtime | Use case |
 |---------|---------|----------|
-| `TauriFsAdapter` | Desktop | Full FS access, best UX |
-| `FileSystemAccessAdapter` | Chromium PWA | User-picked folder |
-| `OpfsAdapter` | Any browser | Sandbox demo / fallback |
-| `RemoteRestAdapter` | Web + Desktop | Server-backed vault |
+| `TauriFsAdapter` | Desktop | Local folder — primary path |
+| `RemoteRestAdapter` | Desktop | Cloud vault via REST API |
 
-All adapters implement `VaultAdapter` in `packages/core/src/vault/types.ts`.
+Both implement `VaultAdapter` in `packages/core/src/vault/types.ts`.
 
 ## Metadata pipeline
 
@@ -53,10 +50,10 @@ Lifecycle: `onLoad(api)` → register commands / status bar → `onUnload(api)` 
 
 ## Security model
 
-- Web plugins: API whitelist only
-- Remote server: Bearer token, path traversal checks
+- Desktop plugins: API whitelist only
+- Cloud server: Bearer token, path traversal checks (see `server/main.py`)
 - Tauri: native folder picker, scoped to user-selected root
 
-## Blog publish (M4)
+## Blog publish
 
 Notes with `publish: true` in frontmatter are listed in the Publish panel. Export generates concatenated HTML pages + RSS XML for static hosting.

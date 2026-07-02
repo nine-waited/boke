@@ -1,13 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  FileSystemAccessAdapter,
-  isFsaSupported,
-  isTauri,
-  OpfsAdapter,
-  RemoteRestAdapter,
-  saveRemoteConfig,
-  TauriFsAdapter,
-} from "@boke/storage-adapters";
+import { RemoteRestAdapter, TauriFsAdapter } from "@boke/storage-adapters";
 import { pluginHost, useAppStore, vaultService } from "../store.js";
 
 export function SettingsPanel() {
@@ -53,33 +45,18 @@ export function SettingsPanel() {
     load();
   }, [vaultKind]);
 
+  const saveCloudConfig = () => {
+    const config = { baseUrl, token, vaultPath };
+    setRemoteConfig(config);
+  };
+
   const connectRemote = async () => {
     const config = { baseUrl, token, vaultPath };
     setRemoteConfig(config);
-    saveRemoteConfig(config);
-    const adapter = new RemoteRestAdapter(config);
-    await mountVault(adapter);
+    await mountVault(new RemoteRestAdapter(config));
   };
 
-  const switchLocalFsa = async () => {
-    if (!isFsaSupported()) {
-      alert("File System Access API not supported. Use Tauri desktop or OPFS.");
-      return;
-    }
-    const adapter = await FileSystemAccessAdapter.pick();
-    useAppStore.getState().setLastFsaVaultId(adapter.id);
-    await mountVault(adapter);
-  };
-
-  const switchLocalOpfs = async () => {
-    await mountVault(new OpfsAdapter());
-  };
-
-  const switchTauri = async () => {
-    if (!isTauri()) {
-      alert("Tauri is only available in the desktop app.");
-      return;
-    }
+  const switchLocal = async () => {
     const adapter = await TauriFsAdapter.pick();
     await mountVault(adapter);
   };
@@ -114,26 +91,26 @@ export function SettingsPanel() {
     <div className="boke-settings">
       <h2>Settings</h2>
 
-      <h3>Storage</h3>
+      <h3>本地存储</h3>
       <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>
-        Current: {vaultKind || "none"}
+        当前：{vaultKind === "tauri" ? "本地文件夹" : vaultKind === "remote" ? "云端存储" : "未连接"}
       </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-        {isTauri() && <button onClick={switchTauri}>Open folder (Tauri)</button>}
-        {isFsaSupported() && <button onClick={switchLocalFsa}>Open folder (Browser)</button>}
-        <button onClick={switchLocalOpfs}>Use browser sandbox (OPFS)</button>
-      </div>
+      <button onClick={switchLocal}>打开本地文件夹</button>
 
-      <h3>Remote server</h3>
+      <h3>云端存储（REST API）</h3>
+      <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>
+        配置云端 vault 服务地址。服务端 API 规范见 <code>server/</code> 参考实现。
+      </p>
       <label>Base URL</label>
       <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://boke.example.com" />
       <label>Token</label>
       <input value={token} onChange={(e) => setToken(e.target.value)} type="password" />
       <label>Vault path</label>
       <input value={vaultPath} onChange={(e) => setVaultPath(e.target.value)} />
-      <button style={{ marginTop: 12 }} onClick={connectRemote}>
-        Connect remote vault
-      </button>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button onClick={saveCloudConfig}>保存配置</button>
+        <button onClick={connectRemote}>连接云端 vault</button>
+      </div>
 
       <h3>Theme</h3>
       <select value={theme} onChange={(e) => applyTheme(e.target.value)}>

@@ -41,7 +41,7 @@ export interface CommandRegistry {
 export interface VaultInfo {
   readonly id: string;
   readonly name: string;
-  readonly kind: "fsa" | "opfs" | "tauri" | "remote";
+  readonly kind: "tauri" | "remote";
 }
 
 export interface VaultApi {

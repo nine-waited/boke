@@ -1,4 +1,4 @@
-export type VaultKind = "fsa" | "opfs" | "tauri" | "remote";
+export type VaultKind = "tauri" | "remote";
 
 export interface VaultEntry {
   path: string;

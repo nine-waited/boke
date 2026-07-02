@@ -1,83 +1,36 @@
-import {
-  FileSystemAccessAdapter,
-  isFsaSupported,
-  isTauri,
-  OpfsAdapter,
-  RemoteRestAdapter,
-  loadRemoteConfig,
-  TauriFsAdapter,
-} from "@boke/storage-adapters";
+import { RemoteRestAdapter, TauriFsAdapter } from "@boke/storage-adapters";
 import { useAppStore } from "../store.js";
 
 export function WelcomeScreen() {
   const mountVault = useAppStore((s) => s.mountVault);
-  const lastFsaVaultId = useAppStore((s) => s.lastFsaVaultId);
-  const setLastFsaVaultId = useAppStore((s) => s.setLastFsaVaultId);
+  const remoteConfig = useAppStore((s) => s.remoteConfig);
 
-  const openTauri = async () => {
+  const openLocal = async () => {
     const adapter = await TauriFsAdapter.pick();
     await mountVault(adapter);
   };
 
-  const openFsa = async () => {
-    if (lastFsaVaultId) {
-      const restored = await FileSystemAccessAdapter.restore(lastFsaVaultId);
-      if (restored) {
-        await mountVault(restored);
-        return;
-      }
-    }
-    const adapter = await FileSystemAccessAdapter.pick();
-    setLastFsaVaultId(adapter.id);
-    await mountVault(adapter);
-  };
-
-  const openOpfs = async () => {
-    const adapter = new OpfsAdapter();
-    await mountVault(adapter);
-    await adapter.mkdir("notes");
-    await adapter.write(
-      "notes/Welcome.md",
-      `---
-title: Welcome to Boke
-tags: [boke, welcome]
-created: ${new Date().toISOString().slice(0, 10)}
----
-
-# Welcome
-
-This is your **local-first** knowledge vault.
-
-- Use \`[[wikilinks]]\` to connect notes
-- Create \`.excalidraw\` drawings
-- Drop images into notes (saved under \`attachments/\`)
-- Press **Ctrl+P** to quick-open
-`,
-    );
-  };
-
   const openRemote = async () => {
-    const config = loadRemoteConfig();
-    if (!config) {
-      alert("Configure remote server in Settings first.");
+    if (!remoteConfig?.baseUrl || !remoteConfig?.token) {
+      alert("请先在设置中配置云端存储（REST API）。");
       return;
     }
-    await mountVault(new RemoteRestAdapter(config));
+    await mountVault(new RemoteRestAdapter(remoteConfig));
   };
 
   return (
     <div className="boke-welcome">
       <h1>Boke — Knowledge Manager</h1>
-      <p>Local-first Markdown + Excalidraw · Extensible · Open Source</p>
+      <p>本地 Markdown + Excalidraw 知识库 · 桌面优先</p>
       <div className="boke-welcome-actions">
-        {isTauri() && <button onClick={openTauri}>Open vault folder (Desktop)</button>}
-        {isFsaSupported() && <button onClick={openFsa}>Open vault folder (Browser)</button>}
-        <button onClick={openOpfs}>Try sandbox vault (OPFS)</button>
-        {loadRemoteConfig() && <button onClick={openRemote}>Connect remote vault</button>}
+        <button onClick={openLocal}>打开本地文件夹</button>
+        <button onClick={openRemote} disabled={!remoteConfig?.baseUrl || !remoteConfig?.token}>
+          连接云端存储
+        </button>
       </div>
       <p style={{ fontSize: 12, maxWidth: 480, textAlign: "center" }}>
-        Your notes are plain Markdown files. Data stays in a folder you control.
-        Install the desktop app for the best experience on all platforms.
+        笔记以纯 Markdown 文件保存在本地文件夹，或通过 REST API 连接云端 vault。
+        在设置中配置 Base URL、Token 与 Vault 路径。
       </p>
     </div>
   );
