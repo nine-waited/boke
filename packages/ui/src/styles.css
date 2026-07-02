@@ -514,6 +514,14 @@ button {
   background: var(--boke-surface);
 }
 
+.boke-context-menu-item--danger {
+  color: var(--boke-error);
+}
+
+.boke-context-menu-item--danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
 .boke-welcome {
   display: flex;
   flex-direction: column;

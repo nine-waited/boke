@@ -191,6 +191,36 @@ export class WorkspaceStore {
     if (changed) this.notify();
   }
 
+  renamePathPrefix(oldPrefix: string, newPrefix: string): void {
+    let changed = false;
+    const prefix = `${oldPrefix}/`;
+    for (const leaf of this.leaves) {
+      if (!leaf.path) continue;
+      if (leaf.path === oldPrefix || leaf.path.startsWith(prefix)) {
+        leaf.path = `${newPrefix}${leaf.path.slice(oldPrefix.length)}`;
+        changed = true;
+      }
+    }
+    if (changed) this.notify();
+  }
+
+  clearPathsForDelete(deletedPath: string, isDirectory: boolean): void {
+    let changed = false;
+    const prefix = `${deletedPath}/`;
+    for (const leaf of this.leaves) {
+      if (!leaf.path) continue;
+      const hit = isDirectory
+        ? leaf.path === deletedPath || leaf.path.startsWith(prefix)
+        : leaf.path === deletedPath;
+      if (!hit) continue;
+      leaf.type = "empty";
+      leaf.path = undefined;
+      leaf.mode = undefined;
+      changed = true;
+    }
+    if (changed) this.notify();
+  }
+
   getActivePath(): string | null {
     const active = this.leaves.find((l) => l.id === this.activeId);
     return active?.path ?? null;

@@ -83,6 +83,20 @@ export class RemoteRestAdapter implements VaultAdapter {
     if (!res.ok) throw new Error(`Remote delete failed: ${res.status}`);
   }
 
+  async rename(fromPath: string, toPath: string): Promise<void> {
+    const base = this.config.baseUrl.replace(/\/$/, "");
+    const vault = (this.config.vaultPath ?? "default").replace(/^\/+|\/+$/g, "");
+    const res = await fetch(`${base}/api/vault/${vault}/rename`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({
+        from: normalizePath(fromPath),
+        to: normalizePath(toPath),
+      }),
+    });
+    if (!res.ok) throw new Error(`Remote rename failed: ${res.status}`);
+  }
+
   async list(dir = ""): Promise<VaultEntry[]> {
     const base = this.config.baseUrl.replace(/\/$/, "");
     const vault = (this.config.vaultPath ?? "default").replace(/^\/+|\/+$/g, "");

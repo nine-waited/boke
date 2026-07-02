@@ -11,7 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import type { VaultEntry } from "@boke/core";
-import { fileBaseName, isExcalidraw, isHiddenPath, isMarkdown, sanitizeNoteTitle } from "@boke/core";
+import { fileBaseName, isExcalidraw, isHiddenPath, isMarkdown, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
+import {
+  createAndOpenDrawing,
+  createAndOpenNote,
+  createFolder,
+  deleteVaultPath,
+} from "../note-actions.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 
 interface FileTreeProps {
@@ -19,10 +25,15 @@ interface FileTreeProps {
   depth?: number;
 }
 
+type ContextTarget =
+  | { kind: "root"; path: "" }
+  | { kind: "folder"; path: string }
+  | { kind: "file"; path: string };
+
 interface FileTreeContextValue {
   renamingPath: string | null;
   startRename: (path: string) => void;
-  openContextMenu: (event: MouseEvent, path: string) => void;
+  openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
   commitRename: (path: string, title: string) => Promise<void>;
 }
 
@@ -84,17 +95,93 @@ function TreeChevronSpacer() {
 
 function FileTreeFolderRow({
   depth,
+  folderPath,
   folderName,
   expanded,
   onToggle,
 }: {
   depth: number;
+  folderPath: string;
   folderName: string;
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const ctx = useContext(FileTreeContext);
+  const isRenaming = ctx?.renamingPath === folderPath;
+  const [draft, setDraft] = useState(folderName);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const committingRef = useRef(false);
+
+  useEffect(() => {
+    if (isRenaming) {
+      setDraft(folderName);
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+    }
+  }, [isRenaming, folderName]);
+
+  const cancelRename = useCallback(() => {
+    ctx?.startRename("");
+  }, [ctx]);
+
+  const commit = useCallback(async () => {
+    if (!ctx || committingRef.current) return;
+    const trimmed = draft.trim();
+    if (!trimmed || sanitizeFolderName(trimmed) === folderName) {
+      cancelRename();
+      return;
+    }
+
+    committingRef.current = true;
+    try {
+      await ctx.commitRename(folderPath, trimmed);
+    } finally {
+      committingRef.current = false;
+    }
+  }, [ctx, draft, folderPath, folderName, cancelRename]);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void commit();
+    } else if (e.key === "Escape") {
+      cancelRename();
+    }
+  };
+
+  if (isRenaming) {
+    return (
+      <TreeRow depth={depth} className="boke-file-tree-dir boke-file-tree-item--renaming">
+        <TreeChevronIcon expanded={expanded} />
+        <input
+          ref={inputRef}
+          className="boke-file-tree-rename-input"
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={onKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          spellCheck={false}
+          aria-label="重命名文件夹"
+        />
+      </TreeRow>
+    );
+  }
+
   return (
-    <TreeRow depth={depth} className="boke-file-tree-dir" onClick={onToggle}>
+    <TreeRow
+      depth={depth}
+      className="boke-file-tree-dir"
+      onClick={onToggle}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ctx?.openContextMenu(e, { kind: "folder", path: folderPath });
+      }}
+    >
       <TreeChevronIcon expanded={expanded} />
       <span className="boke-file-tree-name">{folderName}</span>
     </TreeRow>
@@ -186,7 +273,7 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
         if (!isRenamableFile(entry.path)) return;
         e.preventDefault();
         e.stopPropagation();
-        ctx?.openContextMenu(e, entry.path);
+        ctx?.openContextMenu(e, { kind: "file", path: entry.path });
       }}
     >
       <TreeChevronSpacer />
@@ -197,7 +284,7 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
 function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   const [entries, setEntries] = useState<VaultEntry[]>([]);
-  const [expanded, setExpanded] = useState(depth < 2);
+  const [expanded, setExpanded] = useState(!dir);
   const treeVersion = useAppStore((s) => s.treeVersion);
   const folderName = dir.split("/").pop() || dir;
 
@@ -207,10 +294,11 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
     });
   }, [dir, treeVersion]);
 
-  if (!expanded && depth > 0) {
+  if (!expanded && dir) {
     return (
       <FileTreeFolderRow
         depth={depth}
+        folderPath={dir}
         folderName={folderName}
         expanded={false}
         onToggle={() => setExpanded(true)}
@@ -220,29 +308,127 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
 
   return (
     <>
-      {depth > 0 && (
+      {dir && (
         <FileTreeFolderRow
           depth={depth}
+          folderPath={dir}
           folderName={folderName}
           expanded={expanded}
           onToggle={() => setExpanded(false)}
         />
       )}
       {expanded &&
-        entries.map((entry) =>
-          entry.kind === "directory" ? (
-            <FileTreeNode key={entry.path} dir={entry.path} depth={depth + 1} />
+        entries.map((entry) => {
+          const itemDepth = dir ? depth + 1 : depth;
+          return entry.kind === "directory" ? (
+            <FileTreeNode key={entry.path} dir={entry.path} depth={itemDepth} />
           ) : (
-            <FileTreeFileItem key={entry.path} entry={entry} depth={depth + 1} />
-          ),
-        )}
+            <FileTreeFileItem key={entry.path} entry={entry} depth={itemDepth} />
+          );
+        })}
+    </>
+  );
+}
+
+function FileTreeContextMenu({
+  target,
+  onClose,
+  onRename,
+}: {
+  target: ContextTarget;
+  onClose: () => void;
+  onRename: (path: string) => void;
+}) {
+  const parentDir = target.kind === "root" ? "" : target.kind === "folder" ? target.path : "";
+
+  const run = (action: () => void | Promise<unknown>) => {
+    onClose();
+    void action();
+  };
+
+  const confirmDelete = (label: string, action: () => Promise<void>) => {
+    if (!window.confirm(`确定删除「${label}」？此操作会永久删除磁盘上的文件，且无法撤销。`)) return;
+    onClose();
+    void action();
+  };
+
+  if (target.kind === "file") {
+    const name = target.path.split("/").pop() ?? target.path;
+    return (
+      <>
+        <button
+          type="button"
+          className="boke-context-menu-item"
+          onClick={() => run(() => onRename(target.path))}
+        >
+          重命名
+        </button>
+        <button
+          type="button"
+          className="boke-context-menu-item boke-context-menu-item--danger"
+          onClick={() => confirmDelete(name, () => deleteVaultPath(target.path, "file"))}
+        >
+          删除
+        </button>
+      </>
+    );
+  }
+
+  const folderLabel =
+    target.kind === "root" ? "当前文件夹" : (target.path.split("/").pop() ?? target.path);
+
+  return (
+    <>
+      <button
+        type="button"
+        className="boke-context-menu-item"
+        onClick={() => run(() => createAndOpenNote(parentDir))}
+      >
+        新建 Markdown 笔记
+      </button>
+      <button
+        type="button"
+        className="boke-context-menu-item"
+        onClick={() => run(() => createAndOpenDrawing(parentDir))}
+      >
+        新建 Excalidraw 绘图
+      </button>
+      <button
+        type="button"
+        className="boke-context-menu-item"
+        onClick={() => run(() => createFolder(parentDir))}
+      >
+        新建文件夹
+      </button>
+      {target.kind === "folder" && (
+        <>
+          <button
+            type="button"
+            className="boke-context-menu-item"
+            onClick={() => run(() => onRename(target.path))}
+          >
+            重命名
+          </button>
+          <button
+            type="button"
+            className="boke-context-menu-item boke-context-menu-item--danger"
+            onClick={() => confirmDelete(folderLabel, () => deleteVaultPath(target.path, "directory"))}
+          >
+            删除文件夹
+          </button>
+        </>
+      )}
     </>
   );
 }
 
 export function FileTree() {
   const refreshTree = useAppStore((s) => s.refreshTree);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    target: ContextTarget;
+  } | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
   useEffect(() => {
@@ -260,16 +446,23 @@ export function FileTree() {
     setRenamingPath(path || null);
   }, []);
 
-  const openContextMenu = useCallback((event: MouseEvent, path: string) => {
-    setContextMenu({ x: event.clientX, y: event.clientY, path });
+  const openContextMenu = useCallback((event: MouseEvent, target: ContextTarget) => {
+    setContextMenu({ x: event.clientX, y: event.clientY, target });
   }, []);
 
   const commitRename = useCallback(
     async (path: string, title: string) => {
       try {
-        const newPath = await vaultService.renameFile(path, title);
+        const isFolder = !isMarkdown(path) && !isExcalidraw(path);
+        const newPath = isFolder
+          ? await vaultService.renameFolder(path, title)
+          : await vaultService.renameFile(path, title);
         if (newPath !== path) {
-          workspaceStore.renamePath(path, newPath);
+          if (isFolder) {
+            workspaceStore.renamePathPrefix(path, newPath);
+          } else {
+            workspaceStore.renamePath(path, newPath);
+          }
           refreshTree();
         }
       } catch (err) {
@@ -291,7 +484,14 @@ export function FileTree() {
   return (
     <>
       <FileTreeContext.Provider value={ctxValue}>
-        <div className="boke-file-tree">
+        <div
+          className="boke-file-tree"
+          onContextMenu={(e) => {
+            if (e.target !== e.currentTarget) return;
+            e.preventDefault();
+            openContextMenu(e, { kind: "root", path: "" });
+          }}
+        >
           <FileTreeNode />
         </div>
       </FileTreeContext.Provider>
@@ -301,16 +501,11 @@ export function FileTree() {
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            className="boke-context-menu-item"
-            onClick={() => {
-              startRename(contextMenu.path);
-              setContextMenu(null);
-            }}
-          >
-            重命名
-          </button>
+          <FileTreeContextMenu
+            target={contextMenu.target}
+            onClose={() => setContextMenu(null)}
+            onRename={startRename}
+          />
         </div>
       )}
     </>

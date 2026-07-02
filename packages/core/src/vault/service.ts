@@ -5,6 +5,7 @@ import {
   isMarkdown,
   listAllFiles,
   normalizePath,
+  joinPath,
 } from "./types.js";
 import { metadataCache } from "../metadata/cache.js";
 import { searchIndex } from "../search/index.js";
@@ -79,6 +80,40 @@ export class VaultService {
     }
   }
 
+  async deletePath(path: string, kind: "file" | "directory"): Promise<void> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    const normalized = normalizePath(path);
+    const prefix = `${normalized}/`;
+
+    const allFiles = await listAllFiles(this.adapter);
+    for (const file of allFiles) {
+      if (file.path !== normalized && !file.path.startsWith(prefix)) continue;
+      const pending = this.saveTimers.get(file.path);
+      if (pending) {
+        clearTimeout(pending);
+        this.saveTimers.delete(file.path);
+      }
+      if (isMarkdown(file.path)) {
+        metadataCache.remove(file.path);
+        searchIndex.removeFile(file.path);
+      }
+    }
+
+    if (kind === "file") {
+      const pending = this.saveTimers.get(normalized);
+      if (pending) {
+        clearTimeout(pending);
+        this.saveTimers.delete(normalized);
+      }
+      if (isMarkdown(normalized)) {
+        metadataCache.remove(normalized);
+        searchIndex.removeFile(normalized);
+      }
+    }
+
+    await this.adapter.delete(normalized);
+  }
+
   async listTree(dir = ""): Promise<import("./types.js").VaultEntry[]> {
     if (!this.adapter) return [];
     return this.adapter.list(dir);
@@ -100,14 +135,14 @@ export class VaultService {
       .map((f) => ({ path: f.path, size: f.size ?? 0, mtimeMs: f.mtimeMs ?? 0 }));
   }
 
-  async createNote(dir = "notes", title = "Untitled"): Promise<string> {
+  async createNote(dir = "", title = "Untitled"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
-    await this.adapter.mkdir(base);
-    let path = `${base}/${title}.md`;
+    if (base) await this.adapter.mkdir(base);
+    let path = joinPath(base, `${title}.md`);
     let i = 1;
     while (await this.adapter.exists(path)) {
-      path = `${base}/${title} ${i}.md`;
+      path = joinPath(base, `${title} ${i}.md`);
       i++;
     }
     const content = "";
@@ -160,7 +195,53 @@ export class VaultService {
     return this.renameFile(path, newTitle);
   }
 
-  async createFolder(dir = "notes", title = "New folder"): Promise<string> {
+  async renameFolder(path: string, newName: string): Promise<string> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    const normalized = normalizePath(path);
+    const safe = sanitizeFolderName(newName);
+    const currentName = normalized.split("/").pop() ?? normalized;
+    if (safe === currentName) return normalized;
+
+    const parent = normalized.includes("/") ? normalized.slice(0, normalized.lastIndexOf("/")) : "";
+    let nextPath = parent ? `${parent}/${safe}` : safe;
+    let i = 1;
+    while ((await this.adapter.exists(nextPath)) && nextPath !== normalized) {
+      nextPath = parent ? `${parent}/${safe} ${i}` : `${safe} ${i}`;
+      i++;
+    }
+    if (nextPath === normalized) return normalized;
+
+    const prefix = `${normalized}/`;
+    const allFiles = await listAllFiles(this.adapter);
+    const affected = allFiles.filter((f) => f.path === normalized || f.path.startsWith(prefix));
+
+    for (const file of affected) {
+      const pending = this.saveTimers.get(file.path);
+      if (pending) {
+        clearTimeout(pending);
+        this.saveTimers.delete(file.path);
+      }
+      if (isMarkdown(file.path)) {
+        metadataCache.remove(file.path);
+        searchIndex.removeFile(file.path);
+      }
+    }
+
+    await this.adapter.rename(normalized, nextPath);
+
+    for (const file of affected) {
+      if (!isMarkdown(file.path)) continue;
+      const newFilePath =
+        file.path === normalized ? nextPath : `${nextPath}${file.path.slice(normalized.length)}`;
+      const content = await this.adapter.read(newFilePath);
+      this.afterSave(newFilePath, content);
+      eventBus.emit("file-rename", { from: file.path, to: newFilePath });
+    }
+
+    return nextPath;
+  }
+
+  async createFolder(dir = "", title = "New folder"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const parent = normalizePath(dir);
     if (parent) await this.adapter.mkdir(parent);
@@ -175,14 +256,14 @@ export class VaultService {
     return path;
   }
 
-  async createExcalidraw(dir = "notes", title = "Drawing"): Promise<string> {
+  async createExcalidraw(dir = "", title = "Drawing"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
-    await this.adapter.mkdir(base);
-    let path = `${base}/${title}.excalidraw`;
+    if (base) await this.adapter.mkdir(base);
+    let path = joinPath(base, `${title}.excalidraw`);
     let i = 1;
     while (await this.adapter.exists(path)) {
-      path = `${base}/${title} ${i}.excalidraw`;
+      path = joinPath(base, `${title} ${i}.excalidraw`);
       i++;
     }
     const empty = JSON.stringify(

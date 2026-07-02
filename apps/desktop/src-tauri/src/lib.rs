@@ -86,6 +86,14 @@ fn vault_delete(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn vault_rename(from: String, to: String) -> Result<(), String> {
+    if let Some(parent) = Path::new(&to).parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::rename(&from, &to).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn vault_mkdir(path: String) -> Result<(), String> {
     fs::create_dir_all(&path).map_err(|e| e.to_string())
 }
@@ -159,6 +167,7 @@ pub fn run() {
             vault_write_text,
             vault_write_binary,
             vault_delete,
+            vault_rename,
             vault_mkdir,
             vault_exists,
             vault_list,

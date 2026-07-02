@@ -61,6 +61,10 @@ export class TauriFsAdapter implements VaultAdapter {
     await invoke("vault_delete", { path: this.abs(path) });
   }
 
+  async rename(fromPath: string, toPath: string): Promise<void> {
+    await invoke("vault_rename", { from: this.abs(fromPath), to: this.abs(toPath) });
+  }
+
   async list(dir = ""): Promise<VaultEntry[]> {
     return invoke<VaultEntry[]>("vault_list", { root: this.rootPath, dir: normalizePath(dir) });
   }

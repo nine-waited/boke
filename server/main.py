@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("BOKE_DATA_DIR", str(APP_DIR / "data")))
@@ -66,6 +66,13 @@ class WriteBody(BaseModel):
 
 class MkdirBody(BaseModel):
     path: str
+
+
+class RenameBody(BaseModel):
+    model_config = {"populate_by_name": True}
+
+    from_path: str = Field(alias="from")
+    to_path: str = Field(alias="to")
 
 
 @app.on_event("startup")
@@ -149,6 +156,20 @@ def mkdir(vault_id: str, body: MkdirBody, _: None = Depends(auth)) -> dict[str, 
     root = vault_root(vault_id)
     target = safe_path(root, body.path)
     target.mkdir(parents=True, exist_ok=True)
+    return {"ok": True}
+
+
+@app.post("/api/vault/{vault_id}/rename")
+def rename(vault_id: str, body: RenameBody, _: None = Depends(auth)) -> dict[str, bool]:
+    root = vault_root(vault_id)
+    src = safe_path(root, body.from_path)
+    dst = safe_path(root, body.to_path)
+    if not src.exists():
+        raise HTTPException(status_code=404, detail="Source not found")
+    if dst.exists():
+        raise HTTPException(status_code=409, detail="Target already exists")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    src.rename(dst)
     return {"ok": True}
 
 

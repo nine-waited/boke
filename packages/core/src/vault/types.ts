@@ -17,6 +17,7 @@ export interface VaultAdapter {
   write(path: string, content: string): Promise<void>;
   writeBinary(path: string, content: Uint8Array): Promise<void>;
   delete(path: string): Promise<void>;
+  rename(fromPath: string, toPath: string): Promise<void>;
   list(dir?: string): Promise<VaultEntry[]>;
   mkdir(path: string): Promise<void>;
   exists(path: string): Promise<boolean>;
