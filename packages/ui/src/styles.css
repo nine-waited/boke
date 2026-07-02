@@ -204,6 +204,58 @@ button {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.boke-note-title-bar {
+  flex-shrink: 0;
+  padding: 20px 24px 4px;
+  max-width: var(--boke-content-width);
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.boke-note-title-input {
+  width: 100%;
+  font-size: 1.65rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--boke-text);
+  background: rgba(255, 255, 255, 0.78);
+  border: none;
+  outline: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: none;
+  transition: background 0.15s ease;
+}
+
+.boke-note-title-input::placeholder {
+  color: var(--boke-text-muted);
+  opacity: 0.65;
+}
+
+.boke-note-title-input:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.boke-note-title-input:focus {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+[data-theme="dark"] .boke-note-title-input {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+[data-theme="dark"] .boke-note-title-input:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .boke-note-title-input:focus {
+  background: rgba(255, 255, 255, 0.13);
 }
 
 .boke-note-toc {
@@ -297,6 +349,60 @@ button {
 .boke-file-tree-dir {
   font-weight: 600;
   color: var(--boke-text-muted);
+}
+
+.boke-file-tree-icon {
+  flex-shrink: 0;
+}
+
+.boke-file-tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boke-file-tree-item--renaming {
+  cursor: default;
+}
+
+.boke-file-tree-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--boke-accent);
+  border-radius: 4px;
+  background: var(--boke-bg-secondary);
+  color: var(--boke-text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.boke-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 120px;
+  padding: 4px;
+  background: var(--boke-bg-secondary);
+  border: 1px solid var(--boke-border);
+  border-radius: var(--boke-radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.boke-context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--boke-text);
+  font-size: 13px;
+  text-align: left;
+}
+
+.boke-context-menu-item:hover {
+  background: var(--boke-surface);
 }
 
 .boke-welcome {
@@ -494,8 +600,10 @@ button {
 }
 
 .boke-note-pane {
-  height: 100%;
+  flex: 1;
   min-height: 0;
+  height: auto;
+  overflow: hidden;
 }
 
 .boke-note-pane--live,

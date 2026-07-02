@@ -83,6 +83,13 @@ export class WorkspaceStore {
 
   openExcalidraw(path: string, opts?: { newTab?: boolean }): string {
     if (!opts?.newTab) {
+      const active = this.leaves.find((l) => l.id === this.activeId);
+      if (active && !active.pinned && (active.type === "empty" || active.type === "excalidraw")) {
+        active.type = "excalidraw";
+        active.path = path;
+        this.notify();
+        return active.id;
+      }
       const existing = this.leaves.find((l) => l.type === "excalidraw" && l.path === path);
       if (existing) {
         this.activeId = existing.id;
@@ -163,6 +170,25 @@ export class WorkspaceStore {
       leaf.mode = normalizeLeafMode(mode);
       this.notify();
     }
+  }
+
+  updatePath(leafId: string, newPath: string): void {
+    const leaf = this.leaves.find((l) => l.id === leafId);
+    if (leaf && leaf.path) {
+      leaf.path = newPath;
+      this.notify();
+    }
+  }
+
+  renamePath(oldPath: string, newPath: string): void {
+    let changed = false;
+    for (const leaf of this.leaves) {
+      if (leaf.path === oldPath) {
+        leaf.path = newPath;
+        changed = true;
+      }
+    }
+    if (changed) this.notify();
   }
 
   getActivePath(): string | null {

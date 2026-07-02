@@ -116,6 +116,50 @@ export class VaultService {
     return path;
   }
 
+  async renameFile(path: string, newTitle: string): Promise<string> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    const normalized = normalizePath(path);
+    let ext: string;
+    if (isMarkdown(normalized)) ext = ".md";
+    else if (isExcalidraw(normalized)) ext = ".excalidraw";
+    else throw new Error("Unsupported file type");
+
+    const safe = sanitizeNoteTitle(newTitle);
+    const currentBase = fileBaseName(normalized);
+    if (safe === currentBase) return normalized;
+
+    const dir = normalized.includes("/") ? normalized.slice(0, normalized.lastIndexOf("/")) : "";
+    let nextPath = dir ? `${dir}/${safe}${ext}` : `${safe}${ext}`;
+    let i = 1;
+    while ((await this.adapter.exists(nextPath)) && nextPath !== normalized) {
+      nextPath = dir ? `${dir}/${safe} ${i}${ext}` : `${safe} ${i}${ext}`;
+      i++;
+    }
+    if (nextPath === normalized) return normalized;
+
+    const pending = this.saveTimers.get(normalized);
+    if (pending) {
+      clearTimeout(pending);
+      this.saveTimers.delete(normalized);
+    }
+
+    const content = await this.adapter.read(normalized);
+    await this.adapter.write(nextPath, content);
+    await this.adapter.delete(normalized);
+
+    if (isMarkdown(normalized)) {
+      metadataCache.remove(normalized);
+      searchIndex.removeFile(normalized);
+      this.afterSave(nextPath, content);
+    }
+    eventBus.emit("file-rename", { from: normalized, to: nextPath });
+    return nextPath;
+  }
+
+  async renameNote(path: string, newTitle: string): Promise<string> {
+    return this.renameFile(path, newTitle);
+  }
+
   async createExcalidraw(dir = "notes", title = "Drawing"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
@@ -199,6 +243,20 @@ export class VaultService {
 function stripFrontmatter(content: string): { body: string } {
   const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
   return { body: match ? content.slice(match[0].length) : content };
+}
+
+export function fileBaseName(path: string): string {
+  const name = path.split("/").pop() ?? path;
+  return name.replace(/\.(md|excalidraw)$/i, "");
+}
+
+export function noteBaseName(path: string): string {
+  return fileBaseName(path);
+}
+
+export function sanitizeNoteTitle(title: string): string {
+  const trimmed = title.replace(/[\\/:*?"<>|]/g, "").trim();
+  return trimmed || "Untitled";
 }
 
 export const vaultService = new VaultService();

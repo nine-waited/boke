@@ -16,6 +16,7 @@ import {
   commandRegistry,
 } from "./store.js";
 import { registerCoreCommands } from "./commands.js";
+import { createAndOpenNote } from "./note-actions.js";
 
 const ExcalidrawView = lazy(() =>
   import("./components/ExcalidrawView.js").then((m) => ({ default: m.ExcalidrawView })),
@@ -37,9 +38,7 @@ function EditorContent() {
     return (
       <div className="boke-welcome">
         <p>Select a file or create a new note.</p>
-        <button onClick={async () => workspaceStore.openFile(await vaultService.createNote())}>
-          New note
-        </button>
+        <button onClick={() => createAndOpenNote()}>New note</button>
       </div>
     );
   }

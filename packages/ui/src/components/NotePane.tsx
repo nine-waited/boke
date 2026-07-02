@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { normalizeLeafMode, type LeafMode } from "@boke/core";
+import { normalizeLeafMode, noteBaseName, sanitizeNoteTitle, type LeafMode } from "@boke/core";
 import { MarkdownEditor, type MarkdownEditorHandle } from "./MarkdownEditor.js";
 import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./MarkdownSourceEditor.js";
 import { OutlinePanel } from "./OutlinePanel.js";
 import type { OutlineHeading } from "../markdown-outline.js";
-import { eventBus, vaultService, workspaceStore } from "../store.js";
+import { eventBus, useAppStore, vaultService, workspaceStore } from "../store.js";
 
 interface NotePaneProps {
   path: string;
@@ -17,12 +17,94 @@ const MODE_OPTIONS: Array<{ id: LeafMode; label: string }> = [
   { id: "source", label: "源码" },
 ];
 
+function isDefaultUntitledName(name: string): boolean {
+  return name === "Untitled" || /^Untitled \d+$/.test(name);
+}
+
+function NoteTitleBar({
+  path,
+  leafId,
+  flushContent,
+}: {
+  path: string;
+  leafId: string;
+  flushContent: () => Promise<void>;
+}) {
+  const refreshTree = useAppStore((s) => s.refreshTree);
+  const baseName = noteBaseName(path);
+  const [draft, setDraft] = useState(baseName);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const committingRef = useRef(false);
+
+  useEffect(() => {
+    setDraft(noteBaseName(path));
+  }, [path]);
+
+  useEffect(() => {
+    if (isDefaultUntitledName(baseName)) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [path, baseName]);
+
+  const commitTitle = useCallback(async () => {
+    if (committingRef.current) return;
+    const trimmed = draft.trim();
+    if (!trimmed || sanitizeNoteTitle(trimmed) === noteBaseName(path)) return;
+
+    committingRef.current = true;
+    try {
+      await flushContent();
+      const newPath = await vaultService.renameNote(path, trimmed);
+      if (newPath !== path) {
+        workspaceStore.updatePath(leafId, newPath);
+        refreshTree();
+      }
+    } catch (err) {
+      console.warn("[boke] rename failed:", err);
+      setDraft(noteBaseName(path));
+    } finally {
+      committingRef.current = false;
+    }
+  }, [draft, path, leafId, flushContent, refreshTree]);
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void commitTitle();
+      inputRef.current?.blur();
+    } else if (e.key === "Escape") {
+      setDraft(noteBaseName(path));
+      inputRef.current?.blur();
+    }
+  };
+
+  return (
+    <div className="boke-note-title-bar">
+      <input
+        ref={inputRef}
+        className="boke-note-title-input"
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commitTitle()}
+        onKeyDown={onKeyDown}
+        placeholder="未命名笔记"
+        spellCheck={false}
+        aria-label="笔记标题"
+      />
+    </div>
+  );
+}
+
 export function NotePane({ path, mode, leafId }: NotePaneProps) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const viewMode = normalizeLeafMode(mode);
   const liveRef = useRef<MarkdownEditorHandle>(null);
   const sourceRef = useRef<MarkdownSourceEditorHandle>(null);
+  const contentRef = useRef(content);
+  contentRef.current = content;
 
   useEffect(() => {
     setLoading(true);
@@ -44,6 +126,10 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
   const onSave = useCallback(() => {
     vaultService.write(path, content, true);
   }, [path, content]);
+
+  const flushContent = useCallback(async () => {
+    await vaultService.write(path, contentRef.current, true);
+  }, [path]);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
@@ -73,27 +159,30 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
 
   return (
     <div className="boke-note-layout" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
-      <div className={`boke-note-main boke-note-pane boke-note-pane--${viewMode}`}>
-        {viewMode === "live" ? (
-          <MarkdownEditor
-            ref={liveRef}
-            key={`${path}:live`}
-            presentation="live"
-            content={content}
-            onChange={onChange}
-            onSave={onSave}
-          />
-        ) : (
-          <div className="boke-source-pane">
-            <MarkdownSourceEditor
-              ref={sourceRef}
-              key={`${path}:source`}
+      <div className="boke-note-main">
+        <NoteTitleBar path={path} leafId={leafId} flushContent={flushContent} />
+        <div className={`boke-note-pane boke-note-pane--${viewMode}`}>
+          {viewMode === "live" ? (
+            <MarkdownEditor
+              ref={liveRef}
+              key={`${path}:live`}
+              presentation="live"
               content={content}
               onChange={onChange}
               onSave={onSave}
             />
-          </div>
-        )}
+          ) : (
+            <div className="boke-source-pane">
+              <MarkdownSourceEditor
+                ref={sourceRef}
+                key={`${path}:source`}
+                content={content}
+                onChange={onChange}
+                onSave={onSave}
+              />
+            </div>
+          )}
+        </div>
       </div>
       <OutlinePanel path={path} content={content} onHeadingClick={handleHeadingClick} />
     </div>

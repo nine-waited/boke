@@ -1,4 +1,5 @@
-import { commandRegistry, vaultService, workspaceStore } from "./store.js";
+import { commandRegistry, workspaceStore } from "./store.js";
+import { createAndOpenDrawing, createAndOpenNote } from "./note-actions.js";
 
 export function registerCoreCommands(): void {
   commandRegistry.register({
@@ -6,8 +7,7 @@ export function registerCoreCommands(): void {
     name: "New note",
     category: "Boke",
     callback: async () => {
-      const path = await vaultService.createNote();
-      workspaceStore.openFile(path);
+      await createAndOpenNote();
     },
   });
 
@@ -16,8 +16,7 @@ export function registerCoreCommands(): void {
     name: "New Excalidraw drawing",
     category: "Boke",
     callback: async () => {
-      const path = await vaultService.createExcalidraw();
-      workspaceStore.openExcalidraw(path);
+      await createAndOpenDrawing();
     },
   });
 
