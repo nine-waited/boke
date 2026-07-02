@@ -1,7 +1,7 @@
 import { useSyncExternalStore, useEffect, lazy, Suspense } from "react";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
-import { BacklinksPanel, TagsPanel } from "./components/BacklinksPanel.js";
+import { SidebarNav } from "./components/SidebarNav.js";
 import { WelcomeScreen } from "./components/WelcomeScreen.js";
 import { NotePane, ModeToggle } from "./components/NotePane.js";
 import { GraphView } from "./components/GraphView.js";
@@ -72,8 +72,6 @@ function EditorContent() {
 
 export function App() {
   const vaultMounted = useAppStore((s) => s.vaultMounted);
-  const sidebarTab = useAppStore((s) => s.sidebarTab);
-  const setSidebarTab = useAppStore((s) => s.setSidebarTab);
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const statusText = useAppStore((s) => s.statusText);
@@ -108,30 +106,9 @@ export function App() {
       <div className="boke-main">
         {vaultMounted && (
           <aside className="boke-sidebar">
-            <div className="boke-sidebar-tabs">
-              <button
-                className={sidebarTab === "files" ? "active" : ""}
-                onClick={() => setSidebarTab("files")}
-              >
-                Files
-              </button>
-              <button
-                className={sidebarTab === "backlinks" ? "active" : ""}
-                onClick={() => setSidebarTab("backlinks")}
-              >
-                Backlinks
-              </button>
-              <button
-                className={sidebarTab === "tags" ? "active" : ""}
-                onClick={() => setSidebarTab("tags")}
-              >
-                Tags
-              </button>
-            </div>
+            <SidebarNav />
             <div className="boke-sidebar-content">
-              {sidebarTab === "files" && <FileTree />}
-              {sidebarTab === "backlinks" && <BacklinksPanel />}
-              {sidebarTab === "tags" && <TagsPanel />}
+              <FileTree />
             </div>
           </aside>
         )}

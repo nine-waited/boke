@@ -160,6 +160,21 @@ export class VaultService {
     return this.renameFile(path, newTitle);
   }
 
+  async createFolder(dir = "notes", title = "New folder"): Promise<string> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    const parent = normalizePath(dir);
+    if (parent) await this.adapter.mkdir(parent);
+    const safe = sanitizeFolderName(title);
+    let path = parent ? `${parent}/${safe}` : safe;
+    let i = 1;
+    while (await this.adapter.exists(path)) {
+      path = parent ? `${parent}/${safe} ${i}` : `${safe} ${i}`;
+      i++;
+    }
+    await this.adapter.mkdir(path);
+    return path;
+  }
+
   async createExcalidraw(dir = "notes", title = "Drawing"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
@@ -257,6 +272,11 @@ export function noteBaseName(path: string): string {
 export function sanitizeNoteTitle(title: string): string {
   const trimmed = title.replace(/[\\/:*?"<>|]/g, "").trim();
   return trimmed || "Untitled";
+}
+
+export function sanitizeFolderName(title: string): string {
+  const trimmed = title.replace(/[\\/:*?"<>|]/g, "").trim();
+  return trimmed || "New folder";
 }
 
 export const vaultService = new VaultService();

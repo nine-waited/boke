@@ -5,8 +5,10 @@ import {
   useEffect,
   useRef,
   useState,
+  type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
 } from "react";
 import type { VaultEntry } from "@boke/core";
 import { fileBaseName, isExcalidraw, isHiddenPath, isMarkdown, sanitizeNoteTitle } from "@boke/core";
@@ -28,6 +30,75 @@ const FileTreeContext = createContext<FileTreeContextValue | null>(null);
 
 function isRenamableFile(path: string): boolean {
   return isMarkdown(path) || isExcalidraw(path);
+}
+
+function TreeGuides({ depth }: { depth: number }) {
+  if (depth <= 0) return null;
+  return (
+    <div className="boke-file-tree-guides" aria-hidden="true">
+      {Array.from({ length: depth }, (_, index) => (
+        <span key={index} className="boke-file-tree-guide" />
+      ))}
+    </div>
+  );
+}
+
+function TreeRow({
+  depth,
+  className = "",
+  children,
+  ...props
+}: {
+  depth: number;
+  className?: string;
+  children: ReactNode;
+} & HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className="boke-file-tree-row" {...props}>
+      <TreeGuides depth={depth} />
+      <div className={`boke-file-tree-item ${className}`.trim()}>{children}</div>
+    </div>
+  );
+}
+
+function TreeChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <span className={`boke-file-tree-chevron${expanded ? " is-expanded" : ""}`} aria-hidden="true">
+      <svg viewBox="0 0 16 16" width="16" height="16" focusable="false">
+        <path
+          d="M6 4.5 10 8 6 11.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function TreeChevronSpacer() {
+  return <span className="boke-file-tree-chevron-spacer" aria-hidden="true" />;
+}
+
+function FileTreeFolderRow({
+  depth,
+  folderName,
+  expanded,
+  onToggle,
+}: {
+  depth: number;
+  folderName: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <TreeRow depth={depth} className="boke-file-tree-dir" onClick={onToggle}>
+      <TreeChevronIcon expanded={expanded} />
+      <span className="boke-file-tree-name">{folderName}</span>
+    </TreeRow>
+  );
 }
 
 function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }) {
@@ -86,15 +157,10 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
     }
   };
 
-  const icon = entry.path.endsWith(".excalidraw") ? "📐" : entry.path.endsWith(".md") ? "📝" : "📄";
-
   if (isRenaming) {
     return (
-      <div
-        className="boke-file-tree-item boke-file-tree-item--renaming"
-        style={{ paddingLeft: depth * 12 }}
-      >
-        <span className="boke-file-tree-icon">{icon}</span>
+      <TreeRow depth={depth} className="boke-file-tree-file boke-file-tree-item--renaming">
+        <TreeChevronSpacer />
         <input
           ref={inputRef}
           className="boke-file-tree-rename-input"
@@ -107,14 +173,14 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
           spellCheck={false}
           aria-label="重命名文件"
         />
-      </div>
+      </TreeRow>
     );
   }
 
   return (
-    <div
-      className={`boke-file-tree-item${activePath === entry.path ? " active" : ""}`}
-      style={{ paddingLeft: depth * 12 }}
+    <TreeRow
+      depth={depth}
+      className={`boke-file-tree-file${activePath === entry.path ? " active" : ""}`}
       onClick={openFile}
       onContextMenu={(e) => {
         if (!isRenamableFile(entry.path)) return;
@@ -123,9 +189,9 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
         ctx?.openContextMenu(e, entry.path);
       }}
     >
-      <span className="boke-file-tree-icon">{icon}</span>
+      <TreeChevronSpacer />
       <span className="boke-file-tree-name">{entry.name}</span>
-    </div>
+    </TreeRow>
   );
 }
 
@@ -133,6 +199,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   const [entries, setEntries] = useState<VaultEntry[]>([]);
   const [expanded, setExpanded] = useState(depth < 2);
   const treeVersion = useAppStore((s) => s.treeVersion);
+  const folderName = dir.split("/").pop() || dir;
 
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {
@@ -142,26 +209,24 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
 
   if (!expanded && depth > 0) {
     return (
-      <div
-        className="boke-file-tree-item boke-file-tree-dir"
-        style={{ paddingLeft: depth * 12 }}
-        onClick={() => setExpanded(true)}
-      >
-        📁 {dir.split("/").pop() || dir}
-      </div>
+      <FileTreeFolderRow
+        depth={depth}
+        folderName={folderName}
+        expanded={false}
+        onToggle={() => setExpanded(true)}
+      />
     );
   }
 
   return (
     <>
       {depth > 0 && (
-        <div
-          className="boke-file-tree-item boke-file-tree-dir"
-          style={{ paddingLeft: depth * 12 }}
-          onClick={() => setExpanded(false)}
-        >
-          📂 {dir.split("/").pop()}
-        </div>
+        <FileTreeFolderRow
+          depth={depth}
+          folderName={folderName}
+          expanded={expanded}
+          onToggle={() => setExpanded(false)}
+        />
       )}
       {expanded &&
         entries.map((entry) =>

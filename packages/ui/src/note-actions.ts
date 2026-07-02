@@ -13,3 +13,9 @@ export async function createAndOpenDrawing(): Promise<string> {
   workspaceStore.openExcalidraw(path);
   return path;
 }
+
+export async function createFolder(dir = "notes"): Promise<string> {
+  const path = await vaultService.createFolder(dir);
+  useAppStore.getState().refreshTree();
+  return path;
+}

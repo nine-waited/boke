@@ -20,7 +20,6 @@ export interface AppState {
   treeVersion: number;
   commandPaletteOpen: boolean;
   searchOpen: boolean;
-  sidebarTab: "files" | "backlinks" | "tags";
   enabledPlugins: string[];
   remoteConfig: RemoteConfig | null;
   statusText: string;
@@ -32,7 +31,6 @@ export interface AppActions {
   refreshTree: () => void;
   setCommandPaletteOpen: (open: boolean) => void;
   setSearchOpen: (open: boolean) => void;
-  setSidebarTab: (tab: AppState["sidebarTab"]) => void;
   setEnabledPlugins: (ids: string[]) => void;
   setRemoteConfig: (config: RemoteConfig | null) => void;
   setStatusText: (text: string) => void;
@@ -170,7 +168,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   treeVersion: 0,
   commandPaletteOpen: false,
   searchOpen: false,
-  sidebarTab: "files",
   enabledPlugins: saved.enabledPlugins ?? [],
   remoteConfig: saved.remoteConfig ?? null,
   statusText: "",
@@ -209,7 +206,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   refreshTree: () => set({ treeVersion: get().treeVersion + 1 }),
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   setSearchOpen: (open) => set({ searchOpen: open }),
-  setSidebarTab: (tab) => set({ sidebarTab: tab }),
   setEnabledPlugins: (ids) => {
     set({ enabledPlugins: ids });
     saveSettings(get());
