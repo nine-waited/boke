@@ -559,59 +559,34 @@ button {
   background: var(--boke-bg-secondary);
 }
 
-.boke-live-editor-shell {
-  display: flex;
+.boke-live-scroll {
   height: 100%;
-  max-width: var(--boke-content-width);
-  margin: 0 auto;
-  padding: 8px 0 48px;
-}
-
-.boke-live-editor-body {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-
-.boke-live-line-gutter {
-  width: 52px;
-  flex-shrink: 0;
-  overflow: hidden;
-  padding: 12px 10px 12px 0;
-  border-right: 1px solid var(--boke-border);
-  background: var(--boke-bg-tertiary);
+  overflow: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.boke-live-line-gutter::-webkit-scrollbar {
+.boke-live-scroll::-webkit-scrollbar {
   display: none;
 }
 
-.boke-live-line-num {
-  display: block;
-  width: 100%;
-  min-height: 24px;
-  line-height: 24px;
-  padding: 0 4px;
-  border: none;
-  background: none;
-  color: var(--boke-text-muted);
-  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
-  font-size: 12px;
-  text-align: right;
-  cursor: pointer;
-  user-select: none;
+.boke-live-editor-inner {
+  max-width: var(--boke-content-width);
+  margin: 0 auto;
+  padding: 8px 24px 48px;
+  min-height: 100%;
 }
 
-.boke-live-line-num:hover {
-  color: var(--boke-accent);
+.boke-live-pane [data-milkdown-root] {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
 }
 
 .boke-live-pane .milkdown {
   max-width: none;
   margin: 0;
-  padding: 8px 24px 0;
+  padding: 8px 0 0;
 }
 
 .boke-mode-toggle {

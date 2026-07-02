@@ -1,10 +1,10 @@
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { editorViewCtx } from "@milkdown/kit/core";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { replaceAll } from "@milkdown/utils";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type MutableRefObject } from "react";
-import { LiveLineGutter } from "./LiveLineGutter.js";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 
@@ -16,12 +16,39 @@ interface MarkdownEditorProps {
   content: string;
   onChange: (content: string) => void;
   onSave?: () => void;
-  /** `live` hides chrome for a document-like single-pane experience. */
   presentation?: "default" | "live";
 }
 
 interface MilkdownCrepeEditorProps extends MarkdownEditorProps {
   crepeRef: MutableRefObject<Crepe | null>;
+}
+
+function findHeadingPos(view: EditorView, markdown: string, docLine: number): number | null {
+  const lines = markdown.split(/\r?\n/);
+  const match = (lines[docLine] ?? "").trim().match(/^#{1,6}\s+(.+?)\s*$/);
+  if (!match) return null;
+
+  const title = match[1].trim();
+  let occurrence = 0;
+  for (let i = 0; i < docLine; i++) {
+    const prev = (lines[i] ?? "").trim().match(/^#{1,6}\s+(.+?)\s*$/);
+    if (prev && prev[1].trim() === title) occurrence++;
+  }
+
+  const headings = view.dom.querySelectorAll("h1, h2, h3, h4, h5, h6");
+  let seen = 0;
+  for (const el of headings) {
+    if (el.textContent?.trim() !== title) continue;
+    if (seen === occurrence) {
+      try {
+        return view.posAtDOM(el, 0);
+      } catch {
+        return null;
+      }
+    }
+    seen++;
+  }
+  return null;
 }
 
 function MilkdownCrepeEditor({
@@ -108,59 +135,26 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
 
     const goToDocLine = useCallback((docLine: number, markdown: string) => {
       const crepe = crepeRef.current;
+      const scrollEl = wrapRef.current?.querySelector(".boke-live-scroll");
       if (!crepe) return;
-
-      const lines = markdown.split(/\r?\n/);
-      const lineText = lines[docLine] ?? "";
-      const root = wrapRef.current?.querySelector("[data-milkdown-root]");
-      if (!root) return;
 
       crepe.editor.action((ctx) => {
         const view = ctx.get(editorViewCtx);
-        const headingMatch = lineText.match(/^#{1,6}\s+(.+?)\s*$/);
-        if (headingMatch) {
-          const title = headingMatch[1].trim();
-          for (const el of root.querySelectorAll("h1, h2, h3, h4, h5, h6")) {
-            if (el.textContent?.trim() !== title) continue;
-            try {
-              const pos = view.posAtDOM(el, 0);
-              const safePos = Math.min(pos + 1, view.state.doc.content.size);
-              view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, safePos)));
-              view.focus();
-            } catch {
-              // posAtDOM may fail while the document is updating.
-            }
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
-            return;
-          }
-        }
+        const pos = findHeadingPos(view, markdown, docLine);
+        if (pos === null) return;
 
-        const search = lineText.trim();
-        if (!search) return;
+        const safePos = Math.min(Math.max(pos, 0), view.state.doc.content.size);
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, safePos)));
+        view.focus();
 
-        let found: number | null = null;
-        view.state.doc.descendants((node, pos) => {
-          if (found !== null) return false;
-          if (node.isText && node.text?.includes(search)) {
-            found = pos;
-            return false;
+        try {
+          const coords = view.coordsAtPos(safePos);
+          if (scrollEl) {
+            const scrollRect = scrollEl.getBoundingClientRect();
+            scrollEl.scrollTop += coords.top - scrollRect.top - scrollRect.height / 3;
           }
-          return true;
-        });
-
-        if (found !== null) {
-          const safePos = Math.min(found + 1, view.state.doc.content.size);
-          view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, safePos)));
-          view.focus();
-          try {
-            const dom = view.domAtPos(safePos).node as HTMLElement;
-            (dom.nodeType === Node.ELEMENT_NODE ? dom : dom.parentElement)?.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-          } catch {
-            // ignore scroll errors
-          }
+        } catch {
+          // ignore scroll errors
         }
       });
     }, []);
@@ -170,20 +164,17 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
     const isLive = presentation === "live";
 
     return (
-      <div
-        ref={wrapRef}
-        className={isLive ? "boke-milkdown-wrap boke-live-pane" : "boke-milkdown-wrap"}
-      >
+      <div ref={wrapRef} className={isLive ? "boke-milkdown-wrap boke-live-pane" : "boke-milkdown-wrap"}>
         {isLive ? (
-          <div className="boke-live-editor-shell">
-            <LiveLineGutter
-              content={content}
-              editorWrapRef={wrapRef}
-              onLineClick={(docLine) => goToDocLine(docLine, content)}
-            />
-            <div className="boke-live-editor-body">
+          <div className="boke-live-scroll">
+            <div className="boke-live-editor-inner">
               <MilkdownProvider>
-                <MilkdownCrepeEditor crepeRef={crepeRef} presentation={presentation} content={content} {...props} />
+                <MilkdownCrepeEditor
+                  crepeRef={crepeRef}
+                  presentation={presentation}
+                  content={content}
+                  {...props}
+                />
               </MilkdownProvider>
             </div>
           </div>
