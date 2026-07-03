@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ExcalidrawGrayIcon, FolderPlusIcon, NoteEditIcon } from "../icons/sidebar-icons.js";
+import { CollapseAllFoldersIcon, ExcalidrawGrayIcon, FolderPlusIcon, NoteEditIcon } from "../icons/sidebar-icons.js";
+import { useFileTreeExpand } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
 import { createAndOpenDrawing, createAndOpenNote, createFolder } from "../note-actions.js";
 
@@ -29,6 +30,7 @@ function SidebarNavButton({
 
 export function SidebarNav() {
   const t = useT();
+  const { collapseAll } = useFileTreeExpand();
 
   return (
     <nav className="boke-sidebar-nav" aria-label={t("sidebar.navAria")}>
@@ -44,6 +46,9 @@ export function SidebarNav() {
       </SidebarNavButton>
       <SidebarNavButton label={t("sidebar.newFolder")} onClick={() => void createFolder()}>
         <FolderPlusIcon />
+      </SidebarNavButton>
+      <SidebarNavButton label={t("fileTree.collapseAll")} onClick={collapseAll}>
+        <CollapseAllFoldersIcon />
       </SidebarNavButton>
     </nav>
   );

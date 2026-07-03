@@ -2,6 +2,7 @@ import { useSyncExternalStore, useEffect, useRef, lazy, Suspense } from "react";
 import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
+import { FileTreeExpandProvider } from "./file-tree-expand-context.js";
 import { SidebarNav } from "./components/SidebarNav.js";
 import { NotePane, ModeToggle } from "./components/NotePane.js";
 import { GraphView } from "./components/GraphView.js";
@@ -158,10 +159,12 @@ export function App() {
       <div className="boke-main">
         {vaultMounted && (
           <aside className="boke-sidebar">
-            <SidebarNav />
-            <div className="boke-sidebar-content">
-              <FileTree />
-            </div>
+            <FileTreeExpandProvider>
+              <SidebarNav />
+              <div className="boke-sidebar-content">
+                <FileTree />
+              </div>
+            </FileTreeExpandProvider>
           </aside>
         )}
 

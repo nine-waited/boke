@@ -20,6 +20,7 @@ import {
   deleteVaultPath,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { useFileTreeCollapseGeneration } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 
@@ -313,8 +314,14 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   const [entries, setEntries] = useState<VaultEntry[]>([]);
   const [expanded, setExpanded] = useState(!dir);
+  const collapseGeneration = useFileTreeCollapseGeneration();
   const treeVersion = useAppStore((s) => s.treeVersion);
   const folderName = dir.split("/").pop() || dir;
+
+  useEffect(() => {
+    if (!dir || collapseGeneration === 0) return;
+    setExpanded(false);
+  }, [collapseGeneration, dir]);
 
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {

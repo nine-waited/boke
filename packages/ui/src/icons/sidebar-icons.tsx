@@ -67,6 +67,30 @@ export function FolderGrayIcon() {
   );
 }
 
+/** Lucide chevrons-down-up — same metaphor as Obsidian's collapse-all-folders. */
+export function CollapseAllFoldersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path
+        d="M7 4 12 9 17 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 20 12 15 17 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function FolderPlusIcon() {
   return (
     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -74,14 +98,14 @@ export function FolderPlusIcon() {
         d="M12 10v6M9 13h6"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.75"
+        strokeWidth="2.5"
         strokeLinecap="round"
       />
       <path
         d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.75"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
