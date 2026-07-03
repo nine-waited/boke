@@ -1,65 +1,62 @@
-# Boke — Knowledge Manager
+# Boke
 
-Desktop-first **Markdown + Excalidraw** knowledge manager with Obsidian-style wikilinks, plugins, and local-first file storage.
+**Desktop knowledge app for local Markdown and Excalidraw files.**
+
+English · [中文](README.zh-CN.md)
+
+---
+
+Boke is a **desktop** app (Tauri 2) that reads and writes plain files in a folder you choose. Your vault is just files on disk — no proprietary database, no cloud requirement.
+
+## What it stores
+
+| Type | Format |
+|------|--------|
+| Notes | `.md` |
+| Drawings | `.excalidraw` |
+| Images | Saved next to notes (e.g. `{NoteName}_pic/`) |
+| App config | `.boke/` (settings, optional plugins) |
 
 ## Features
 
-### Core
+**Vault**
 
-- **Local-first**: vault = plain files on disk (`.md`, `.excalidraw`, images, `.boke/` config)
-- **Desktop app**: Tauri 2 — full filesystem access; default vault at `~/.boke` on first launch
-- **Auto-save**: Markdown edits debounce to disk (~400 ms); `Ctrl+S` saves immediately
-- **Vault path**: editable in the toolbar; pick a folder with the folder icon
+- Pick any local folder as the vault; default on first launch: `~/.boke`
+- Auto-save: Markdown ~400 ms debounce; Excalidraw ~600 ms debounce
+- `Ctrl+S` saves the current note or drawing immediately
+- File tree with create, rename, and delete (filesystem operations)
 
-### Markdown
+**Markdown**
 
-- **Dual modes**: Live preview (Milkdown Crepe) and Source (CodeMirror 6)
-- **Wikilinks** `[[note]]`, embeds `![[file]]`, `#tags`, YAML frontmatter
-- **Outline panel** with click-to-jump headings
-- **Inline title bar** — rename the note file from the editor
-- **Screenshot paste / drag-drop**: images saved to `{NoteName}_pic/` next to the note; markdown links use the local absolute path for easy export and lookup
-- **Note images follow renames** — renaming a note also renames its `_pic` folder and updates image paths in the document
+- Live preview (Milkdown) and source mode (CodeMirror)
+- `[[wikilinks]]`, `![[embeds]]`, `#tags`, YAML frontmatter
+- Outline panel with click-to-jump headings
+- Inline title bar to rename the note file
+- Paste or drag-drop images into a note; images are stored beside the note
 
-### Excalidraw
+**Excalidraw**
 
-- Edit `.excalidraw` files in-app (lazy-loaded)
-- Auto-save (~600 ms debounce); `Ctrl+S` writes to the current vault file (not “Save As”)
+- Open and edit `.excalidraw` files in-app
+- Scene auto-saves to the vault file; built-in “Save to disk” is disabled so everything stays in your folder
 
-### Navigation & search
+**Navigation**
 
-- **Quick open** (`Shift+Shift` by default): fuzzy file list, keyboard navigation, delete from list
-- **Full-text search** (`Ctrl+Shift+F` by default)
-- **Configurable shortcuts** in Settings
-- **File tree**: folders, context menu (new / rename / delete), selection sync with open tabs
-- **Backlinks, tags, graph view** (graph available via commands)
-- **Tab bar** with Markdown / Excalidraw icons
-
-### Other
-
-- **Plugins**: ES modules in `.boke/plugins/` (see `examples/plugins/hello-world`)
-- **Blog publish**: notes with `publish: true` → static HTML + RSS export (via commands)
-- **Themes**: Light / Dark in Settings
-- **Cloud storage (REST API)**: adapter and reference server exist; UI entry is currently hidden (see `docs/cloud-storage.md`)
+- Quick open (`Shift+Shift` by default)
+- Full-text search (`Ctrl+Shift+F` by default)
+- Customizable shortcuts in Settings
+- Tab bar for Markdown and Excalidraw
 
 ## Keyboard shortcuts
 
-Default bindings (customizable in **Settings → 快捷键**):
-
 | Action | Default |
 |--------|---------|
-| Quick open | `Shift+Shift` (double-tap Shift within 400 ms) |
+| Quick open | `Shift+Shift` |
 | Full-text search | `Ctrl+Shift+F` |
-| Save (Markdown / Excalidraw) | `Ctrl+S` |
+| Save | `Ctrl+S` |
 
 ## Quick start
 
-### Prerequisites
-
-- Node.js 20+
-- pnpm 9+
-- Rust + [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) (Windows: MSVC Build Tools)
-
-### Install & run
+**Prerequisites:** Node.js 20+, pnpm 9+, Rust and [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) (Windows: MSVC Build Tools).
 
 ```bash
 cd boke
@@ -67,15 +64,13 @@ pnpm install
 pnpm dev
 ```
 
-On first launch the app opens `~/.boke` (creates it if missing) and opens `README.md`.
+On first launch the app opens `~/.boke` (created if missing).
 
-First release build — generate icons:
+**Change vault folder:** edit the path in the toolbar, use the folder icon, or set it under **Settings → Local storage**.
 
-```bash
-cd apps/desktop && pnpm tauri icon public/favicon.svg
-```
+**Sample vault:** point the vault path to `examples/sample-vault`.
 
-**64-bit Windows installer (NSIS `.exe`)** — cleans build cache, then bundles x64 only:
+**Windows installer (x64 NSIS):**
 
 ```bash
 pnpm build:desktop:win64
@@ -83,45 +78,25 @@ pnpm build:desktop:win64
 
 Output: `apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Boke_*-setup.exe`
 
-The installer refuses 32-bit Windows. WebView2 is downloaded at install time (not bundled as a 127 MB offline cache).
-
-Legacy build without cache clean:
+First release build — generate icons:
 
 ```bash
-pnpm build:desktop
+cd apps/desktop && pnpm tauri icon public/favicon.svg
 ```
-
-### Change vault folder
-
-- Click the path in the toolbar to edit, or use the folder icon to pick a directory
-- Or open **Settings → 本地存储** to set the path
-
-Cloud API contract (optional): [docs/cloud-storage.md](docs/cloud-storage.md) and `server/main.py`.
-
-### Sample vault
-
-Point the vault path to `examples/sample-vault` to try wikilinks, Excalidraw, and the hello-world plugin.
 
 ## Project structure
 
 ```
 boke/
-├── apps/desktop      # Tauri 2 desktop app (primary)
+├── apps/desktop          # Tauri desktop app
 ├── packages/
-│   ├── core          # Vault service, metadata, search, plugins
-│   ├── ui            # React UI
-│   ├── plugin-sdk    # Plugin API types
-│   └── storage-adapters  # Tauri local FS + REST cloud
-├── server/           # Reference cloud storage API (FastAPI)
-├── examples/         # Sample vault & plugins
+│   ├── core              # Vault service, metadata, search
+│   ├── ui                # React UI
+│   ├── plugin-sdk        # Plugin API types
+│   └── storage-adapters  # Local filesystem adapter
+├── examples/             # Sample vault
 └── docs/
 ```
-
-## Plugin development
-
-Copy `examples/plugins/hello-world` to `.boke/plugins/hello-world` in your vault, enable in Settings, run command **Say hello from plugin**.
-
-See [docs/plugin-guide.md](docs/plugin-guide.md).
 
 ## License
 
