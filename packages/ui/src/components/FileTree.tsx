@@ -37,8 +37,7 @@ type ContextTarget =
 
 interface FileTreeContextValue {
   activePath: string | null;
-  focusedPath: string | null;
-  setFocusedPath: (path: string | null) => void;
+  contextMenuPath: string | null;
   renamingPath: string | null;
   startRename: (path: string) => void;
   openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
@@ -149,7 +148,7 @@ function FileTreeFolderRow({
   const ctx = useContext(FileTreeContext);
   const t = useT();
   const isPicFolder = isNotePicFolder(folderPath);
-  const isFocused = ctx?.focusedPath === folderPath;
+  const isContextTarget = ctx?.contextMenuPath === folderPath;
   const isRenaming = ctx?.renamingPath === folderPath;
   const [draft, setDraft] = useState(folderName);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -217,15 +216,11 @@ function FileTreeFolderRow({
   return (
     <TreeRow
       depth={depth}
-      className={`boke-file-tree-dir${isFocused ? " active" : ""}`}
-      onClick={() => {
-        ctx?.setFocusedPath(folderPath);
-        onToggle();
-      }}
+      className={`boke-file-tree-dir${isContextTarget ? " context-target" : ""}`}
+      onClick={onToggle}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        ctx?.setFocusedPath(folderPath);
         ctx?.openContextMenu(e, { kind: "folder", path: folderPath });
       }}
     >
@@ -250,8 +245,8 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
   const t = useT();
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const activePath = ctx?.activePath ?? null;
-  const isFocused = ctx?.focusedPath === entry.path;
-  const isActive = activePath === entry.path || isFocused;
+  const isContextTarget = ctx?.contextMenuPath === entry.path;
+  const isActive = activePath === entry.path && !isContextTarget;
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -305,7 +300,6 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
   const openFile = () => {
     if (isRenaming) return;
-    ctx?.setFocusedPath(entry.path);
     if (entry.path.endsWith(".excalidraw")) {
       workspaceStore.openExcalidraw(entry.path);
     } else if (isImage(entry.path)) {
@@ -339,12 +333,11 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
     <TreeRow
       ref={rowRef}
       depth={depth}
-      className={`boke-file-tree-file${isActive ? " active" : ""}`}
+      className={`boke-file-tree-file${isActive ? " active" : ""}${isContextTarget ? " context-target" : ""}`}
       onClick={openFile}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        ctx?.setFocusedPath(entry.path);
         ctx?.openContextMenu(e, { kind: "file", path: entry.path });
       }}
     >
@@ -528,30 +521,16 @@ function FileTreeContextMenu({
 
 export function FileTree() {
   const refreshTree = useAppStore((s) => s.refreshTree);
-  const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const activePath = useSyncExternalStore(
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getActivePath(),
   );
-  const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     target: ContextTarget;
   } | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (activePath) {
-      setFocusedPath(activePath);
-    }
-  }, [activePath]);
-
-  useEffect(() => {
-    if (revealTargetPath && revealGeneration > 0) {
-      setFocusedPath(revealTargetPath);
-    }
-  }, [revealGeneration, revealTargetPath]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -570,11 +549,6 @@ export function FileTree() {
   }, []);
 
   const openContextMenu = useCallback((event: MouseEvent, target: ContextTarget) => {
-    if (target.kind === "root") {
-      setFocusedPath(null);
-    } else {
-      setFocusedPath(target.path);
-    }
     setContextMenu({ x: event.clientX, y: event.clientY, target });
   }, []);
 
@@ -606,10 +580,12 @@ export function FileTree() {
     [refreshTree],
   );
 
+  const contextMenuPath =
+    contextMenu && contextMenu.target.kind !== "root" ? contextMenu.target.path : null;
+
   const ctxValue: FileTreeContextValue = {
     activePath,
-    focusedPath,
-    setFocusedPath,
+    contextMenuPath,
     renamingPath,
     startRename,
     openContextMenu,
