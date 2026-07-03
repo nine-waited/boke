@@ -555,12 +555,53 @@ body.boke-sidebar-resizing * {
 }
 
 .boke-tabs {
+  --boke-tab-scroll-size: 2px;
   display: flex;
   gap: 2px;
-  padding: 4px 8px 0;
+  padding: 4px 8px var(--boke-tab-scroll-size);
   background: var(--boke-bg-tertiary);
   border-bottom: 1px solid var(--boke-border);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--boke-text-muted) 42%, transparent) transparent;
+}
+
+.boke-tabs::-webkit-scrollbar {
+  height: var(--boke-tab-scroll-size);
+}
+
+.boke-tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.boke-tabs::-webkit-scrollbar-thumb {
+  min-height: var(--boke-tab-scroll-size);
+  background: color-mix(in srgb, var(--boke-text-muted) 42%, transparent);
+  border: none;
+  border-radius: 999px;
+}
+
+.boke-tabs::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--boke-text-muted) 58%, transparent);
+}
+
+.boke-tabs::-webkit-scrollbar-button,
+.boke-tabs::-webkit-scrollbar-button:single-button,
+.boke-tabs::-webkit-scrollbar-button:horizontal:decrement,
+.boke-tabs::-webkit-scrollbar-button:horizontal:increment,
+.boke-tabs::-webkit-scrollbar-button:start:decrement,
+.boke-tabs::-webkit-scrollbar-button:end:increment {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.boke-tabs::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .boke-tab {
@@ -581,6 +622,16 @@ body.boke-sidebar-resizing * {
 .boke-tab.active {
   background: var(--boke-bg);
   color: var(--boke-text);
+  border-color: var(--boke-accent);
+}
+
+.boke-tab.context-target {
+  background: color-mix(in srgb, var(--boke-text-muted) 14%, var(--boke-bg-secondary));
+  color: var(--boke-text);
+  border-color: var(--boke-border);
+}
+
+.boke-tab.context-target.active {
   border-color: var(--boke-accent);
 }
 
@@ -995,6 +1046,21 @@ body.boke-sidebar-resizing * {
 
 .boke-context-menu-item--disabled:hover {
   background: transparent;
+}
+
+.boke-context-menu--tab .boke-context-menu-item,
+.boke-context-menu--tab .boke-context-menu-item--disabled {
+  color: #000;
+  opacity: 1;
+}
+
+.boke-context-menu--tab .boke-context-menu-item--disabled {
+  opacity: 0.4;
+}
+
+[data-theme="dark"] .boke-context-menu--tab .boke-context-menu-item,
+[data-theme="dark"] .boke-context-menu--tab .boke-context-menu-item--disabled {
+  color: #fff;
 }
 
 .boke-context-menu-item--danger {

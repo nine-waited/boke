@@ -179,12 +179,55 @@ export class WorkspaceStore {
 
   closeTab(id: string): void {
     if (this.leaves.length <= 1) return;
+    this.closeTabs([id]);
+  }
+
+  closeOtherTabs(id: string): void {
+    const toClose = this.leaves.filter((l) => l.id !== id).map((l) => l.id);
+    if (toClose.length === 0) return;
+    this.activeId = id;
+    this.closeTabs(toClose);
+  }
+
+  closeTabsToLeft(id: string): void {
     const idx = this.leaves.findIndex((l) => l.id === id);
-    if (idx < 0) return;
-    this.leaves.splice(idx, 1);
-    if (this.activeId === id) {
-      this.activeId = this.leaves[Math.max(0, idx - 1)].id;
+    if (idx <= 0) return;
+    this.closeTabs(this.leaves.slice(0, idx).map((l) => l.id));
+  }
+
+  closeTabsToRight(id: string): void {
+    const idx = this.leaves.findIndex((l) => l.id === id);
+    if (idx < 0 || idx >= this.leaves.length - 1) return;
+    this.closeTabs(this.leaves.slice(idx + 1).map((l) => l.id));
+  }
+
+  closeAllTabs(keepId: string): void {
+    const toClose = this.leaves.filter((l) => l.id !== keepId).map((l) => l.id);
+    if (toClose.length === 0) return;
+    this.activeId = keepId;
+    this.closeTabs(toClose);
+  }
+
+  private closeTabs(idsToClose: string[]): void {
+    if (idsToClose.length === 0) return;
+    const closeSet = new Set(idsToClose);
+    const next = this.leaves.filter((l) => !closeSet.has(l.id));
+    if (next.length === 0 || next.length === this.leaves.length) return;
+
+    if (closeSet.has(this.activeId)) {
+      const oldIdx = this.leaves.findIndex((l) => l.id === this.activeId);
+      let nextActiveId = next[0].id;
+      for (let i = oldIdx; i >= 0; i--) {
+        const leaf = this.leaves[i];
+        if (!closeSet.has(leaf.id)) {
+          nextActiveId = leaf.id;
+          break;
+        }
+      }
+      this.activeId = nextActiveId;
     }
+
+    this.leaves = next;
     this.notify();
   }
 
