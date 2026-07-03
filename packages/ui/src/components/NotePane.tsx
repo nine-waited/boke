@@ -5,6 +5,7 @@ import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./Markdow
 import { OutlinePanel } from "./OutlinePanel.js";
 import type { OutlineHeading } from "../markdown-outline.js";
 import { formatImageMarkdown, savePastedNoteImage } from "../note-images.js";
+import { attachImageClickHandlers } from "../image-open.js";
 import { isDefaultUntitledName, useLocale, useT } from "../i18n/index.js";
 import { eventBus, useAppStore, vaultService, workspaceStore } from "../store.js";
 
@@ -104,6 +105,7 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
   const viewMode = normalizeLeafMode(mode);
   const liveRef = useRef<MarkdownEditorHandle>(null);
   const sourceRef = useRef<MarkdownSourceEditorHandle>(null);
+  const notePaneRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef(content);
   contentRef.current = content;
 
@@ -115,6 +117,12 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
       .finally(() => setLoading(false));
     eventBus.emit("file-open", { path });
   }, [path]);
+
+  useEffect(() => {
+    const pane = notePaneRef.current;
+    if (!pane || viewMode !== "live") return;
+    return attachImageClickHandlers(pane, path);
+  }, [path, viewMode, content]);
 
   const onChange = useCallback(
     (next: string) => {
@@ -166,7 +174,7 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
     <div className="boke-note-layout" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <div className="boke-note-main">
         <NoteTitleBar path={path} leafId={leafId} flushContent={flushContent} />
-        <div className={`boke-note-pane boke-note-pane--${viewMode}`}>
+        <div ref={notePaneRef} className={`boke-note-pane boke-note-pane--${viewMode}`}>
           {viewMode === "live" ? (
             <MarkdownEditor
               ref={liveRef}

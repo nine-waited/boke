@@ -43,6 +43,10 @@ export function isExcalidraw(path: string): boolean {
   return path.toLowerCase().endsWith(".excalidraw");
 }
 
+export function isImage(path: string): boolean {
+  return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(path);
+}
+
 export function isAttachment(path: string): boolean {
   const lower = path.toLowerCase();
   return (

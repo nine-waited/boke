@@ -29,6 +29,34 @@ export function MarkdownGrayIcon() {
   return <span className="boke-md-letter-icon">MD</span>;
 }
 
+export function ImageGrayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="8.5" cy="8.5" r="1.75" fill="none" stroke="currentColor" strokeWidth="2.25" />
+      <path
+        d="m21 15-5-5L5 21"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ExcalidrawGrayIcon() {
   return (
     <svg viewBox="0 0 40 40" focusable="false" aria-hidden="true">

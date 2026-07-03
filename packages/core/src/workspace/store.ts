@@ -1,4 +1,4 @@
-export type LeafType = "empty" | "markdown" | "excalidraw" | "graph" | "settings" | "publish";
+export type LeafType = "empty" | "markdown" | "excalidraw" | "image" | "graph" | "settings" | "publish";
 
 export type LeafMode = "live" | "source";
 
@@ -98,6 +98,30 @@ export class WorkspaceStore {
       }
     }
     const leaf: Leaf = { id: uid(), type: "excalidraw", path };
+    this.leaves.push(leaf);
+    this.activeId = leaf.id;
+    this.notify();
+    return leaf.id;
+  }
+
+  openImage(path: string, opts?: { newTab?: boolean }): string {
+    if (!opts?.newTab) {
+      const active = this.leaves.find((l) => l.id === this.activeId);
+      if (active && !active.pinned && (active.type === "empty" || active.type === "image")) {
+        active.type = "image";
+        active.path = path;
+        active.mode = undefined;
+        this.notify();
+        return active.id;
+      }
+      const existing = this.leaves.find((l) => l.type === "image" && l.path === path);
+      if (existing) {
+        this.activeId = existing.id;
+        this.notify();
+        return existing.id;
+      }
+    }
+    const leaf: Leaf = { id: uid(), type: "image", path };
     this.leaves.push(leaf);
     this.activeId = leaf.id;
     this.notify();

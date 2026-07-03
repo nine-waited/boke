@@ -977,6 +977,44 @@ button {
   max-width: 100%;
   border-radius: var(--boke-radius);
   margin: 8px 0;
+  cursor: zoom-in;
+}
+
+.boke-note-pane--live img {
+  cursor: zoom-in;
+}
+
+.boke-image-view {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  min-height: 0;
+  padding: 24px;
+  background: var(--boke-bg-tertiary);
+}
+
+.boke-image-view--loading,
+.boke-image-view--error {
+  color: var(--boke-text-muted);
+  font-size: 14px;
+}
+
+.boke-image-view-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--boke-radius);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 12%);
+}
+
+.boke-tab-icon--image {
+  color: #8b919a;
+}
+
+.boke-file-tree-icon--image {
+  color: #8b919a;
 }
 
 .boke-backlink-item {

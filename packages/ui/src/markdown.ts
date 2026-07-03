@@ -1,5 +1,6 @@
 import MarkdownIt from "markdown-it";
 import { workspaceStore } from "./store.js";
+import { attachImageClickHandlers } from "./image-open.js";
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
 
@@ -47,7 +48,7 @@ export function renderMarkdown(content: string): string {
   return md.render(body);
 }
 
-export function attachPreviewHandlers(container: HTMLElement): void {
+export function attachPreviewHandlers(container: HTMLElement, notePath?: string): void {
   container.querySelectorAll(".wikilink, .embed-excalidraw").forEach((el) => {
     el.addEventListener("click", () => {
       const path = (el as HTMLElement).dataset.path || (el as HTMLElement).dataset.embed;
@@ -62,16 +63,22 @@ export function attachPreviewHandlers(container: HTMLElement): void {
       }
     });
   });
+
+  attachImageClickHandlers(container, notePath);
 }
 
 export async function hydrateEmbedImages(container: HTMLElement): Promise<void> {
   const images = container.querySelectorAll<HTMLImageElement>("img[data-embed]");
   const { vaultService } = await import("./store.js");
+  const { trackImageDisplayUrl } = await import("./image-open.js");
   for (const img of images) {
     const path = img.dataset.embed;
     if (!path) continue;
     try {
-      img.src = await vaultService.getAssetUrl(path);
+      const url = await vaultService.getAssetUrl(path);
+      img.dataset.vaultPath = path;
+      trackImageDisplayUrl(url, path);
+      img.src = url;
     } catch {
       img.alt = `Failed to load ${path}`;
     }
@@ -84,7 +91,10 @@ export async function hydrateEmbedImages(container: HTMLElement): Promise<void> 
       continue;
     }
     try {
-      img.src = await resolveImageSrcForDisplay(src);
+      const vaultPath = src.replace(/\\/g, "/");
+      const url = await resolveImageSrcForDisplay(src);
+      img.dataset.vaultPath = vaultPath;
+      img.src = url;
     } catch {
       img.alt = `Failed to load ${src}`;
     }

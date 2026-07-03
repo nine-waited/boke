@@ -142,6 +142,7 @@ function buildPluginApi(pluginId: string): PluginApi {
     workspace: {
       openFile: (path, opts) => workspaceStore.openFile(path, opts),
       openExcalidraw: (path, opts) => workspaceStore.openExcalidraw(path, opts),
+      openImage: (path, opts) => workspaceStore.openImage(path, opts),
       openGraph: (opts) => workspaceStore.openGraph(),
       openSettings: () => workspaceStore.openSettings(),
       getActivePath: () => workspaceStore.getActivePath(),

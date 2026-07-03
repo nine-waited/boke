@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { useT } from "../i18n/index.js";
 import { workspaceStore } from "../store.js";
-import { ExcalidrawGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
 
 export function TabBar() {
   const t = useT();
@@ -16,6 +16,8 @@ export function TabBar() {
         return leaf.path?.split("/").pop() ?? t("tab.note");
       case "excalidraw":
         return leaf.path?.split("/").pop() ?? t("tab.drawing");
+      case "image":
+        return leaf.path?.split("/").pop() ?? t("tab.image");
       case "graph":
         return t("tab.graph");
       case "settings":
@@ -43,6 +45,11 @@ export function TabBar() {
           {leaf.type === "excalidraw" && (
             <span className="boke-tab-icon boke-tab-icon--excalidraw" aria-hidden="true">
               <ExcalidrawGrayIcon />
+            </span>
+          )}
+          {leaf.type === "image" && (
+            <span className="boke-tab-icon boke-tab-icon--image" aria-hidden="true">
+              <ImageGrayIcon />
             </span>
           )}
           {label(leaf)}

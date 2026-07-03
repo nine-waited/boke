@@ -5,6 +5,7 @@ import { FileTree } from "./components/FileTree.js";
 import { FileTreeExpandProvider } from "./file-tree-expand-context.js";
 import { SidebarNav } from "./components/SidebarNav.js";
 import { NotePane, ModeToggle } from "./components/NotePane.js";
+import { ImageView } from "./components/ImageView.js";
 import { GraphView } from "./components/GraphView.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
 import { PublishPanel } from "./components/PublishPanel.js";
@@ -69,6 +70,8 @@ function EditorContent() {
           <ExcalidrawView path={active.path} />
         </Suspense>
       ) : null;
+    case "image":
+      return active.path ? <ImageView path={active.path} /> : null;
     case "graph":
       return <GraphView />;
     case "settings":

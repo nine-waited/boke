@@ -105,6 +105,7 @@ export type LeafMode = "live" | "source";
 export interface WorkspaceApi {
   openFile(path: string, opts?: { newTab?: boolean; mode?: LeafMode }): void;
   openExcalidraw(path: string, opts?: { newTab?: boolean }): void;
+  openImage(path: string, opts?: { newTab?: boolean }): void;
   openGraph(opts?: { newTab?: boolean }): void;
   openSettings(): void;
   getActivePath(): string | null;

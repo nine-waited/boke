@@ -12,7 +12,7 @@ export function MarkdownPreview({ content, path }: MarkdownPreviewProps) {
   useEffect(() => {
     if (!ref.current) return;
     ref.current.innerHTML = renderMarkdown(content);
-    attachPreviewHandlers(ref.current);
+    attachPreviewHandlers(ref.current, path);
     hydrateEmbedImages(ref.current);
   }, [content, path]);
 

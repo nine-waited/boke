@@ -12,14 +12,14 @@ import {
   type ReactNode,
 } from "react";
 import type { VaultEntry } from "@boke/core";
-import { fileBaseName, isExcalidraw, isHiddenPath, isMarkdown, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
+import { fileBaseName, isExcalidraw, isHiddenPath, isImage, isMarkdown, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
 import {
   createAndOpenDrawing,
   createAndOpenNote,
   createFolder,
   deleteVaultPath,
 } from "../note-actions.js";
-import { ExcalidrawGrayIcon, FolderGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { ExcalidrawGrayIcon, FolderGrayIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeCollapseGeneration } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
@@ -110,6 +110,13 @@ function FileTreeFileIcon({ path }: { path: string }) {
     return (
       <span className="boke-file-tree-icon boke-file-tree-icon--markdown" aria-hidden="true">
         <MarkdownGrayIcon />
+      </span>
+    );
+  }
+  if (isImage(path)) {
+    return (
+      <span className="boke-file-tree-icon boke-file-tree-icon--image" aria-hidden="true">
+        <ImageGrayIcon />
       </span>
     );
   }
@@ -267,6 +274,8 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
     if (isRenaming) return;
     if (entry.path.endsWith(".excalidraw")) {
       workspaceStore.openExcalidraw(entry.path);
+    } else if (isImage(entry.path)) {
+      workspaceStore.openImage(entry.path);
     } else if (entry.path.endsWith(".md")) {
       workspaceStore.openFile(entry.path);
     }

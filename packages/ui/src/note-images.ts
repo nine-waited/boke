@@ -1,4 +1,5 @@
 import { formatImageMarkdown, normalizePath } from "@boke/core";
+import { trackImageDisplayUrl } from "./image-open.js";
 import { useAppStore, vaultService } from "./store.js";
 
 export { formatImageMarkdown };
@@ -31,12 +32,17 @@ export async function resolveImageSrcForDisplay(src: string): Promise<string> {
 
   if (root && normSrc.toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
     const rel = normalizePath(normSrc.slice(root.length));
-    return vaultService.getAssetUrl(rel);
+    const url = await vaultService.getAssetUrl(rel);
+    trackImageDisplayUrl(url, rel);
+    return url;
   }
 
   if (!/^[a-zA-Z]:\//.test(normSrc) && !normSrc.startsWith("/")) {
     try {
-      return await vaultService.getAssetUrl(normalizePath(normSrc));
+      const rel = normalizePath(normSrc);
+      const url = await vaultService.getAssetUrl(rel);
+      trackImageDisplayUrl(url, rel);
+      return url;
     } catch {
       return src;
     }
