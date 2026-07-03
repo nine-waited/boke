@@ -20,6 +20,7 @@ import {
   type ShortcutId,
 } from "./keyboard-shortcuts.js";
 import { applyDocumentLang, detectLocale, type Locale } from "./i18n/messages.js";
+import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "./sidebar-layout.js";
 
 export interface AppState {
   vaultMounted: boolean;
@@ -34,6 +35,8 @@ export interface AppState {
   keyboardShortcuts: KeyboardShortcuts;
   locale: Locale;
   statusText: string;
+  sidebarWidth: number;
+  sidebarCollapsed: boolean;
 }
 
 export interface AppActions {
@@ -48,6 +51,8 @@ export interface AppActions {
   resetKeyboardShortcuts: () => void;
   setLocale: (locale: Locale) => void;
   setStatusText: (text: string) => void;
+  setSidebarWidth: (width: number) => void;
+  toggleSidebarCollapsed: () => void;
 }
 
 const SETTINGS_KEY = "boke-app-settings";
@@ -58,6 +63,8 @@ interface PersistedSettings {
   localVaultPath?: string | null;
   keyboardShortcuts?: Partial<KeyboardShortcuts>;
   locale?: Locale;
+  sidebarWidth?: number;
+  sidebarCollapsed?: boolean;
 }
 
 function loadSettings(): PersistedSettings {
@@ -78,6 +85,8 @@ function saveSettings(state: AppState): void {
       localVaultPath: state.localVaultPath,
       keyboardShortcuts: state.keyboardShortcuts,
       locale: state.locale,
+      sidebarWidth: state.sidebarWidth,
+      sidebarCollapsed: state.sidebarCollapsed,
     }),
   );
 }
@@ -203,6 +212,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   keyboardShortcuts: loadKeyboardShortcuts(saved.keyboardShortcuts),
   locale: saved.locale ?? detectLocale(),
   statusText: "",
+  sidebarWidth: clampSidebarWidth(saved.sidebarWidth ?? SIDEBAR_WIDTH_DEFAULT),
+  sidebarCollapsed: saved.sidebarCollapsed ?? false,
 
   mountVault: async (adapter) => {
     await vaultService.mount(adapter);
@@ -280,6 +291,14 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     saveSettings(get());
   },
   setStatusText: (text) => set({ statusText: text }),
+  setSidebarWidth: (width) => {
+    set({ sidebarWidth: clampSidebarWidth(width) });
+    saveSettings(get());
+  },
+  toggleSidebarCollapsed: () => {
+    set({ sidebarCollapsed: !get().sidebarCollapsed });
+    saveSettings(get());
+  },
 }));
 
 export { pluginHost, commandRegistry, workspaceStore, vaultService, metadataCache, searchIndex, eventBus };

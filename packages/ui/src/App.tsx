@@ -1,9 +1,10 @@
-import { useSyncExternalStore, useEffect, useRef, lazy, Suspense } from "react";
+import { useSyncExternalStore, useEffect, useRef, lazy, Suspense, type CSSProperties } from "react";
 import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
 import { FileTreeExpandProvider } from "./file-tree-expand-context.js";
 import { SidebarNav } from "./components/SidebarNav.js";
+import { SidebarBoundaryControl } from "./components/SidebarBoundaryControl.js";
 import { NotePane, ModeToggle } from "./components/NotePane.js";
 import { ImageView } from "./components/ImageView.js";
 import { GraphView } from "./components/GraphView.js";
@@ -93,6 +94,10 @@ export function App() {
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const statusText = useAppStore((s) => s.statusText);
   const keyboardShortcuts = useAppStore((s) => s.keyboardShortcuts);
+  const sidebarWidth = useAppStore((s) => s.sidebarWidth);
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
+  const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
+  const toggleSidebarCollapsed = useAppStore((s) => s.toggleSidebarCollapsed);
   const autoMountStarted = useRef(false);
 
   useEffect(() => {
@@ -123,7 +128,14 @@ export function App() {
   }, [vaultMounted, localVaultPath, mountVault]);
 
   return (
-    <div className="boke-app">
+    <div
+      className={`boke-app${sidebarCollapsed ? " boke-app--sidebar-collapsed" : ""}`}
+      style={
+        {
+          "--boke-sidebar-width": sidebarCollapsed ? "0px" : `${sidebarWidth}px`,
+        } as CSSProperties
+      }
+    >
       <div className={`boke-toolbar${vaultMounted ? " boke-toolbar--vault-mounted" : ""}`}>
         <div className="boke-toolbar-side">
           <div className="boke-toolbar-leading">
@@ -161,14 +173,24 @@ export function App() {
 
       <div className="boke-main">
         {vaultMounted && (
-          <aside className="boke-sidebar">
-            <FileTreeExpandProvider>
-              <SidebarNav />
-              <div className="boke-sidebar-content">
-                <FileTree />
-              </div>
-            </FileTreeExpandProvider>
-          </aside>
+          <div className={`boke-sidebar-shell${sidebarCollapsed ? " is-collapsed" : ""}`}>
+            <div className="boke-sidebar-panel">
+              <aside className="boke-sidebar">
+                <FileTreeExpandProvider>
+                  <SidebarNav />
+                  <div className="boke-sidebar-content">
+                    <FileTree />
+                  </div>
+                </FileTreeExpandProvider>
+              </aside>
+            </div>
+            <SidebarBoundaryControl
+              collapsed={sidebarCollapsed}
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              onToggleCollapsed={toggleSidebarCollapsed}
+            />
+          </div>
         )}
 
         <div className="boke-editor-area">
