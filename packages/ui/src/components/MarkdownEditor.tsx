@@ -6,6 +6,7 @@ import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { replaceAll } from "@milkdown/utils";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type MutableRefObject } from "react";
 import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
+import { getT } from "../i18n/index.js";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 
@@ -74,6 +75,7 @@ function MilkdownCrepeEditor({
   const { loading } = useEditor((root) => {
     const uploadImage = async (file: File) => savePastedNoteImage(notePathRef.current, file);
 
+    const t = getT();
     const crepe = new Crepe({
       root,
       defaultValue: content,
@@ -82,7 +84,8 @@ function MilkdownCrepeEditor({
       },
       featureConfigs: {
         [CrepeFeature.Placeholder]: {
-          text: presentation === "live" ? "输入内容，实时渲染…" : "开始书写 Markdown…",
+          text:
+            presentation === "live" ? t("note.editorLivePlaceholder") : t("note.editorSourcePlaceholder"),
           mode: "block",
         },
         [CrepeFeature.ImageBlock]: {

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ExcalidrawGrayIcon, FolderPlusIcon, NoteEditIcon } from "../icons/sidebar-icons.js";
+import { useT } from "../i18n/index.js";
 import { createAndOpenDrawing, createAndOpenNote, createFolder } from "../note-actions.js";
 
 function SidebarNavButton({
@@ -27,19 +28,21 @@ function SidebarNavButton({
 }
 
 export function SidebarNav() {
+  const t = useT();
+
   return (
-    <nav className="boke-sidebar-nav" aria-label="侧边栏操作">
-      <SidebarNavButton label="新建 Markdown 笔记" onClick={() => void createAndOpenNote()}>
+    <nav className="boke-sidebar-nav" aria-label={t("sidebar.navAria")}>
+      <SidebarNavButton label={t("sidebar.newNote")} onClick={() => void createAndOpenNote()}>
         <NoteEditIcon />
       </SidebarNavButton>
       <SidebarNavButton
-        label="新建 Excalidraw 绘图"
+        label={t("sidebar.newDrawing")}
         className="boke-sidebar-nav-btn--excalidraw"
         onClick={() => void createAndOpenDrawing()}
       >
         <ExcalidrawGrayIcon />
       </SidebarNavButton>
-      <SidebarNavButton label="新建文件夹" onClick={() => void createFolder()}>
+      <SidebarNavButton label={t("sidebar.newFolder")} onClick={() => void createFolder()}>
         <FolderPlusIcon />
       </SidebarNavButton>
     </nav>

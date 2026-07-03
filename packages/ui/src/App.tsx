@@ -12,6 +12,7 @@ import { SearchPanel } from "./components/SearchPanel.js";
 import { GlobalKeyboardShortcuts } from "./components/GlobalKeyboardShortcuts.js";
 import { ToolbarVaultPath } from "./components/ToolbarVaultPath.js";
 import { formatShortcutLabel } from "./keyboard-shortcuts.js";
+import { useT } from "./i18n/index.js";
 import {
   useAppStore,
   workspaceStore,
@@ -28,6 +29,7 @@ const ExcalidrawView = lazy(() =>
 let commandsRegistered = false;
 
 function EditorContent() {
+  const t = useT();
   const state = useSyncExternalStore(
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getState(),
@@ -35,15 +37,15 @@ function EditorContent() {
   const vaultMounted = useAppStore((s) => s.vaultMounted);
 
   if (!vaultMounted) {
-    return <div className="boke-vault-loading">正在打开知识库…</div>;
+    return <div className="boke-vault-loading">{t("vault.loading")}</div>;
   }
 
   const active = state.active;
   if (!active || active.type === "empty") {
     return (
       <div className="boke-welcome">
-        <p>Select a file or create a new note.</p>
-        <button onClick={() => createAndOpenNote()}>New note</button>
+        <p>{t("welcome.hint")}</p>
+        <button onClick={() => createAndOpenNote()}>{t("welcome.newNote")}</button>
       </div>
     );
   }
@@ -60,7 +62,7 @@ function EditorContent() {
       );
     case "excalidraw":
       return active.path ? (
-        <Suspense fallback={<div style={{ padding: 24 }}>Loading drawing…</div>}>
+        <Suspense fallback={<div style={{ padding: 24 }}>{t("excalidraw.loadingApp")}</div>}>
           <ExcalidrawView path={active.path} />
         </Suspense>
       ) : null;
@@ -76,7 +78,9 @@ function EditorContent() {
 }
 
 export function App() {
+  const t = useT();
   const vaultMounted = useAppStore((s) => s.vaultMounted);
+  const locale = useAppStore((s) => s.locale);
   const mountVault = useAppStore((s) => s.mountVault);
   const localVaultPath = useAppStore((s) => s.localVaultPath);
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
@@ -91,6 +95,10 @@ export function App() {
       commandsRegistered = true;
     }
   }, []);
+
+  useEffect(() => {
+    registerCoreCommands();
+  }, [locale]);
 
   useEffect(() => {
     if (!isTauri() || vaultMounted || autoMountStarted.current) return;
@@ -118,15 +126,15 @@ export function App() {
           onClick={() => setCommandPaletteOpen(true)}
           title={formatShortcutLabel(keyboardShortcuts["quick-open"])}
         >
-          Quick open
+          {t("toolbar.quickOpen")}
         </button>
         <button
           onClick={() => setSearchOpen(true)}
           title={formatShortcutLabel(keyboardShortcuts.search)}
         >
-          Search
+          {t("toolbar.search")}
         </button>
-        <button onClick={() => commandRegistry.run("boke:open-settings")}>Settings</button>
+        <button onClick={() => commandRegistry.run("boke:open-settings")}>{t("toolbar.settings")}</button>
       </div>
 
       <div className="boke-main">
@@ -147,7 +155,7 @@ export function App() {
         </div>
       </div>
 
-      <div className="boke-statusbar">{statusText || "Ready"}</div>
+      <div className="boke-statusbar">{statusText || t("status.ready")}</div>
 
       <CommandPalette />
       <SearchPanel />

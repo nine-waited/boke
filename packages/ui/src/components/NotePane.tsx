@@ -5,6 +5,7 @@ import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./Markdow
 import { OutlinePanel } from "./OutlinePanel.js";
 import type { OutlineHeading } from "../markdown-outline.js";
 import { formatImageMarkdown, savePastedNoteImage } from "../note-images.js";
+import { isDefaultUntitledName, useLocale, useT } from "../i18n/index.js";
 import { eventBus, useAppStore, vaultService, workspaceStore } from "../store.js";
 
 interface NotePaneProps {
@@ -13,14 +14,10 @@ interface NotePaneProps {
   leafId: string;
 }
 
-const MODE_OPTIONS: Array<{ id: LeafMode; label: string }> = [
-  { id: "live", label: "实时" },
-  { id: "source", label: "源码" },
+const MODE_OPTIONS = [
+  { id: "live" as const, key: "note.modeLive" },
+  { id: "source" as const, key: "note.modeSource" },
 ];
-
-function isDefaultUntitledName(name: string): boolean {
-  return name === "Untitled" || /^Untitled \d+$/.test(name);
-}
 
 function NoteTitleBar({
   path,
@@ -31,6 +28,8 @@ function NoteTitleBar({
   leafId: string;
   flushContent: () => Promise<void>;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const refreshTree = useAppStore((s) => s.refreshTree);
   const baseName = noteBaseName(path);
   const [draft, setDraft] = useState(baseName);
@@ -42,11 +41,11 @@ function NoteTitleBar({
   }, [path]);
 
   useEffect(() => {
-    if (isDefaultUntitledName(baseName)) {
+    if (isDefaultUntitledName(baseName, locale)) {
       inputRef.current?.focus();
       inputRef.current?.select();
     }
-  }, [path, baseName]);
+  }, [path, baseName, locale]);
 
   const commitTitle = useCallback(async () => {
     if (committingRef.current) return;
@@ -90,15 +89,16 @@ function NoteTitleBar({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commitTitle()}
         onKeyDown={onKeyDown}
-        placeholder="未命名笔记"
+        placeholder={t("note.untitledPlaceholder")}
         spellCheck={false}
-        aria-label="笔记标题"
+        aria-label={t("note.titleAria")}
       />
     </div>
   );
 }
 
 export function NotePane({ path, mode, leafId }: NotePaneProps) {
+  const t = useT();
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const viewMode = normalizeLeafMode(mode);
@@ -159,7 +159,7 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
   );
 
   if (loading) {
-    return <div style={{ padding: 24, color: "var(--boke-text-muted)" }}>Loading…</div>;
+    return <div style={{ padding: 24, color: "var(--boke-text-muted)" }}>{t("note.loading")}</div>;
   }
 
   return (
@@ -197,17 +197,18 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
 }
 
 export function ModeToggle({ leafId, mode }: { leafId: string; mode: string }) {
+  const t = useT();
   const viewMode = normalizeLeafMode(mode);
 
   return (
     <div className="boke-mode-toggle">
-      {MODE_OPTIONS.map(({ id, label }) => (
+      {MODE_OPTIONS.map(({ id, key }) => (
         <button
           key={id}
           className={viewMode === id ? "active" : ""}
           onClick={() => workspaceStore.setMode(leafId, id)}
         >
-          {label}
+          {t(key)}
         </button>
       ))}
     </div>

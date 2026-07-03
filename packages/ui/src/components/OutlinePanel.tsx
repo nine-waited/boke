@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { extractHeadings, type OutlineHeading } from "../markdown-outline.js";
+import { useT } from "../i18n/index.js";
 
 interface OutlinePanelProps {
   path: string;
@@ -8,13 +9,14 @@ interface OutlinePanelProps {
 }
 
 export function OutlinePanel({ path, content, onHeadingClick }: OutlinePanelProps) {
+  const t = useT();
   const headings = useMemo(() => extractHeadings(path, content), [path, content]);
 
   return (
     <aside className="boke-note-toc">
-      <div className="boke-note-toc-title">目录</div>
+      <div className="boke-note-toc-title">{t("note.outlineTitle")}</div>
       {headings.length === 0 ? (
-        <p className="boke-note-toc-empty">暂无标题</p>
+        <p className="boke-note-toc-empty">{t("note.outlineEmpty")}</p>
       ) : (
         <nav className="boke-note-toc-list">
           {headings.map((heading, index) => (

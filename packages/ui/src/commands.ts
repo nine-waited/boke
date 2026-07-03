@@ -1,11 +1,14 @@
 import { commandRegistry, workspaceStore } from "./store.js";
 import { createAndOpenDrawing, createAndOpenNote } from "./note-actions.js";
+import { getT } from "./i18n/index.js";
 
 export function registerCoreCommands(): void {
+  const t = getT();
+
   commandRegistry.register({
     id: "boke:new-note",
-    name: "New note",
-    category: "Boke",
+    name: t("commands.newNote"),
+    category: t("commands.category"),
     callback: async () => {
       await createAndOpenNote();
     },
@@ -13,8 +16,8 @@ export function registerCoreCommands(): void {
 
   commandRegistry.register({
     id: "boke:new-drawing",
-    name: "New Excalidraw drawing",
-    category: "Boke",
+    name: t("commands.newDrawing"),
+    category: t("commands.category"),
     callback: async () => {
       await createAndOpenDrawing();
     },
@@ -22,8 +25,8 @@ export function registerCoreCommands(): void {
 
   commandRegistry.register({
     id: "boke:open-graph",
-    name: "Open graph view",
-    category: "Boke",
+    name: t("commands.openGraph"),
+    category: t("commands.category"),
     callback: () => {
       workspaceStore.openGraph();
     },
@@ -31,8 +34,8 @@ export function registerCoreCommands(): void {
 
   commandRegistry.register({
     id: "boke:open-settings",
-    name: "Open settings",
-    category: "Boke",
+    name: t("commands.openSettings"),
+    category: t("commands.category"),
     callback: () => {
       workspaceStore.openSettings();
     },
@@ -40,8 +43,8 @@ export function registerCoreCommands(): void {
 
   commandRegistry.register({
     id: "boke:open-publish",
-    name: "Open publish panel",
-    category: "Boke",
+    name: t("commands.openPublish"),
+    category: t("commands.category"),
     callback: () => {
       workspaceStore.openPublish();
     },
@@ -49,8 +52,8 @@ export function registerCoreCommands(): void {
 
   commandRegistry.register({
     id: "boke:toggle-source",
-    name: "Toggle live / source",
-    category: "Boke",
+    name: t("commands.toggleSource"),
+    category: t("commands.category"),
     callback: () => {
       const state = workspaceStore.getState();
       const leaf = state.active;

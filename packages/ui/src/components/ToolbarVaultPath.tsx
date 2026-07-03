@@ -4,6 +4,7 @@ import {
   normalizeVaultPathInput,
   resolveVaultDisplayPath,
 } from "../vault-path-utils.js";
+import { useT } from "../i18n/index.js";
 import { useAppStore } from "../store.js";
 import { VaultPathPickButton } from "./VaultPathPickButton.js";
 
@@ -21,6 +22,7 @@ function VaultPathGroup({ children }: { children: ReactNode }) {
 }
 
 export function ToolbarVaultPath() {
+  const t = useT();
   const vaultKind = useAppStore((s) => s.vaultKind);
   const localVaultPath = useAppStore((s) => s.localVaultPath);
   const remoteConfig = useAppStore((s) => s.remoteConfig);
@@ -62,11 +64,11 @@ export function ToolbarVaultPath() {
       await mountVault(await TauriFsAdapter.open(normalized));
     } catch (err) {
       console.error("[boke] vault path change failed:", err);
-      setStatusText("无法切换到该路径，请检查路径是否有效。");
+      setStatusText(t("status.vaultPathInvalid"));
     } finally {
       committingRef.current = false;
     }
-  }, [draft, localVaultPath, mountVault, setStatusText]);
+  }, [draft, localVaultPath, mountVault, setStatusText, t]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -103,7 +105,7 @@ export function ToolbarVaultPath() {
           onBlur={() => void commit()}
           onKeyDown={onKeyDown}
           spellCheck={false}
-          aria-label="知识库存储路径"
+          aria-label={t("toolbar.vaultPathAria")}
         />
       </VaultPathGroup>
     );
@@ -113,7 +115,7 @@ export function ToolbarVaultPath() {
     <VaultPathGroup>
       <span
         className="boke-toolbar-path"
-        title={`${displayPath}\n点击修改`}
+        title={t("toolbar.vaultPathHint", { path: displayPath })}
         onClick={() => setEditing(true)}
       >
         {displayPath}

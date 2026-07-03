@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from "react";
+import { useT } from "../i18n/index.js";
 import { workspaceStore } from "../store.js";
 import { ExcalidrawGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
 
 export function TabBar() {
+  const t = useT();
   const state = useSyncExternalStore(
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getState(),
@@ -11,17 +13,17 @@ export function TabBar() {
   const label = (leaf: (typeof state.leaves)[0]) => {
     switch (leaf.type) {
       case "markdown":
-        return leaf.path?.split("/").pop() ?? "Note";
+        return leaf.path?.split("/").pop() ?? t("tab.note");
       case "excalidraw":
-        return leaf.path?.split("/").pop() ?? "Drawing";
+        return leaf.path?.split("/").pop() ?? t("tab.drawing");
       case "graph":
-        return "Graph";
+        return t("tab.graph");
       case "settings":
-        return "Settings";
+        return t("tab.settings");
       case "publish":
-        return "Publish";
+        return t("tab.publish");
       default:
-        return "Welcome";
+        return t("tab.welcome");
     }
   };
 

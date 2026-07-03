@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { vaultService } from "../store.js";
+import { useT } from "../i18n/index.js";
 import { parseExcalidrawFile, serializeExcalidrawScene } from "../excalidraw-persist.js";
 import type { ExcalidrawInitialDataState } from "@excalidraw/excalidraw/types";
 
@@ -21,6 +22,7 @@ type SceneSnapshot = {
 };
 
 export function ExcalidrawView({ path }: ExcalidrawViewProps) {
+  const t = useT();
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestScene = useRef<SceneSnapshot | null>(null);
@@ -77,14 +79,14 @@ export function ExcalidrawView({ path }: ExcalidrawViewProps) {
   }, [path]);
 
   if (!initialData) {
-    return <div style={{ padding: 24, color: "var(--boke-text-muted)" }}>Loading drawing…</div>;
+    return <div style={{ padding: 24, color: "var(--boke-text-muted)" }}>{t("excalidraw.loading")}</div>;
   }
 
   const fileName = path.split("/").pop() ?? path;
 
   return (
     <div ref={wrapRef} className="boke-excalidraw-wrap">
-      <Suspense fallback={<div style={{ padding: 24 }}>Loading Excalidraw…</div>}>
+      <Suspense fallback={<div style={{ padding: 24 }}>{t("excalidraw.loadingApp")}</div>}>
         <Excalidraw
           key={path}
           name={fileName}

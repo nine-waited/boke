@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useT } from "../i18n/index.js";
 import { searchIndex, workspaceStore, useAppStore } from "../store.js";
 
 export function SearchPanel() {
+  const t = useT();
   const open = useAppStore((s) => s.searchOpen);
   const setOpen = useAppStore((s) => s.setSearchOpen);
   const [query, setQuery] = useState("");
@@ -32,7 +34,7 @@ export function SearchPanel() {
       <div className="boke-palette" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
-          placeholder="Search notes…"
+          placeholder={t("palette.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

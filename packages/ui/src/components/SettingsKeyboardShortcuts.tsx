@@ -2,13 +2,15 @@ import { useState } from "react";
 import {
   DEFAULT_SHORTCUTS,
   SHORTCUT_IDS,
-  SHORTCUT_LABELS,
   normalizeShortcut,
   type ShortcutId,
 } from "../keyboard-shortcuts.js";
+import { getShortcutLabel, useT } from "../i18n/index.js";
 import { useAppStore } from "../store.js";
 
 export function SettingsKeyboardShortcuts() {
+  const t = useT();
+  const locale = useAppStore((s) => s.locale);
   const keyboardShortcuts = useAppStore((s) => s.keyboardShortcuts);
   const setKeyboardShortcut = useAppStore((s) => s.setKeyboardShortcut);
   const resetKeyboardShortcuts = useAppStore((s) => s.resetKeyboardShortcuts);
@@ -24,7 +26,7 @@ export function SettingsKeyboardShortcuts() {
     <div className="boke-settings-shortcuts">
       {SHORTCUT_IDS.map((id) => (
         <div key={id} className="boke-settings-shortcut-row">
-          <label htmlFor={`shortcut-${id}`}>{SHORTCUT_LABELS[id]}</label>
+          <label htmlFor={`shortcut-${id}`}>{getShortcutLabel(id, locale)}</label>
           <input
             id={`shortcut-${id}`}
             className="boke-settings-shortcut-input"
@@ -44,11 +46,15 @@ export function SettingsKeyboardShortcuts() {
           />
         </div>
       ))}
-      <button type="button" className="boke-settings-shortcuts-reset" onClick={() => {
-        resetKeyboardShortcuts();
-        setDrafts({ ...DEFAULT_SHORTCUTS });
-      }}>
-        恢复默认快捷键
+      <button
+        type="button"
+        className="boke-settings-shortcuts-reset"
+        onClick={() => {
+          resetKeyboardShortcuts();
+          setDrafts({ ...DEFAULT_SHORTCUTS });
+        }}
+      >
+        {t("settings.shortcutsReset")}
       </button>
     </div>
   );

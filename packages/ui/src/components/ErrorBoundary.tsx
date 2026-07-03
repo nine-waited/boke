@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { getT } from "../i18n/index.js";
 
 interface Props {
   children: ReactNode;
@@ -21,6 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const t = getT();
       return (
         <div
           style={{
@@ -31,9 +33,9 @@ export class ErrorBoundary extends Component<Props, State> {
             fontFamily: "system-ui, sans-serif",
           }}
         >
-          <h1 style={{ color: "#cdd6f4" }}>Boke 启动失败</h1>
+          <h1 style={{ color: "#cdd6f4" }}>{t("error.title")}</h1>
           <pre style={{ whiteSpace: "pre-wrap", color: "#fab387" }}>{this.state.error.message}</pre>
-          <p style={{ color: "#a6adc8" }}>请打开浏览器开发者工具 (F12) 查看 Console 获取详情。</p>
+          <p style={{ color: "#a6adc8" }}>{t("error.hint")}</p>
         </div>
       );
     }

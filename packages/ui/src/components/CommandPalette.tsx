@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "../i18n/index.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 import { deleteVaultPath } from "../note-actions.js";
 
 export function CommandPalette() {
+  const t = useT();
   const open = useAppStore((s) => s.commandPaletteOpen);
   const setOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const [query, setQuery] = useState("");
@@ -29,7 +31,7 @@ export function CommandPalette() {
   }, [open]);
 
   const deleteFile = async (path: string, label: string, index: number) => {
-    if (!window.confirm(`确定删除「${label}」？此操作会永久删除磁盘上的文件，且无法撤销。`)) return;
+    if (!window.confirm(t("fileTree.deleteConfirm", { name: label }))) return;
     await deleteVaultPath(path, "file");
     setFiles((prev) => prev.filter((f) => f.path !== path));
     setSelected((s) => {
@@ -81,7 +83,7 @@ export function CommandPalette() {
       <div className="boke-palette" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
-          placeholder="Quick open…"
+          placeholder={t("palette.quickOpenPlaceholder")}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -108,8 +110,8 @@ export function CommandPalette() {
               <button
                 type="button"
                 className="boke-palette-item-delete"
-                title="删除文件"
-                aria-label={`删除 ${item.title}`}
+                title={t("palette.deleteFile")}
+                aria-label={t("palette.deleteFileAria", { name: item.title })}
                 onClick={(e) => {
                   e.stopPropagation();
                   void deleteFile(item.path, item.title, i);
@@ -121,7 +123,7 @@ export function CommandPalette() {
           ))}
           {items.length === 0 && (
             <div className="boke-palette-item" style={{ color: "var(--boke-text-muted)" }}>
-              No results
+              {t("palette.noResults")}
             </div>
           )}
         </div>

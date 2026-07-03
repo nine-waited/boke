@@ -1,5 +1,6 @@
 import { TauriFsAdapter } from "@boke/storage-adapters";
 import { FolderToolbarIcon } from "../icons/sidebar-icons.js";
+import { useT } from "../i18n/index.js";
 import { isPickCancelled } from "../vault-path-utils.js";
 import { useAppStore } from "../store.js";
 
@@ -10,6 +11,7 @@ export function VaultPathPickButton({
   className: string;
   onError: (msg: string) => void;
 }) {
+  const t = useT();
   const mountVault = useAppStore((s) => s.mountVault);
 
   const pickFolder = async () => {
@@ -19,7 +21,7 @@ export function VaultPathPickButton({
     } catch (err) {
       if (isPickCancelled(err)) return;
       console.error("[boke] pick vault folder failed:", err);
-      onError("无法切换到所选文件夹。");
+      onError(t("status.pickFolderFailed"));
     }
   };
 
@@ -27,8 +29,8 @@ export function VaultPathPickButton({
     <button
       type="button"
       className={className}
-      title="选择文件夹"
-      aria-label="选择文件夹并切换存储路径"
+      title={t("toolbar.pickFolder")}
+      aria-label={t("toolbar.pickFolderAria")}
       onClick={(e) => {
         e.stopPropagation();
         void pickFolder();

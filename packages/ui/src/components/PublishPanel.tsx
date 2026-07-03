@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "../i18n/index.js";
 import { renderMarkdown } from "../markdown.js";
 import { vaultService } from "../store.js";
 
@@ -11,6 +12,7 @@ interface PublishNote {
 }
 
 export function PublishPanel() {
+  const t = useT();
   const [notes, setNotes] = useState<PublishNote[]>([]);
   const [exportHtml, setExportHtml] = useState("");
   const [rss, setRss] = useState("");
@@ -97,12 +99,10 @@ ${rssItems.join("\n")}
 
   return (
     <div className="boke-publish">
-      <h2>Publish Blog</h2>
-      <p style={{ color: "var(--boke-text-muted)" }}>
-        Notes with <code>publish: true</code> in frontmatter appear here.
-      </p>
+      <h2>{t("publish.title")}</h2>
+      <p style={{ color: "var(--boke-text-muted)" }}>{t("publish.hint")}</p>
 
-      <h3>Publishable notes ({notes.length})</h3>
+      <h3>{t("publish.listTitle", { count: notes.length })}</h3>
       <ul>
         {notes.map((n) => (
           <li key={n.path}>
@@ -111,15 +111,15 @@ ${rssItems.join("\n")}
         ))}
       </ul>
 
-      <button onClick={buildSite}>Generate static site preview</button>
+      <button onClick={buildSite}>{t("publish.generate")}</button>
       {exportHtml && (
         <>
           <button onClick={downloadBundle} style={{ marginLeft: 8 }}>
-            Download export bundle
+            {t("publish.download")}
           </button>
-          <h3>Site preview (concatenated)</h3>
+          <h3>{t("publish.previewTitle")}</h3>
           <pre>{exportHtml.slice(0, 4000)}{exportHtml.length > 4000 ? "\n…" : ""}</pre>
-          <h3>RSS</h3>
+          <h3>{t("publish.rssTitle")}</h3>
           <pre>{rss}</pre>
         </>
       )}

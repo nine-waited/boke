@@ -2,11 +2,6 @@ export type ShortcutId = "quick-open" | "search";
 
 export const SHORTCUT_IDS: ShortcutId[] = ["quick-open", "search"];
 
-export const SHORTCUT_LABELS: Record<ShortcutId, string> = {
-  "quick-open": "快速打开",
-  search: "全文搜索",
-};
-
 export const DEFAULT_SHORTCUTS: Record<ShortcutId, string> = {
   "quick-open": "Shift+Shift",
   search: "Ctrl+Shift+F",

@@ -20,6 +20,7 @@ import {
   deleteVaultPath,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { useT } from "../i18n/index.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 
 interface FileTreeProps {
@@ -128,6 +129,7 @@ function FileTreeFolderRow({
   onToggle: () => void;
 }) {
   const ctx = useContext(FileTreeContext);
+  const t = useT();
   const isRenaming = ctx?.renamingPath === folderPath;
   const [draft, setDraft] = useState(folderName);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -186,7 +188,7 @@ function FileTreeFolderRow({
           onKeyDown={onKeyDown}
           onClick={(e) => e.stopPropagation()}
           spellCheck={false}
-          aria-label="重命名文件夹"
+          aria-label={t("fileTree.renameFolderAria")}
         />
       </TreeRow>
     );
@@ -214,6 +216,7 @@ function FileTreeFolderRow({
 
 function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }) {
   const ctx = useContext(FileTreeContext);
+  const t = useT();
   const activePath = ctx?.activePath ?? null;
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
@@ -282,7 +285,7 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
           onKeyDown={onKeyDown}
           onClick={(e) => e.stopPropagation()}
           spellCheck={false}
-          aria-label="重命名文件"
+          aria-label={t("fileTree.renameFileAria")}
         />
       </TreeRow>
     );
@@ -364,6 +367,7 @@ function FileTreeContextMenu({
   onClose: () => void;
   onRename: (path: string) => void;
 }) {
+  const t = useT();
   const parentDir = target.kind === "root" ? "" : target.kind === "folder" ? target.path : "";
 
   const run = (action: () => void | Promise<unknown>) => {
@@ -372,7 +376,7 @@ function FileTreeContextMenu({
   };
 
   const confirmDelete = (label: string, action: () => Promise<void>) => {
-    if (!window.confirm(`确定删除「${label}」？此操作会永久删除磁盘上的文件，且无法撤销。`)) return;
+    if (!window.confirm(t("fileTree.deleteConfirm", { name: label }))) return;
     onClose();
     void action();
   };
@@ -386,21 +390,21 @@ function FileTreeContextMenu({
           className="boke-context-menu-item"
           onClick={() => run(() => onRename(target.path))}
         >
-          重命名
+          {t("fileTree.rename")}
         </button>
         <button
           type="button"
           className="boke-context-menu-item boke-context-menu-item--danger"
           onClick={() => confirmDelete(name, () => deleteVaultPath(target.path, "file"))}
         >
-          删除
+          {t("fileTree.delete")}
         </button>
       </>
     );
   }
 
   const folderLabel =
-    target.kind === "root" ? "当前文件夹" : (target.path.split("/").pop() ?? target.path);
+    target.kind === "root" ? t("fileTree.currentFolder") : (target.path.split("/").pop() ?? target.path);
 
   return (
     <>
@@ -409,21 +413,21 @@ function FileTreeContextMenu({
         className="boke-context-menu-item"
         onClick={() => run(() => createAndOpenNote(parentDir))}
       >
-        新建 Markdown 笔记
+        {t("fileTree.newNote")}
       </button>
       <button
         type="button"
         className="boke-context-menu-item"
         onClick={() => run(() => createAndOpenDrawing(parentDir))}
       >
-        新建 Excalidraw 绘图
+        {t("fileTree.newDrawing")}
       </button>
       <button
         type="button"
         className="boke-context-menu-item"
         onClick={() => run(() => createFolder(parentDir))}
       >
-        新建文件夹
+        {t("fileTree.newFolder")}
       </button>
       {target.kind === "folder" && (
         <>
@@ -432,14 +436,14 @@ function FileTreeContextMenu({
             className="boke-context-menu-item"
             onClick={() => run(() => onRename(target.path))}
           >
-            重命名
+            {t("fileTree.rename")}
           </button>
           <button
             type="button"
             className="boke-context-menu-item boke-context-menu-item--danger"
             onClick={() => confirmDelete(folderLabel, () => deleteVaultPath(target.path, "directory"))}
           >
-            删除文件夹
+            {t("fileTree.deleteFolder")}
           </button>
         </>
       )}

@@ -19,6 +19,7 @@ import {
   type KeyboardShortcuts,
   type ShortcutId,
 } from "./keyboard-shortcuts.js";
+import { applyDocumentLang, detectLocale, type Locale } from "./i18n/messages.js";
 
 export interface AppState {
   vaultMounted: boolean;
@@ -31,6 +32,7 @@ export interface AppState {
   remoteConfig: RemoteConfig | null;
   localVaultPath: string | null;
   keyboardShortcuts: KeyboardShortcuts;
+  locale: Locale;
   statusText: string;
 }
 
@@ -44,6 +46,7 @@ export interface AppActions {
   setRemoteConfig: (config: RemoteConfig | null) => void;
   setKeyboardShortcut: (id: ShortcutId, shortcut: string) => void;
   resetKeyboardShortcuts: () => void;
+  setLocale: (locale: Locale) => void;
   setStatusText: (text: string) => void;
 }
 
@@ -54,6 +57,7 @@ interface PersistedSettings {
   remoteConfig?: RemoteConfig | null;
   localVaultPath?: string | null;
   keyboardShortcuts?: Partial<KeyboardShortcuts>;
+  locale?: Locale;
 }
 
 function loadSettings(): PersistedSettings {
@@ -73,6 +77,7 @@ function saveSettings(state: AppState): void {
       remoteConfig: state.remoteConfig,
       localVaultPath: state.localVaultPath,
       keyboardShortcuts: state.keyboardShortcuts,
+      locale: state.locale,
     }),
   );
 }
@@ -180,6 +185,9 @@ function buildPluginApi(pluginId: string): PluginApi {
 }
 
 const saved = loadSettings();
+if (saved.locale) {
+  applyDocumentLang(saved.locale);
+}
 
 export const useAppStore = create<AppState & AppActions>((set, get) => ({
   vaultMounted: false,
@@ -192,6 +200,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   remoteConfig: saved.remoteConfig ?? null,
   localVaultPath: saved.localVaultPath ?? null,
   keyboardShortcuts: loadKeyboardShortcuts(saved.keyboardShortcuts),
+  locale: saved.locale ?? detectLocale(),
   statusText: "",
 
   mountVault: async (adapter) => {
@@ -201,6 +210,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const created = await ensureDefaultReadme(
         (path) => vaultAdapter.exists(path),
         (path, content) => vaultService.write(path, content, true),
+        get().locale,
       );
       if (created) {
         await vaultService.reindex();
@@ -261,6 +271,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
   resetKeyboardShortcuts: () => {
     set({ keyboardShortcuts: { ...DEFAULT_SHORTCUTS } });
+    saveSettings(get());
+  },
+  setLocale: (locale) => {
+    set({ locale });
+    applyDocumentLang(locale);
     saveSettings(get());
   },
   setStatusText: (text) => set({ statusText: text }),
