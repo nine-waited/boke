@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 import type { VaultEntry } from "@boke/core";
 import { fileBaseName, isExcalidraw, isHiddenPath, isImage, isInNotePicFolder, isMarkdown, isNotePicFolder, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
@@ -20,7 +21,7 @@ import {
   confirmAndDeleteVaultPath,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
-import { useFileTreeCollapseGeneration } from "../file-tree-expand-context.js";
+import { useFileTreeCollapseGeneration, useFileTreeReveal } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 
@@ -50,6 +51,11 @@ function isRenamableFile(path: string): boolean {
   return isMarkdown(path) || isExcalidraw(path);
 }
 
+function isPathInsideDir(dir: string, path: string): boolean {
+  if (!dir) return true;
+  return path === dir || path.startsWith(`${dir}/`);
+}
+
 function TreeGuides({ depth }: { depth: number }) {
   if (depth <= 0) return null;
   return (
@@ -65,14 +71,16 @@ function TreeRow({
   depth,
   className = "",
   children,
+  ref,
   ...props
 }: {
   depth: number;
   className?: string;
   children: ReactNode;
+  ref?: Ref<HTMLDivElement>;
 } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className="boke-file-tree-row" {...props}>
+    <div ref={ref} className="boke-file-tree-row" {...props}>
       <TreeGuides depth={depth} />
       <div className={`boke-file-tree-item ${className}`.trim()}>{children}</div>
     </div>
@@ -240,12 +248,14 @@ function FileTreeFolderRow({
 function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }) {
   const ctx = useContext(FileTreeContext);
   const t = useT();
+  const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const activePath = ctx?.activePath ?? null;
   const isFocused = ctx?.focusedPath === entry.path;
   const isActive = activePath === entry.path || isFocused;
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
   const inputRef = useRef<HTMLInputElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   const committingRef = useRef(false);
 
   useEffect(() => {
@@ -257,6 +267,12 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
       });
     }
   }, [isRenaming, entry.path]);
+
+  useEffect(() => {
+    if (!revealTargetPath || revealGeneration === 0) return;
+    if (entry.path !== revealTargetPath) return;
+    rowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [revealGeneration, revealTargetPath, entry.path]);
 
   const cancelRename = useCallback(() => {
     ctx?.startRename("");
@@ -321,6 +337,7 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
   return (
     <TreeRow
+      ref={rowRef}
       depth={depth}
       className={`boke-file-tree-file${isActive ? " active" : ""}`}
       onClick={openFile}
@@ -342,6 +359,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   const [entries, setEntries] = useState<VaultEntry[]>([]);
   const [expanded, setExpanded] = useState(!dir);
   const collapseGeneration = useFileTreeCollapseGeneration();
+  const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const treeVersion = useAppStore((s) => s.treeVersion);
   const folderName = dir.split("/").pop() || dir;
 
@@ -349,6 +367,13 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
     if (!dir || collapseGeneration === 0) return;
     setExpanded(false);
   }, [collapseGeneration, dir]);
+
+  useEffect(() => {
+    if (!revealTargetPath || revealGeneration === 0) return;
+    if (isPathInsideDir(dir, revealTargetPath)) {
+      setExpanded(true);
+    }
+  }, [revealGeneration, revealTargetPath, dir]);
 
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {
@@ -503,6 +528,7 @@ function FileTreeContextMenu({
 
 export function FileTree() {
   const refreshTree = useAppStore((s) => s.refreshTree);
+  const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const activePath = useSyncExternalStore(
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getActivePath(),
@@ -520,6 +546,12 @@ export function FileTree() {
       setFocusedPath(activePath);
     }
   }, [activePath]);
+
+  useEffect(() => {
+    if (revealTargetPath && revealGeneration > 0) {
+      setFocusedPath(revealTargetPath);
+    }
+  }, [revealGeneration, revealTargetPath]);
 
   useEffect(() => {
     if (!contextMenu) return;

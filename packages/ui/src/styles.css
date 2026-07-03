@@ -489,6 +489,16 @@ body.boke-sidebar-resizing * {
   color: var(--boke-text);
 }
 
+.boke-sidebar-nav-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.boke-sidebar-nav-btn:disabled:hover {
+  background: transparent;
+  color: var(--boke-text-muted);
+}
+
 .boke-sidebar-nav-btn--excalidraw {
   color: #8b919a;
 }
