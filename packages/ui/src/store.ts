@@ -12,6 +12,13 @@ import type { PluginApi, PluginManifest } from "@boke/plugin-sdk";
 import { APP_VERSION } from "@boke/plugin-sdk";
 import { PluginHost } from "@boke/core";
 import type { RemoteConfig } from "@boke/storage-adapters";
+import { DEFAULT_README_PATH, ensureDefaultReadme } from "./default-readme.js";
+import {
+  DEFAULT_SHORTCUTS,
+  loadKeyboardShortcuts,
+  type KeyboardShortcuts,
+  type ShortcutId,
+} from "./keyboard-shortcuts.js";
 
 export interface AppState {
   vaultMounted: boolean;
@@ -23,6 +30,7 @@ export interface AppState {
   enabledPlugins: string[];
   remoteConfig: RemoteConfig | null;
   localVaultPath: string | null;
+  keyboardShortcuts: KeyboardShortcuts;
   statusText: string;
 }
 
@@ -34,15 +42,24 @@ export interface AppActions {
   setSearchOpen: (open: boolean) => void;
   setEnabledPlugins: (ids: string[]) => void;
   setRemoteConfig: (config: RemoteConfig | null) => void;
+  setKeyboardShortcut: (id: ShortcutId, shortcut: string) => void;
+  resetKeyboardShortcuts: () => void;
   setStatusText: (text: string) => void;
 }
 
 const SETTINGS_KEY = "boke-app-settings";
 
-function loadSettings(): Partial<AppState> {
+interface PersistedSettings {
+  enabledPlugins?: string[];
+  remoteConfig?: RemoteConfig | null;
+  localVaultPath?: string | null;
+  keyboardShortcuts?: Partial<KeyboardShortcuts>;
+}
+
+function loadSettings(): PersistedSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? (JSON.parse(raw) as Partial<AppState>) : {};
+    return raw ? (JSON.parse(raw) as PersistedSettings) : {};
   } catch {
     return {};
   }
@@ -55,6 +72,7 @@ function saveSettings(state: AppState): void {
       enabledPlugins: state.enabledPlugins,
       remoteConfig: state.remoteConfig,
       localVaultPath: state.localVaultPath,
+      keyboardShortcuts: state.keyboardShortcuts,
     }),
   );
 }
@@ -173,15 +191,25 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   enabledPlugins: saved.enabledPlugins ?? [],
   remoteConfig: saved.remoteConfig ?? null,
   localVaultPath: saved.localVaultPath ?? null,
+  keyboardShortcuts: loadKeyboardShortcuts(saved.keyboardShortcuts),
   statusText: "",
 
   mountVault: async (adapter) => {
     await vaultService.mount(adapter);
+    const vaultAdapter = vaultService.getAdapter();
+    if (vaultAdapter) {
+      const created = await ensureDefaultReadme(
+        (path) => vaultAdapter.exists(path),
+        (path, content) => vaultService.write(path, content, true),
+      );
+      if (created) {
+        await vaultService.reindex();
+      }
+    }
     const localVaultPath =
       adapter.kind === "tauri" && "getRootPath" in adapter
         ? (adapter as { getRootPath: () => string }).getRootPath()
         : get().localVaultPath;
-    const vaultAdapter = vaultService.getAdapter();
     for (const id of get().enabledPlugins) {
       try {
         if (vaultAdapter) {
@@ -201,6 +229,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       treeVersion: get().treeVersion + 1,
     });
     saveSettings(get());
+
+    const workspace = workspaceStore.getState();
+    if (!workspace.active || workspace.active.type === "empty") {
+      workspaceStore.openFile(DEFAULT_README_PATH);
+    }
   },
 
   unmountVault: async () => {
@@ -220,6 +253,14 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
   setRemoteConfig: (config) => {
     set({ remoteConfig: config });
+    saveSettings(get());
+  },
+  setKeyboardShortcut: (id, shortcut) => {
+    set({ keyboardShortcuts: { ...get().keyboardShortcuts, [id]: shortcut } });
+    saveSettings(get());
+  },
+  resetKeyboardShortcuts: () => {
+    set({ keyboardShortcuts: { ...DEFAULT_SHORTCUTS } });
     saveSettings(get());
   },
   setStatusText: (text) => set({ statusText: text }),

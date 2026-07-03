@@ -164,6 +164,47 @@ fn vault_list(root: String, dir: String) -> Result<Vec<VaultEntry>, String> {
 }
 
 #[tauri::command]
+fn open_vault_folder(path: String) -> Result<(), String> {
+    let path = PathBuf::from(path);
+    if !path.exists() {
+        fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    }
+    let path = path.canonicalize().map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        let arg = format!("/root,{}", path.display());
+        std::process::Command::new("explorer")
+            .arg(arg)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        return Err("unsupported platform".into());
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn vault_asset_url(path: String) -> Result<String, String> {
     let bytes = fs::read(&path).map_err(|e| e.to_string())?;
     let mime = match Path::new(&path).extension().and_then(|e| e.to_str()) {
@@ -184,6 +225,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             default_vault_path,
             pick_vault_folder,
+            open_vault_folder,
             vault_read_text,
             vault_read_binary,
             vault_write_text,

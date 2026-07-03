@@ -3,13 +3,15 @@ import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
 import { SidebarNav } from "./components/SidebarNav.js";
-import { WelcomeScreen } from "./components/WelcomeScreen.js";
 import { NotePane, ModeToggle } from "./components/NotePane.js";
 import { GraphView } from "./components/GraphView.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
 import { PublishPanel } from "./components/PublishPanel.js";
 import { CommandPalette } from "./components/CommandPalette.js";
 import { SearchPanel } from "./components/SearchPanel.js";
+import { GlobalKeyboardShortcuts } from "./components/GlobalKeyboardShortcuts.js";
+import { ToolbarVaultPath } from "./components/ToolbarVaultPath.js";
+import { formatShortcutLabel } from "./keyboard-shortcuts.js";
 import {
   useAppStore,
   workspaceStore,
@@ -32,7 +34,9 @@ function EditorContent() {
   );
   const vaultMounted = useAppStore((s) => s.vaultMounted);
 
-  if (!vaultMounted) return <WelcomeScreen />;
+  if (!vaultMounted) {
+    return <div className="boke-vault-loading">正在打开知识库…</div>;
+  }
 
   const active = state.active;
   if (!active || active.type === "empty") {
@@ -78,7 +82,7 @@ export function App() {
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const statusText = useAppStore((s) => s.statusText);
-  const vaultName = useAppStore((s) => s.vaultName);
+  const keyboardShortcuts = useAppStore((s) => s.keyboardShortcuts);
   const autoMountStarted = useRef(false);
 
   useEffect(() => {
@@ -107,19 +111,21 @@ export function App() {
   return (
     <div className="boke-app">
       <div className="boke-toolbar">
-        <strong>Boke</strong>
-        {vaultMounted && <span style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>{vaultName}</span>}
+        <span className="boke-toolbar-brand">Boke</span>
+        <ToolbarVaultPath />
         <div style={{ flex: 1 }} />
-        <button onClick={() => setCommandPaletteOpen(true)} title="Ctrl+P">
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          title={formatShortcutLabel(keyboardShortcuts["quick-open"])}
+        >
           Quick open
         </button>
-        <button onClick={() => setSearchOpen(true)} title="Ctrl+Shift+F">
+        <button
+          onClick={() => setSearchOpen(true)}
+          title={formatShortcutLabel(keyboardShortcuts.search)}
+        >
           Search
         </button>
-        <button onClick={() => commandRegistry.run("boke:new-note")}>New note</button>
-        <button onClick={() => commandRegistry.run("boke:new-drawing")}>New drawing</button>
-        <button onClick={() => commandRegistry.run("boke:open-graph")}>Graph</button>
-        <button onClick={() => commandRegistry.run("boke:open-publish")}>Publish</button>
         <button onClick={() => commandRegistry.run("boke:open-settings")}>Settings</button>
       </div>
 
@@ -145,6 +151,7 @@ export function App() {
 
       <CommandPalette />
       <SearchPanel />
+      <GlobalKeyboardShortcuts />
     </div>
   );
 }

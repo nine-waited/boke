@@ -8,11 +8,14 @@ export function SearchPanel() {
   const [results, setResults] = useState<ReturnType<typeof searchIndex.search>>([]);
 
   useEffect(() => {
+    if (!open) return;
+    setQuery("");
+  }, [open]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        setOpen(!open);
-      }
+      if (!open) return;
+      if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -35,6 +35,12 @@ export class TauriFsAdapter implements VaultAdapter {
     return new TauriFsAdapter(path, ".boke");
   }
 
+  static async open(path: string): Promise<TauriFsAdapter> {
+    const normalized = path.replace(/\\/g, "/").replace(/\/$/, "");
+    await invoke("vault_mkdir", { path: normalized });
+    return new TauriFsAdapter(normalized);
+  }
+
   static async pick(): Promise<TauriFsAdapter> {
     const path = await invoke<string>("pick_vault_folder");
     return new TauriFsAdapter(path);
@@ -98,4 +104,8 @@ export class TauriFsAdapter implements VaultAdapter {
 
 export function isTauri(): boolean {
   return isTauriRuntime();
+}
+
+export async function openVaultFolderInExplorer(path: string): Promise<void> {
+  await invoke("open_vault_folder", { path });
 }

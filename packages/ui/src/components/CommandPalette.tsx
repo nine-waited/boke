@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { commandRegistry, vaultService, workspaceStore, useAppStore } from "../store.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { vaultService, workspaceStore, useAppStore } from "../store.js";
+import { deleteVaultPath } from "../note-actions.js";
 
 export function CommandPalette() {
   const open = useAppStore((s) => s.commandPaletteOpen);
@@ -7,11 +8,9 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const [files, setFiles] = useState<Array<{ path: string; title: string }>>([]);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
-  useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    setSelected(0);
+  const loadFiles = () => {
     vaultService.listMarkdown().then((list) => {
       setFiles(
         list.map((f) => ({
@@ -20,35 +19,41 @@ export function CommandPalette() {
         })),
       );
     });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setSelected(0);
+    loadFiles();
   }, [open]);
 
-  const commands = useMemo(() => commandRegistry.list(), [open, query]);
-  const filteredFiles = useMemo(() => {
+  const deleteFile = async (path: string, label: string, index: number) => {
+    if (!window.confirm(`确定删除「${label}」？此操作会永久删除磁盘上的文件，且无法撤销。`)) return;
+    await deleteVaultPath(path, "file");
+    setFiles((prev) => prev.filter((f) => f.path !== path));
+    setSelected((s) => {
+      if (index < s) return s - 1;
+      if (index === s) return Math.max(0, s - 1);
+      return s;
+    });
+  };
+
+  const items = useMemo(() => {
     const q = query.toLowerCase();
-    if (!q) return files.slice(0, 20);
-    return files.filter((f) => f.title.toLowerCase().includes(q) || f.path.toLowerCase().includes(q)).slice(0, 20);
+    const filtered = q
+      ? files.filter((f) => f.title.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
+      : files;
+    return filtered.slice(0, 20);
   }, [files, query]);
 
-  const filteredCommands = useMemo(() => {
-    const q = query.toLowerCase();
-    if (!q) return commands;
-    return commands.filter((c) => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
-  }, [commands, query]);
-
-  const items = useMemo(
-    () => [
-      ...filteredFiles.map((f) => ({ type: "file" as const, id: f.path, label: f.title, sub: f.path })),
-      ...filteredCommands.map((c) => ({ type: "command" as const, id: c.id, label: c.name, sub: c.category })),
-    ],
-    [filteredFiles, filteredCommands],
-  );
+  useEffect(() => {
+    if (!open) return;
+    itemRefs.current[selected]?.scrollIntoView({ block: "nearest" });
+  }, [selected, open]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "p") {
-        e.preventDefault();
-        setOpen(!open);
-      }
       if (!open) return;
       if (e.key === "Escape") setOpen(false);
       if (e.key === "ArrowDown") {
@@ -61,9 +66,7 @@ export function CommandPalette() {
       }
       if (e.key === "Enter" && items[selected]) {
         e.preventDefault();
-        const item = items[selected];
-        if (item.type === "file") workspaceStore.openFile(item.id);
-        else commandRegistry.run(item.id);
+        workspaceStore.openFile(items[selected].path);
         setOpen(false);
       }
     };
@@ -78,7 +81,7 @@ export function CommandPalette() {
       <div className="boke-palette" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
-          placeholder="Quick open (files & commands)…"
+          placeholder="Quick open…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -88,16 +91,32 @@ export function CommandPalette() {
         <div className="boke-palette-list">
           {items.map((item, i) => (
             <div
-              key={`${item.type}-${item.id}`}
+              key={item.path}
+              ref={(el) => {
+                itemRefs.current[i] = el;
+              }}
               className={`boke-palette-item${i === selected ? " selected" : ""}`}
               onClick={() => {
-                if (item.type === "file") workspaceStore.openFile(item.id);
-                else commandRegistry.run(item.id);
+                workspaceStore.openFile(item.path);
                 setOpen(false);
               }}
             >
-              {item.label}
-              {item.sub && <small>{item.sub}</small>}
+              <div className="boke-palette-item-main">
+                {item.title}
+                <small>{item.path}</small>
+              </div>
+              <button
+                type="button"
+                className="boke-palette-item-delete"
+                title="删除文件"
+                aria-label={`删除 ${item.title}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void deleteFile(item.path, item.title, i);
+                }}
+              >
+                ×
+              </button>
             </div>
           ))}
           {items.length === 0 && (
