@@ -7,6 +7,12 @@ import {
   normalizePath,
   joinPath,
 } from "./types.js";
+import {
+  notePicDirPath,
+  rewriteNotePicPaths,
+  sanitizeImageFileName,
+  toMarkdownAssetPath,
+} from "./note-images.js";
 import { metadataCache } from "../metadata/cache.js";
 import { searchIndex } from "../search/index.js";
 import { eventBus } from "../plugins/host.js";
@@ -178,7 +184,22 @@ export class VaultService {
       this.saveTimers.delete(normalized);
     }
 
-    const content = await this.adapter.read(normalized);
+    let content = await this.adapter.read(normalized);
+    if (isMarkdown(normalized)) {
+      const oldPicDir = notePicDirPath(normalized);
+      const newPicDir = notePicDirPath(nextPath);
+      if (oldPicDir !== newPicDir && (await this.adapter.exists(oldPicDir))) {
+        await this.adapter.rename(oldPicDir, newPicDir);
+      }
+      content = rewriteNotePicPaths(
+        content,
+        oldPicDir,
+        newPicDir,
+        this.resolveAbsolutePath(oldPicDir),
+        this.resolveAbsolutePath(newPicDir),
+      );
+    }
+
     await this.adapter.write(nextPath, content);
     await this.adapter.delete(normalized);
 
@@ -299,6 +320,37 @@ export class VaultService {
     return path;
   }
 
+  resolveAbsolutePath(vaultRelativePath: string): string | null {
+    if (!this.adapter?.getAbsolutePath) return null;
+    return toMarkdownAssetPath(this.adapter.getAbsolutePath(normalizePath(vaultRelativePath)));
+  }
+
+  /** Save an image next to the note in `{noteBase}_pic/` and return the markdown link path. */
+  async saveNoteImage(mdPath: string, file: File | Blob, suggestedName?: string): Promise<string> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    const picDir = notePicDirPath(mdPath);
+    await this.adapter.mkdir(picDir);
+
+    const mime = file.type || "image/png";
+    const sourceName =
+      file instanceof File ? file.name : suggestedName ?? "image.png";
+    const safeName = sanitizeImageFileName(suggestedName ?? sourceName, mime);
+    let vaultPath = joinPath(picDir, safeName);
+    let i = 1;
+    while (await this.adapter.exists(vaultPath)) {
+      const ext = safeName.includes(".") ? safeName.slice(safeName.lastIndexOf(".")) : "";
+      const base = ext ? safeName.slice(0, -ext.length) : safeName;
+      vaultPath = joinPath(picDir, `${base}-${i}${ext}`);
+      i++;
+    }
+
+    const buf = new Uint8Array(await file.arrayBuffer());
+    await this.adapter.writeBinary(vaultPath, buf);
+
+    const absolute = this.resolveAbsolutePath(vaultPath);
+    return absolute ?? vaultPath;
+  }
+
   async getAssetUrl(path: string): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     return this.adapter.getAssetUrl(normalizePath(path));
@@ -363,3 +415,9 @@ export function sanitizeFolderName(title: string): string {
 export const vaultService = new VaultService();
 
 export { isExcalidraw, isMarkdown, isAttachment };
+export {
+  NOTE_PIC_SUFFIX,
+  notePicDirPath,
+  formatImageMarkdown,
+  toMarkdownAssetPath,
+} from "./note-images.js";

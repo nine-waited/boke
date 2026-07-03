@@ -7,6 +7,7 @@ import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language"
 import { searchKeymap } from "@codemirror/search";
 import { Decoration, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
+import { formatImageMarkdown, getClipboardImageFile, savePastedNoteImage } from "../note-images.js";
 
 const wikilinkPlugin = ViewPlugin.fromClass(
   class {
@@ -49,6 +50,7 @@ function buildWikilinkDecorations(view: EditorView): DecorationSet {
 
 interface MarkdownSourceEditorProps {
   content: string;
+  notePath: string;
   onChange: (content: string) => void;
   onSave?: () => void;
 }
@@ -58,11 +60,13 @@ export interface MarkdownSourceEditorHandle {
 }
 
 export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, MarkdownSourceEditorProps>(
-  function MarkdownSourceEditor({ content, onChange, onSave }, ref) {
+  function MarkdownSourceEditor({ content, notePath, onChange, onSave }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
+  const notePathRef = useRef(notePath);
   onChangeRef.current = onChange;
+  notePathRef.current = notePath;
 
   useImperativeHandle(ref, () => ({
     goToDocLine(docLine: number) {
@@ -106,6 +110,24 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
           if (update.docChanged) {
             onChangeRef.current(update.state.doc.toString());
           }
+        }),
+        EditorView.domEventHandlers({
+          paste(event, view) {
+            const file = getClipboardImageFile(event.clipboardData);
+            const mdPath = notePathRef.current;
+            if (!file || !mdPath) return false;
+            event.preventDefault();
+            void (async () => {
+              const imagePath = await savePastedNoteImage(mdPath, file);
+              const markdown = formatImageMarkdown(imagePath);
+              const { from, to } = view.state.selection.main;
+              view.dispatch({
+                changes: { from, to, insert: markdown },
+                selection: { anchor: from + markdown.length },
+              });
+            })();
+            return true;
+          },
         }),
         EditorView.theme({
           "&": { height: "100%" },

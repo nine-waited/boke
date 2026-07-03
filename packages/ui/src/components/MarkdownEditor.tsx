@@ -5,6 +5,7 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { replaceAll } from "@milkdown/utils";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type MutableRefObject } from "react";
+import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 
@@ -14,6 +15,7 @@ export interface MarkdownEditorHandle {
 
 interface MarkdownEditorProps {
   content: string;
+  notePath: string;
   onChange: (content: string) => void;
   onSave?: () => void;
   presentation?: "default" | "live";
@@ -53,6 +55,7 @@ function findHeadingPos(view: EditorView, markdown: string, docLine: number): nu
 
 function MilkdownCrepeEditor({
   content,
+  notePath,
   onChange,
   onSave,
   presentation = "default",
@@ -60,13 +63,17 @@ function MilkdownCrepeEditor({
 }: MilkdownCrepeEditorProps) {
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
+  const notePathRef = useRef(notePath);
   const lastEmitted = useRef(content);
   const skipExternalSync = useRef(false);
 
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
+  notePathRef.current = notePath;
 
   const { loading } = useEditor((root) => {
+    const uploadImage = async (file: File) => savePastedNoteImage(notePathRef.current, file);
+
     const crepe = new Crepe({
       root,
       defaultValue: content,
@@ -77,6 +84,12 @@ function MilkdownCrepeEditor({
         [CrepeFeature.Placeholder]: {
           text: presentation === "live" ? "输入内容，实时渲染…" : "开始书写 Markdown…",
           mode: "block",
+        },
+        [CrepeFeature.ImageBlock]: {
+          onUpload: uploadImage,
+          inlineOnUpload: uploadImage,
+          blockOnUpload: uploadImage,
+          proxyDomURL: (url) => resolveImageSrcForDisplay(url),
         },
       },
     });

@@ -50,6 +50,10 @@ export class TauriFsAdapter implements VaultAdapter {
     return this.rootPath;
   }
 
+  getAbsolutePath(path: string): string {
+    return this.abs(path);
+  }
+
   private abs(path: string): string {
     const rel = normalizePath(path);
     return rel ? `${this.rootPath}/${rel}` : this.rootPath;

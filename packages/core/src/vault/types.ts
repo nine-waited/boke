@@ -23,6 +23,8 @@ export interface VaultAdapter {
   exists(path: string): Promise<boolean>;
   /** Returns a blob URL or data URL for binary assets */
   getAssetUrl(path: string): Promise<string>;
+  /** Returns an absolute filesystem path when supported (desktop vault). */
+  getAbsolutePath?(path: string): string;
 }
 
 export function normalizePath(path: string): string {

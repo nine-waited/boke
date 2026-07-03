@@ -4,6 +4,7 @@ import { MarkdownEditor, type MarkdownEditorHandle } from "./MarkdownEditor.js";
 import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./MarkdownSourceEditor.js";
 import { OutlinePanel } from "./OutlinePanel.js";
 import type { OutlineHeading } from "../markdown-outline.js";
+import { formatImageMarkdown, savePastedNoteImage } from "../note-images.js";
 import { eventBus, useAppStore, vaultService, workspaceStore } from "../store.js";
 
 interface NotePaneProps {
@@ -134,13 +135,17 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     const files = [...e.dataTransfer.files];
+    let next = contentRef.current;
     for (const file of files) {
       if (!file.type.startsWith("image/")) continue;
-      const attachmentPath = await vaultService.saveAttachment(file);
+      const imagePath = await savePastedNoteImage(path, file);
       const name = file.name.replace(/\.[^.]+$/, "");
-      setContent((c) => `${c}\n![[${attachmentPath}|${name}]]\n`);
+      next = `${next}\n${formatImageMarkdown(imagePath, name)}\n`;
     }
-  }, []);
+    if (next !== contentRef.current) {
+      onChange(next);
+    }
+  }, [path, onChange]);
 
   const handleHeadingClick = useCallback(
     (heading: OutlineHeading) => {
@@ -167,6 +172,7 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
               ref={liveRef}
               key={`${path}:live`}
               presentation="live"
+              notePath={path}
               content={content}
               onChange={onChange}
               onSave={onSave}
@@ -176,6 +182,7 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
               <MarkdownSourceEditor
                 ref={sourceRef}
                 key={`${path}:source`}
+                notePath={path}
                 content={content}
                 onChange={onChange}
                 onSave={onSave}

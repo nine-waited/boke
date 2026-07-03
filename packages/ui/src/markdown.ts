@@ -76,4 +76,17 @@ export async function hydrateEmbedImages(container: HTMLElement): Promise<void> 
       img.alt = `Failed to load ${path}`;
     }
   }
+
+  const { resolveImageSrcForDisplay } = await import("./note-images.js");
+  for (const img of container.querySelectorAll<HTMLImageElement>("img:not([data-embed])")) {
+    const src = img.getAttribute("src");
+    if (!src || src.startsWith("blob:") || src.startsWith("data:") || /^https?:\/\//i.test(src)) {
+      continue;
+    }
+    try {
+      img.src = await resolveImageSrcForDisplay(src);
+    } catch {
+      img.alt = `Failed to load ${src}`;
+    }
+  }
 }
