@@ -1,10 +1,13 @@
 import { useSyncExternalStore } from "react";
 import { useT } from "../i18n/index.js";
-import { workspaceStore } from "../store.js";
+import { useAppStore, workspaceStore } from "../store.js";
 import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { focusMainContent, isFileContentTab } from "../focus-main-content.js";
 
 export function TabBar() {
   const t = useT();
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
+  const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
   const state = useSyncExternalStore(
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getState(),
@@ -36,6 +39,13 @@ export function TabBar() {
           key={leaf.id}
           className={`boke-tab${leaf.id === state.activeId ? " active" : ""}`}
           onClick={() => workspaceStore.setActive(leaf.id)}
+          onDoubleClick={() => {
+            if (!isFileContentTab(leaf.type)) return;
+            workspaceStore.setActive(leaf.id);
+            const nextCollapsed = !sidebarCollapsed;
+            setSidebarCollapsed(nextCollapsed);
+            if (nextCollapsed) focusMainContent();
+          }}
         >
           {leaf.type === "markdown" && (
             <span className="boke-tab-icon boke-tab-icon--markdown" aria-hidden="true">

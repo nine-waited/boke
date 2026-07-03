@@ -44,7 +44,7 @@ export function ImageView({ path }: ImageViewProps) {
   }
 
   return (
-    <div className="boke-image-view">
+    <div className="boke-image-view" tabIndex={-1}>
       <img src={src} alt={fileName} className="boke-image-view-img" draggable={false} />
     </div>
   );

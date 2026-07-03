@@ -195,7 +195,7 @@ export function App() {
 
         <div className="boke-editor-area">
           {vaultMounted && <TabBar />}
-          <div className="boke-content">
+          <div className="boke-content" tabIndex={-1}>
             <EditorContent />
           </div>
         </div>

@@ -85,7 +85,7 @@ export function ExcalidrawView({ path }: ExcalidrawViewProps) {
   const fileName = path.split("/").pop() ?? path;
 
   return (
-    <div ref={wrapRef} className="boke-excalidraw-wrap">
+    <div ref={wrapRef} className="boke-excalidraw-wrap" tabIndex={-1}>
       <Suspense fallback={<div style={{ padding: 24 }}>{t("excalidraw.loadingApp")}</div>}>
         <Excalidraw
           key={path}

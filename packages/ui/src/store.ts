@@ -52,6 +52,7 @@ export interface AppActions {
   setLocale: (locale: Locale) => void;
   setStatusText: (text: string) => void;
   setSidebarWidth: (width: number) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
 }
 
@@ -293,6 +294,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   setStatusText: (text) => set({ statusText: text }),
   setSidebarWidth: (width) => {
     set({ sidebarWidth: clampSidebarWidth(width) });
+    saveSettings(get());
+  },
+  setSidebarCollapsed: (collapsed) => {
+    if (get().sidebarCollapsed === collapsed) return;
+    set({ sidebarCollapsed: collapsed });
     saveSettings(get());
   },
   toggleSidebarCollapsed: () => {
