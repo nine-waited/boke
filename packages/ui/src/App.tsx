@@ -1,4 +1,5 @@
-import { useSyncExternalStore, useEffect, lazy, Suspense } from "react";
+import { useSyncExternalStore, useEffect, useRef, lazy, Suspense } from "react";
+import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
 import { SidebarNav } from "./components/SidebarNav.js";
@@ -72,10 +73,13 @@ function EditorContent() {
 
 export function App() {
   const vaultMounted = useAppStore((s) => s.vaultMounted);
+  const mountVault = useAppStore((s) => s.mountVault);
+  const localVaultPath = useAppStore((s) => s.localVaultPath);
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const statusText = useAppStore((s) => s.statusText);
   const vaultName = useAppStore((s) => s.vaultName);
+  const autoMountStarted = useRef(false);
 
   useEffect(() => {
     if (!commandsRegistered) {
@@ -83,6 +87,22 @@ export function App() {
       commandsRegistered = true;
     }
   }, []);
+
+  useEffect(() => {
+    if (!isTauri() || vaultMounted || autoMountStarted.current) return;
+    autoMountStarted.current = true;
+    (async () => {
+      try {
+        const adapter = localVaultPath
+          ? new TauriFsAdapter(localVaultPath)
+          : await TauriFsAdapter.default();
+        await mountVault(adapter);
+      } catch (err) {
+        console.error("Failed to open default vault:", err);
+        autoMountStarted.current = false;
+      }
+    })();
+  }, [vaultMounted, localVaultPath, mountVault]);
 
   return (
     <div className="boke-app">

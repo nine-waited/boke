@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { workspaceStore } from "../store.js";
+import { ExcalidrawGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
 
 export function TabBar() {
   const state = useSyncExternalStore(
@@ -12,7 +13,7 @@ export function TabBar() {
       case "markdown":
         return leaf.path?.split("/").pop() ?? "Note";
       case "excalidraw":
-        return `📐 ${leaf.path?.split("/").pop() ?? "Drawing"}`;
+        return leaf.path?.split("/").pop() ?? "Drawing";
       case "graph":
         return "Graph";
       case "settings":
@@ -32,6 +33,16 @@ export function TabBar() {
           className={`boke-tab${leaf.id === state.activeId ? " active" : ""}`}
           onClick={() => workspaceStore.setActive(leaf.id)}
         >
+          {leaf.type === "markdown" && (
+            <span className="boke-tab-icon boke-tab-icon--markdown" aria-hidden="true">
+              <MarkdownGrayIcon />
+            </span>
+          )}
+          {leaf.type === "excalidraw" && (
+            <span className="boke-tab-icon boke-tab-icon--excalidraw" aria-hidden="true">
+              <ExcalidrawGrayIcon />
+            </span>
+          )}
           {label(leaf)}
           {state.leaves.length > 1 && (
             <button

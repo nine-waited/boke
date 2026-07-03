@@ -30,9 +30,18 @@ export class TauriFsAdapter implements VaultAdapter {
     return isTauriRuntime();
   }
 
+  static async default(): Promise<TauriFsAdapter> {
+    const path = await invoke<string>("default_vault_path");
+    return new TauriFsAdapter(path, ".boke");
+  }
+
   static async pick(): Promise<TauriFsAdapter> {
     const path = await invoke<string>("pick_vault_folder");
     return new TauriFsAdapter(path);
+  }
+
+  getRootPath(): string {
+    return this.rootPath;
   }
 
   private abs(path: string): string {

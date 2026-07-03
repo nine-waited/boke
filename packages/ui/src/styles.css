@@ -221,6 +221,38 @@ button {
   border-color: var(--boke-accent);
 }
 
+.boke-tab-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.boke-tab-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.boke-tab-icon--excalidraw svg {
+  width: 12px;
+  height: 12px;
+}
+
+.boke-tab-icon--excalidraw {
+  color: #8b919a;
+}
+
+.boke-tab-icon--markdown {
+  color: #8b919a;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.boke-md-letter-icon {
+  display: block;
+}
+
 .boke-tab-close {
   background: none;
   border: none;
@@ -419,8 +451,13 @@ button {
 }
 
 .boke-file-tree-item.active {
-  background: var(--boke-surface);
-  color: var(--boke-accent);
+  background: color-mix(in srgb, var(--boke-accent) 14%, var(--boke-bg-secondary));
+  color: var(--boke-text);
+  box-shadow: inset 3px 0 0 var(--boke-accent);
+}
+
+.boke-file-tree-item.active:hover {
+  background: color-mix(in srgb, var(--boke-accent) 20%, var(--boke-bg-secondary));
 }
 
 .boke-file-tree-dir {
@@ -431,6 +468,41 @@ button {
 
 .boke-file-tree-file {
   gap: 4px;
+}
+
+.boke-file-tree-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+}
+
+.boke-file-tree-icon--excalidraw {
+  color: #8b919a;
+}
+
+.boke-file-tree-icon--excalidraw svg {
+  width: 12px;
+  height: 12px;
+}
+
+.boke-file-tree-icon--markdown {
+  color: #8b919a;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.boke-file-tree-icon--folder {
+  color: #8b919a;
+}
+
+.boke-file-tree-icon--folder svg {
+  width: 13px;
+  height: 13px;
 }
 
 .boke-file-tree-chevron,

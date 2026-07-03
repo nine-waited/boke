@@ -5,6 +5,11 @@ export function WelcomeScreen() {
   const mountVault = useAppStore((s) => s.mountVault);
   const remoteConfig = useAppStore((s) => s.remoteConfig);
 
+  const openLocalDefault = async () => {
+    const adapter = await TauriFsAdapter.default();
+    await mountVault(adapter);
+  };
+
   const openLocal = async () => {
     const adapter = await TauriFsAdapter.pick();
     await mountVault(adapter);
@@ -23,7 +28,8 @@ export function WelcomeScreen() {
       <h1>Boke — Knowledge Manager</h1>
       <p>本地 Markdown + Excalidraw 知识库 · 桌面优先</p>
       <div className="boke-welcome-actions">
-        <button onClick={openLocal}>打开本地文件夹</button>
+        <button onClick={openLocalDefault}>打开默认库（用户目录/.boke）</button>
+        <button onClick={openLocal}>选择其他文件夹</button>
         <button onClick={openRemote} disabled={!remoteConfig?.baseUrl || !remoteConfig?.token}>
           连接云端存储
         </button>

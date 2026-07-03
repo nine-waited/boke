@@ -2,7 +2,6 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use tauri_plugin_dialog::DialogExt;
 
 #[derive(Serialize)]
 struct VaultEntry {
@@ -31,6 +30,28 @@ fn resolve(root: &str, rel: &str) -> Result<PathBuf, String> {
     let base = PathBuf::from(root);
     let rel = normalize_rel(rel)?;
     Ok(base.join(rel))
+}
+
+fn home_dir() -> Result<PathBuf, String> {
+  #[cfg(windows)]
+  {
+    std::env::var("USERPROFILE")
+      .map(PathBuf::from)
+      .map_err(|e| e.to_string())
+  }
+  #[cfg(not(windows))]
+  {
+    std::env::var("HOME")
+      .map(PathBuf::from)
+      .map_err(|e| e.to_string())
+  }
+}
+
+#[tauri::command]
+fn default_vault_path() -> Result<String, String> {
+  let path = home_dir()?.join(".boke");
+  fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+  Ok(path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -161,6 +182,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            default_vault_path,
             pick_vault_folder,
             vault_read_text,
             vault_read_binary,

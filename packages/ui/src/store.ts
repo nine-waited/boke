@@ -22,6 +22,7 @@ export interface AppState {
   searchOpen: boolean;
   enabledPlugins: string[];
   remoteConfig: RemoteConfig | null;
+  localVaultPath: string | null;
   statusText: string;
 }
 
@@ -53,6 +54,7 @@ function saveSettings(state: AppState): void {
     JSON.stringify({
       enabledPlugins: state.enabledPlugins,
       remoteConfig: state.remoteConfig,
+      localVaultPath: state.localVaultPath,
     }),
   );
 }
@@ -170,10 +172,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   searchOpen: false,
   enabledPlugins: saved.enabledPlugins ?? [],
   remoteConfig: saved.remoteConfig ?? null,
+  localVaultPath: saved.localVaultPath ?? null,
   statusText: "",
 
   mountVault: async (adapter) => {
     await vaultService.mount(adapter);
+    const localVaultPath =
+      adapter.kind === "tauri" && "getRootPath" in adapter
+        ? (adapter as { getRootPath: () => string }).getRootPath()
+        : get().localVaultPath;
     const vaultAdapter = vaultService.getAdapter();
     for (const id of get().enabledPlugins) {
       try {
@@ -190,6 +197,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       vaultMounted: true,
       vaultName: adapter.name,
       vaultKind: adapter.kind,
+      localVaultPath,
       treeVersion: get().treeVersion + 1,
     });
     saveSettings(get());

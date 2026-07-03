@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
@@ -18,6 +19,7 @@ import {
   createFolder,
   deleteVaultPath,
 } from "../note-actions.js";
+import { ExcalidrawGrayIcon, FolderGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 
 interface FileTreeProps {
@@ -31,6 +33,7 @@ type ContextTarget =
   | { kind: "file"; path: string };
 
 interface FileTreeContextValue {
+  activePath: string | null;
   renamingPath: string | null;
   startRename: (path: string) => void;
   openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
@@ -91,6 +94,24 @@ function TreeChevronIcon({ expanded }: { expanded: boolean }) {
 
 function TreeChevronSpacer() {
   return <span className="boke-file-tree-chevron-spacer" aria-hidden="true" />;
+}
+
+function FileTreeFileIcon({ path }: { path: string }) {
+  if (isExcalidraw(path)) {
+    return (
+      <span className="boke-file-tree-icon boke-file-tree-icon--excalidraw" aria-hidden="true">
+        <ExcalidrawGrayIcon />
+      </span>
+    );
+  }
+  if (isMarkdown(path)) {
+    return (
+      <span className="boke-file-tree-icon boke-file-tree-icon--markdown" aria-hidden="true">
+        <MarkdownGrayIcon />
+      </span>
+    );
+  }
+  return null;
 }
 
 function FileTreeFolderRow({
@@ -183,6 +204,9 @@ function FileTreeFolderRow({
       }}
     >
       <TreeChevronIcon expanded={expanded} />
+      <span className="boke-file-tree-icon boke-file-tree-icon--folder" aria-hidden="true">
+        <FolderGrayIcon />
+      </span>
       <span className="boke-file-tree-name">{folderName}</span>
     </TreeRow>
   );
@@ -190,7 +214,7 @@ function FileTreeFolderRow({
 
 function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }) {
   const ctx = useContext(FileTreeContext);
-  const activePath = workspaceStore.getActivePath();
+  const activePath = ctx?.activePath ?? null;
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -277,6 +301,7 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
       }}
     >
       <TreeChevronSpacer />
+      <FileTreeFileIcon path={entry.path} />
       <span className="boke-file-tree-name">{entry.name}</span>
     </TreeRow>
   );
@@ -424,6 +449,10 @@ function FileTreeContextMenu({
 
 export function FileTree() {
   const refreshTree = useAppStore((s) => s.refreshTree);
+  const activePath = useSyncExternalStore(
+    (cb) => workspaceStore.subscribe(cb),
+    () => workspaceStore.getActivePath(),
+  );
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -475,6 +504,7 @@ export function FileTree() {
   );
 
   const ctxValue: FileTreeContextValue = {
+    activePath,
     renamingPath,
     startRename,
     openContextMenu,
