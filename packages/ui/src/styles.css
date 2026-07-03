@@ -897,6 +897,32 @@ body.boke-sidebar-resizing * {
   line-height: 20px;
 }
 
+.boke-file-tree-name-row {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
+.boke-file-tree-name-row .boke-file-tree-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.boke-file-tree-lock {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--boke-text-muted);
+  opacity: 0.72;
+}
+
+.boke-file-tree-lock svg {
+  width: 12px;
+  height: 12px;
+}
+
 .boke-file-tree-item--renaming {
   cursor: default;
 }
@@ -939,6 +965,16 @@ body.boke-sidebar-resizing * {
 
 .boke-context-menu-item:hover {
   background: var(--boke-surface);
+}
+
+.boke-context-menu-item--disabled {
+  color: var(--boke-text-muted);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.boke-context-menu-item--disabled:hover {
+  background: transparent;
 }
 
 .boke-context-menu-item--danger {
@@ -999,6 +1035,65 @@ body.boke-sidebar-resizing * {
   justify-content: center;
   padding-top: 15vh;
   z-index: 1000;
+}
+
+.boke-confirm-overlay {
+  align-items: center;
+  padding-top: 0;
+  z-index: 1100;
+}
+
+.boke-confirm-dialog {
+  width: min(400px, 90vw);
+  background: var(--boke-bg-secondary);
+  border: 1px solid var(--boke-border);
+  border-radius: var(--boke-radius);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  padding: 20px 22px;
+}
+
+.boke-confirm-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--boke-text);
+}
+
+.boke-confirm-dialog p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--boke-text-muted);
+  line-height: 1.5;
+}
+
+.boke-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.boke-confirm-actions button {
+  padding: 8px 14px;
+  border-radius: var(--boke-radius);
+  font-size: 13px;
+  border: 1px solid var(--boke-border);
+  background: var(--boke-bg);
+  color: var(--boke-text);
+  cursor: pointer;
+}
+
+.boke-confirm-actions button:hover {
+  background: var(--boke-surface);
+}
+
+.boke-confirm-actions button.boke-confirm-danger {
+  background: var(--boke-error);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.boke-confirm-actions button.boke-confirm-danger:hover {
+  filter: brightness(0.95);
 }
 
 .boke-palette {

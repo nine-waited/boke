@@ -1,5 +1,5 @@
 import type { VaultAdapter, VaultEntry } from "@boke/core";
-import { joinPath, normalizePath } from "@boke/core";
+import { joinPath, normalizePath, vaultTrashPath } from "@boke/core";
 
 export interface RemoteConfig {
   baseUrl: string;
@@ -76,11 +76,14 @@ export class RemoteRestAdapter implements VaultAdapter {
   }
 
   async delete(path: string): Promise<void> {
-    const res = await fetch(apiUrl(this.config, path), {
-      method: "DELETE",
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`Remote delete failed: ${res.status}`);
+    const normalized = normalizePath(path);
+    let dest = vaultTrashPath(normalized);
+    let attempt = 0;
+    while (await this.exists(dest)) {
+      attempt += 1;
+      dest = vaultTrashPath(normalized, `${Date.now()}-${attempt}`);
+    }
+    await this.rename(normalized, dest);
   }
 
   async rename(fromPath: string, toPath: string): Promise<void> {

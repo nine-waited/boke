@@ -9,6 +9,8 @@ import {
 } from "./types.js";
 import {
   notePicDirPath,
+  isInNotePicFolder,
+  isNotePicFolder,
   rewriteNotePicPaths,
   sanitizeImageFileName,
   toMarkdownAssetPath,
@@ -89,35 +91,53 @@ export class VaultService {
   async deletePath(path: string, kind: "file" | "directory"): Promise<void> {
     if (!this.adapter) throw new Error("No vault mounted");
     const normalized = normalizePath(path);
-    const prefix = `${normalized}/`;
+    const pathsToDelete = [normalized];
+
+    if (kind === "file" && isMarkdown(normalized)) {
+      const picDir = notePicDirPath(normalized);
+      if (await this.adapter.exists(picDir)) {
+        pathsToDelete.push(picDir);
+      }
+    }
 
     const allFiles = await listAllFiles(this.adapter);
-    for (const file of allFiles) {
-      if (file.path !== normalized && !file.path.startsWith(prefix)) continue;
-      const pending = this.saveTimers.get(file.path);
-      if (pending) {
-        clearTimeout(pending);
-        this.saveTimers.delete(file.path);
+    for (const targetPath of pathsToDelete) {
+      const prefix = `${targetPath}/`;
+      for (const file of allFiles) {
+        if (file.path !== targetPath && !file.path.startsWith(prefix)) continue;
+        const pending = this.saveTimers.get(file.path);
+        if (pending) {
+          clearTimeout(pending);
+          this.saveTimers.delete(file.path);
+        }
+        if (isMarkdown(file.path)) {
+          metadataCache.remove(file.path);
+          searchIndex.removeFile(file.path);
+        }
       }
-      if (isMarkdown(file.path)) {
-        metadataCache.remove(file.path);
-        searchIndex.removeFile(file.path);
+
+      if (targetPath === normalized && kind === "file") {
+        const pending = this.saveTimers.get(normalized);
+        if (pending) {
+          clearTimeout(pending);
+          this.saveTimers.delete(normalized);
+        }
+        if (isMarkdown(normalized)) {
+          metadataCache.remove(normalized);
+          searchIndex.removeFile(normalized);
+        }
       }
     }
 
-    if (kind === "file") {
-      const pending = this.saveTimers.get(normalized);
-      if (pending) {
-        clearTimeout(pending);
-        this.saveTimers.delete(normalized);
-      }
-      if (isMarkdown(normalized)) {
-        metadataCache.remove(normalized);
-        searchIndex.removeFile(normalized);
-      }
+    for (const targetPath of pathsToDelete) {
+      await this.adapter.delete(targetPath);
     }
+  }
 
-    await this.adapter.delete(normalized);
+  async notePicDirIfExists(mdPath: string): Promise<string | null> {
+    if (!this.adapter || !isMarkdown(mdPath)) return null;
+    const picDir = notePicDirPath(normalizePath(mdPath));
+    return (await this.adapter.exists(picDir)) ? picDir : null;
   }
 
   async listTree(dir = ""): Promise<import("./types.js").VaultEntry[]> {
@@ -144,6 +164,7 @@ export class VaultService {
   async createNote(dir = "", title = "Untitled"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
+    if (isInNotePicFolder(base)) throw new Error("Cannot create in a note image folder");
     if (base) await this.adapter.mkdir(base);
     let path = joinPath(base, `${title}.md`);
     let i = 1;
@@ -219,6 +240,7 @@ export class VaultService {
   async renameFolder(path: string, newName: string): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const normalized = normalizePath(path);
+    if (isNotePicFolder(normalized)) throw new Error("Cannot rename a note image folder");
     const safe = sanitizeFolderName(newName);
     const currentName = normalized.split("/").pop() ?? normalized;
     if (safe === currentName) return normalized;
@@ -265,6 +287,7 @@ export class VaultService {
   async createFolder(dir = "", title = "New folder"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const parent = normalizePath(dir);
+    if (isInNotePicFolder(parent)) throw new Error("Cannot create in a note image folder");
     if (parent) await this.adapter.mkdir(parent);
     const safe = sanitizeFolderName(title);
     let path = parent ? `${parent}/${safe}` : safe;
@@ -280,6 +303,7 @@ export class VaultService {
   async createExcalidraw(dir = "", title = "Drawing"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
+    if (isInNotePicFolder(base)) throw new Error("Cannot create in a note image folder");
     if (base) await this.adapter.mkdir(base);
     let path = joinPath(base, `${title}.excalidraw`);
     let i = 1;

@@ -12,14 +12,14 @@ import {
   type ReactNode,
 } from "react";
 import type { VaultEntry } from "@boke/core";
-import { fileBaseName, isExcalidraw, isHiddenPath, isImage, isMarkdown, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
+import { fileBaseName, isExcalidraw, isHiddenPath, isImage, isInNotePicFolder, isMarkdown, isNotePicFolder, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
 import {
   createAndOpenDrawing,
   createAndOpenNote,
   createFolder,
-  deleteVaultPath,
+  confirmAndDeleteVaultPath,
 } from "../note-actions.js";
-import { ExcalidrawGrayIcon, FolderGrayIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeCollapseGeneration } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
@@ -36,6 +36,8 @@ type ContextTarget =
 
 interface FileTreeContextValue {
   activePath: string | null;
+  focusedPath: string | null;
+  setFocusedPath: (path: string | null) => void;
   renamingPath: string | null;
   startRename: (path: string) => void;
   openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
@@ -138,6 +140,8 @@ function FileTreeFolderRow({
 }) {
   const ctx = useContext(FileTreeContext);
   const t = useT();
+  const isPicFolder = isNotePicFolder(folderPath);
+  const isFocused = ctx?.focusedPath === folderPath;
   const isRenaming = ctx?.renamingPath === folderPath;
   const [draft, setDraft] = useState(folderName);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -205,11 +209,15 @@ function FileTreeFolderRow({
   return (
     <TreeRow
       depth={depth}
-      className="boke-file-tree-dir"
-      onClick={onToggle}
+      className={`boke-file-tree-dir${isFocused ? " active" : ""}`}
+      onClick={() => {
+        ctx?.setFocusedPath(folderPath);
+        onToggle();
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        ctx?.setFocusedPath(folderPath);
         ctx?.openContextMenu(e, { kind: "folder", path: folderPath });
       }}
     >
@@ -217,7 +225,14 @@ function FileTreeFolderRow({
       <span className="boke-file-tree-icon boke-file-tree-icon--folder" aria-hidden="true">
         <FolderGrayIcon />
       </span>
-      <span className="boke-file-tree-name">{folderName}</span>
+      <span className="boke-file-tree-name-row">
+        <span className="boke-file-tree-name">{folderName}</span>
+        {isPicFolder && (
+          <span className="boke-file-tree-lock" title={t("fileTree.picFolderLocked")} aria-hidden="true">
+            <FolderLockIcon />
+          </span>
+        )}
+      </span>
     </TreeRow>
   );
 }
@@ -226,6 +241,8 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
   const ctx = useContext(FileTreeContext);
   const t = useT();
   const activePath = ctx?.activePath ?? null;
+  const isFocused = ctx?.focusedPath === entry.path;
+  const isActive = activePath === entry.path || isFocused;
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -272,6 +289,7 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
   const openFile = () => {
     if (isRenaming) return;
+    ctx?.setFocusedPath(entry.path);
     if (entry.path.endsWith(".excalidraw")) {
       workspaceStore.openExcalidraw(entry.path);
     } else if (isImage(entry.path)) {
@@ -304,12 +322,12 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
   return (
     <TreeRow
       depth={depth}
-      className={`boke-file-tree-file${activePath === entry.path ? " active" : ""}`}
+      className={`boke-file-tree-file${isActive ? " active" : ""}`}
       onClick={openFile}
       onContextMenu={(e) => {
-        if (!isRenamableFile(entry.path)) return;
         e.preventDefault();
         e.stopPropagation();
+        ctx?.setFocusedPath(entry.path);
         ctx?.openContextMenu(e, { kind: "file", path: entry.path });
       }}
     >
@@ -391,27 +409,29 @@ function FileTreeContextMenu({
     void action();
   };
 
-  const confirmDelete = (label: string, action: () => Promise<void>) => {
-    if (!window.confirm(t("fileTree.deleteConfirm", { name: label }))) return;
+  const confirmDelete = (label: string, path: string, kind: "file" | "directory") => {
     onClose();
-    void action();
+    void confirmAndDeleteVaultPath(path, kind, label);
   };
 
   if (target.kind === "file") {
     const name = target.path.split("/").pop() ?? target.path;
+    const canRename = isRenamableFile(target.path);
     return (
       <>
-        <button
-          type="button"
-          className="boke-context-menu-item"
-          onClick={() => run(() => onRename(target.path))}
-        >
-          {t("fileTree.rename")}
-        </button>
+        {canRename && (
+          <button
+            type="button"
+            className="boke-context-menu-item"
+            onClick={() => run(() => onRename(target.path))}
+          >
+            {t("fileTree.rename")}
+          </button>
+        )}
         <button
           type="button"
           className="boke-context-menu-item boke-context-menu-item--danger"
-          onClick={() => confirmDelete(name, () => deleteVaultPath(target.path, "file"))}
+          onClick={() => confirmDelete(name, target.path, "file")}
         >
           {t("fileTree.delete")}
         </button>
@@ -421,27 +441,38 @@ function FileTreeContextMenu({
 
   const folderLabel =
     target.kind === "root" ? t("fileTree.currentFolder") : (target.path.split("/").pop() ?? target.path);
+  const isPicFolder = target.kind === "folder" && isNotePicFolder(target.path);
+  const cannotCreateHere = isInNotePicFolder(parentDir);
 
   return (
     <>
       <button
         type="button"
-        className="boke-context-menu-item"
-        onClick={() => run(() => createAndOpenNote(parentDir))}
+        className={`boke-context-menu-item${cannotCreateHere ? " boke-context-menu-item--disabled" : ""}`}
+        onClick={() => {
+          if (cannotCreateHere) return;
+          run(() => createAndOpenNote(parentDir));
+        }}
       >
         {t("fileTree.newNote")}
       </button>
       <button
         type="button"
-        className="boke-context-menu-item"
-        onClick={() => run(() => createAndOpenDrawing(parentDir))}
+        className={`boke-context-menu-item${cannotCreateHere ? " boke-context-menu-item--disabled" : ""}`}
+        onClick={() => {
+          if (cannotCreateHere) return;
+          run(() => createAndOpenDrawing(parentDir));
+        }}
       >
         {t("fileTree.newDrawing")}
       </button>
       <button
         type="button"
-        className="boke-context-menu-item"
-        onClick={() => run(() => createFolder(parentDir))}
+        className={`boke-context-menu-item${cannotCreateHere ? " boke-context-menu-item--disabled" : ""}`}
+        onClick={() => {
+          if (cannotCreateHere) return;
+          run(() => createFolder(parentDir));
+        }}
       >
         {t("fileTree.newFolder")}
       </button>
@@ -449,15 +480,18 @@ function FileTreeContextMenu({
         <>
           <button
             type="button"
-            className="boke-context-menu-item"
-            onClick={() => run(() => onRename(target.path))}
+            className={`boke-context-menu-item${isPicFolder ? " boke-context-menu-item--disabled" : ""}`}
+            onClick={() => {
+              if (isPicFolder) return;
+              run(() => onRename(target.path));
+            }}
           >
             {t("fileTree.rename")}
           </button>
           <button
             type="button"
             className="boke-context-menu-item boke-context-menu-item--danger"
-            onClick={() => confirmDelete(folderLabel, () => deleteVaultPath(target.path, "directory"))}
+            onClick={() => confirmDelete(folderLabel, target.path, "directory")}
           >
             {t("fileTree.deleteFolder")}
           </button>
@@ -473,12 +507,19 @@ export function FileTree() {
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getActivePath(),
   );
+  const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     target: ContextTarget;
   } | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activePath) {
+      setFocusedPath(activePath);
+    }
+  }, [activePath]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -492,15 +533,25 @@ export function FileTree() {
   }, [contextMenu]);
 
   const startRename = useCallback((path: string) => {
+    if (path && isNotePicFolder(path)) return;
     setRenamingPath(path || null);
   }, []);
 
   const openContextMenu = useCallback((event: MouseEvent, target: ContextTarget) => {
+    if (target.kind === "root") {
+      setFocusedPath(null);
+    } else {
+      setFocusedPath(target.path);
+    }
     setContextMenu({ x: event.clientX, y: event.clientY, target });
   }, []);
 
   const commitRename = useCallback(
     async (path: string, title: string) => {
+      if (isNotePicFolder(path)) {
+        setRenamingPath(null);
+        return;
+      }
       try {
         const isFolder = !isMarkdown(path) && !isExcalidraw(path);
         const newPath = isFolder
@@ -525,6 +576,8 @@ export function FileTree() {
 
   const ctxValue: FileTreeContextValue = {
     activePath,
+    focusedPath,
+    setFocusedPath,
     renamingPath,
     startRename,
     openContextMenu,

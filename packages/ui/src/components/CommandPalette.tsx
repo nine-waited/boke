@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n/index.js";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
-import { deleteVaultPath } from "../note-actions.js";
+import { confirmAndDeleteVaultPath } from "../note-actions.js";
 
 export function CommandPalette() {
   const t = useT();
@@ -31,8 +31,8 @@ export function CommandPalette() {
   }, [open]);
 
   const deleteFile = async (path: string, label: string, index: number) => {
-    if (!window.confirm(t("fileTree.deleteConfirm", { name: label }))) return;
-    await deleteVaultPath(path, "file");
+    const deleted = await confirmAndDeleteVaultPath(path, "file", label);
+    if (!deleted) return;
     setFiles((prev) => prev.filter((f) => f.path !== path));
     setSelected((s) => {
       if (index < s) return s - 1;

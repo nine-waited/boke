@@ -2,6 +2,18 @@ import { joinPath, normalizePath } from "./types.js";
 
 export const NOTE_PIC_SUFFIX = "_pic";
 
+export function isNotePicFolder(pathOrName: string): boolean {
+  const name = pathOrName.split("/").pop() ?? pathOrName;
+  return name.endsWith(NOTE_PIC_SUFFIX);
+}
+
+/** True when `path` is a `_pic` folder or nested inside one. */
+export function isInNotePicFolder(path: string): boolean {
+  const normalized = normalizePath(path);
+  if (!normalized) return false;
+  return normalized.split("/").some((segment) => segment.endsWith(NOTE_PIC_SUFFIX));
+}
+
 function noteFileBaseName(path: string): string {
   const name = path.split("/").pop() ?? path;
   return name.replace(/\.(md|excalidraw)$/i, "");

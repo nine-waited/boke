@@ -35,6 +35,13 @@ export function joinPath(...parts: string[]): string {
   return normalizePath(parts.filter(Boolean).join("/"));
 }
 
+/** Vault-relative trash destination for soft-deleted items. */
+export function vaultTrashPath(originalPath: string, stamp?: string): string {
+  const normalized = normalizePath(originalPath);
+  const bucket = stamp ?? String(Date.now());
+  return joinPath(".boke/trash", bucket, normalized);
+}
+
 export function isMarkdown(path: string): boolean {
   return path.toLowerCase().endsWith(".md");
 }

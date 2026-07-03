@@ -98,12 +98,7 @@ fn vault_write_binary(path: String, content: Vec<u8>) -> Result<(), String> {
 
 #[tauri::command]
 fn vault_delete(path: String) -> Result<(), String> {
-    let p = Path::new(&path);
-    if p.is_dir() {
-        fs::remove_dir_all(p).map_err(|e| e.to_string())
-    } else {
-        fs::remove_file(p).map_err(|e| e.to_string())
-    }
+    trash::delete(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

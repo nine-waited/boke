@@ -25,6 +25,7 @@ import {
   commandRegistry,
 } from "./store.js";
 import { registerCoreCommands } from "./commands.js";
+import { ConfirmDialogHost } from "./confirm-dialog.js";
 import { createAndOpenNote } from "./note-actions.js";
 
 const ExcalidrawView = lazy(() =>
@@ -205,6 +206,7 @@ export function App() {
 
       <CommandPalette />
       <SearchPanel />
+      <ConfirmDialogHost />
       <GlobalKeyboardShortcuts />
     </div>
   );
