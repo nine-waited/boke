@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "pnpm --filter @boke/desktop tauri dev -t x86_64-pc-windows-msvc",
     "build": "pnpm --filter @boke/desktop build",
+    "clean:desktop": "node scripts/clean-desktop-build.mjs",
     "build:desktop": "pnpm --filter @boke/desktop tauri build -t x86_64-pc-windows-msvc",
+    "build:desktop:win64": "pnpm clean:desktop && pnpm build:desktop",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"
   },

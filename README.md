@@ -73,6 +73,21 @@ First release build — generate icons:
 
 ```bash
 cd apps/desktop && pnpm tauri icon public/favicon.svg
+```
+
+**64-bit Windows installer (NSIS `.exe`)** — cleans build cache, then bundles x64 only:
+
+```bash
+pnpm build:desktop:win64
+```
+
+Output: `apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Boke_*-setup.exe`
+
+The installer refuses 32-bit Windows. WebView2 is downloaded at install time (not bundled as a 127 MB offline cache).
+
+Legacy build without cache clean:
+
+```bash
 pnpm build:desktop
 ```
 
