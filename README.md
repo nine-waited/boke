@@ -8,6 +8,20 @@ English · [中文](README.zh-CN.md)
 
 Boke is a **desktop** app (Tauri 2) that reads and writes plain files in a folder you choose. Your vault is just files on disk — no proprietary database, no cloud requirement.
 
+## Screenshot
+
+![Boke desktop UI](docs/images/desktop-ui.png)
+
+## Interface overview
+
+| Area | Description |
+|------|-------------|
+| **Top toolbar** | Shows the current vault path (editable). **Quick open**, **Search**, and **Settings** on the right. |
+| **Left sidebar** | Icons to create a note, Excalidraw drawing, or folder. Below is the file tree — open, rename, or delete files and folders. |
+| **Editor (center)** | Tab bar for open files. **Live** / **Source** toggle for Markdown. Title bar for renaming the note. Block-based editing with real-time preview; paste or drag images inline. |
+| **Outline (right)** | Table of contents from headings; click to jump within the note. |
+| **Status bar** | App status at the bottom (e.g. Ready). |
+
 ## What it stores
 
 | Type | Format |
@@ -15,7 +29,6 @@ Boke is a **desktop** app (Tauri 2) that reads and writes plain files in a folde
 | Notes | `.md` |
 | Drawings | `.excalidraw` |
 | Images | Saved next to notes (e.g. `{NoteName}_pic/`) |
-| App config | `.boke/` (settings, optional plugins) |
 
 ## Features
 
@@ -92,10 +105,10 @@ boke/
 ├── packages/
 │   ├── core              # Vault service, metadata, search
 │   ├── ui                # React UI
-│   ├── plugin-sdk        # Plugin API types
 │   └── storage-adapters  # Local filesystem adapter
 ├── examples/             # Sample vault
 └── docs/
+    └── images/           # README screenshots
 ```
 
 ## License
