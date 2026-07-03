@@ -11,6 +11,8 @@ import { CommandPalette } from "./components/CommandPalette.js";
 import { SearchPanel } from "./components/SearchPanel.js";
 import { GlobalKeyboardShortcuts } from "./components/GlobalKeyboardShortcuts.js";
 import { ToolbarVaultPath } from "./components/ToolbarVaultPath.js";
+import { ToolbarIconButton } from "./components/ToolbarIconButton.js";
+import { QuickOpenIcon, SearchIcon, SettingsIcon } from "./icons/toolbar-icons.js";
 import { formatShortcutLabel } from "./keyboard-shortcuts.js";
 import { useT } from "./i18n/index.js";
 import {
@@ -118,23 +120,39 @@ export function App() {
 
   return (
     <div className="boke-app">
-      <div className="boke-toolbar">
-        <span className="boke-toolbar-brand">Boke</span>
-        <ToolbarVaultPath />
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={() => setCommandPaletteOpen(true)}
-          title={formatShortcutLabel(keyboardShortcuts["quick-open"])}
-        >
-          {t("toolbar.quickOpen")}
-        </button>
-        <button
-          onClick={() => setSearchOpen(true)}
-          title={formatShortcutLabel(keyboardShortcuts.search)}
-        >
-          {t("toolbar.search")}
-        </button>
-        <button onClick={() => commandRegistry.run("boke:open-settings")}>{t("toolbar.settings")}</button>
+      <div className={`boke-toolbar${vaultMounted ? " boke-toolbar--vault-mounted" : ""}`}>
+        <div className="boke-toolbar-side">
+          <div className="boke-toolbar-leading">
+            <span className="boke-toolbar-brand">Boke</span>
+            <ToolbarVaultPath />
+          </div>
+        </div>
+        <div className="boke-toolbar-center">
+          <div className="boke-toolbar-actions">
+            <ToolbarIconButton
+              label={t("toolbar.quickOpenTooltip", {
+                shortcut: formatShortcutLabel(keyboardShortcuts["quick-open"]),
+              })}
+              onClick={() => setCommandPaletteOpen(true)}
+            >
+              <QuickOpenIcon />
+            </ToolbarIconButton>
+            <ToolbarIconButton
+              label={t("toolbar.searchTooltip", {
+                shortcut: formatShortcutLabel(keyboardShortcuts.search),
+              })}
+              onClick={() => setSearchOpen(true)}
+            >
+              <SearchIcon />
+            </ToolbarIconButton>
+            <ToolbarIconButton
+              label={t("toolbar.settingsTooltip")}
+              onClick={() => commandRegistry.run("boke:open-settings")}
+            >
+              <SettingsIcon />
+            </ToolbarIconButton>
+          </div>
+        </div>
       </div>
 
       <div className="boke-main">

@@ -1,22 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
-import {
-  normalizeVaultPathInput,
-  resolveVaultDisplayPath,
-} from "../vault-path-utils.js";
+import { resolveVaultDisplayPath, isPickCancelled } from "../vault-path-utils.js";
 import { useT } from "../i18n/index.js";
+import { toolbarPathGroupStyle } from "../toolbar-path-layout.js";
 import { useAppStore } from "../store.js";
-import { VaultPathPickButton } from "./VaultPathPickButton.js";
+import { VaultPathCopyButton } from "./VaultPathCopyButton.js";
 
-function VaultPathGroup({ children }: { children: ReactNode }) {
-  const setStatusText = useAppStore((s) => s.setStatusText);
+function VaultPathGroup({ path, children }: { path: string; children: ReactNode }) {
   return (
-    <div className="boke-toolbar-path-group">
+    <div className="boke-toolbar-path-group" style={toolbarPathGroupStyle()}>
       {children}
-      <VaultPathPickButton
-        className="boke-toolbar-path-reveal"
-        onError={setStatusText}
-      />
+      <VaultPathCopyButton className="boke-toolbar-path-reveal" path={path} />
     </div>
   );
 }
@@ -29,54 +23,16 @@ export function ToolbarVaultPath() {
   const mountVault = useAppStore((s) => s.mountVault);
   const setStatusText = useAppStore((s) => s.setStatusText);
 
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const committingRef = useRef(false);
-
   const displayPath = resolveVaultDisplayPath(localVaultPath, vaultKind);
 
-  useEffect(() => {
-    if (!editing) return;
-    setDraft(displayPath);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    });
-  }, [editing, displayPath]);
-
-  const commit = useCallback(async () => {
-    if (committingRef.current) return;
-    committingRef.current = true;
-    setEditing(false);
-
+  const pickFolder = async () => {
     try {
-      const trimmed = draft.trim();
-      if (!trimmed) {
-        await mountVault(await TauriFsAdapter.default());
-        return;
-      }
-
-      const normalized = normalizeVaultPathInput(trimmed);
-      const current = localVaultPath ? normalizeVaultPathInput(localVaultPath) : "";
-      if (normalized === current) return;
-
-      await mountVault(await TauriFsAdapter.open(normalized));
+      const adapter = await TauriFsAdapter.pick();
+      await mountVault(adapter);
     } catch (err) {
-      console.error("[boke] vault path change failed:", err);
-      setStatusText(t("status.vaultPathInvalid"));
-    } finally {
-      committingRef.current = false;
-    }
-  }, [draft, localVaultPath, mountVault, setStatusText, t]);
-
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      void commit();
-    } else if (e.key === "Escape") {
-      setEditing(false);
-      setDraft(displayPath);
+      if (isPickCancelled(err)) return;
+      console.error("[boke] pick vault folder failed:", err);
+      setStatusText(t("status.pickFolderFailed"));
     }
   };
 
@@ -93,33 +49,17 @@ export function ToolbarVaultPath() {
     return null;
   }
 
-  if (editing) {
-    return (
-      <VaultPathGroup>
-        <input
-          ref={inputRef}
-          className="boke-toolbar-path-input"
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => void commit()}
-          onKeyDown={onKeyDown}
-          spellCheck={false}
-          aria-label={t("toolbar.vaultPathAria")}
-        />
-      </VaultPathGroup>
-    );
-  }
-
   return (
-    <VaultPathGroup>
-      <span
+    <VaultPathGroup path={displayPath}>
+      <button
+        type="button"
         className="boke-toolbar-path"
-        title={t("toolbar.vaultPathHint", { path: displayPath })}
-        onClick={() => setEditing(true)}
+        title={t("toolbar.vaultPathPickHint", { path: displayPath })}
+        aria-label={t("toolbar.pickFolderAria")}
+        onClick={() => void pickFolder()}
       >
         {displayPath}
-      </span>
+      </button>
     </VaultPathGroup>
   );
 }
