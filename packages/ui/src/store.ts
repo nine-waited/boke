@@ -38,6 +38,7 @@ export interface AppState {
   locale: Locale;
   uiFont: UiFont;
   theme: AppTheme;
+  deleteImageFilesOnRemove: boolean;
   statusText: string;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
@@ -56,6 +57,7 @@ export interface AppActions {
   setLocale: (locale: Locale) => void;
   setUiFont: (font: UiFont) => void;
   setTheme: (theme: AppTheme) => void;
+  setDeleteImageFilesOnRemove: (enabled: boolean) => void;
   setStatusText: (text: string) => void;
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -72,6 +74,7 @@ interface PersistedSettings {
   locale?: Locale;
   uiFont?: UiFont;
   theme?: AppTheme;
+  deleteImageFilesOnRemove?: boolean;
   sidebarWidth?: number;
   sidebarCollapsed?: boolean;
 }
@@ -96,6 +99,7 @@ function saveSettings(state: AppState): void {
       locale: state.locale,
       uiFont: state.uiFont,
       theme: state.theme,
+      deleteImageFilesOnRemove: state.deleteImageFilesOnRemove,
       sidebarWidth: state.sidebarWidth,
       sidebarCollapsed: state.sidebarCollapsed,
     }),
@@ -226,6 +230,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   locale: saved.locale ?? detectLocale(),
   uiFont: resolveUiFont(saved.uiFont),
   theme: resolveAppTheme(saved.theme),
+  deleteImageFilesOnRemove: saved.deleteImageFilesOnRemove ?? true,
   statusText: "",
   sidebarWidth: clampSidebarWidth(saved.sidebarWidth ?? SIDEBAR_WIDTH_DEFAULT),
   sidebarCollapsed: saved.sidebarCollapsed ?? false,
@@ -313,6 +318,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   setTheme: (theme) => {
     set({ theme });
     applyAppTheme(theme);
+    saveSettings(get());
+  },
+  setDeleteImageFilesOnRemove: (enabled) => {
+    set({ deleteImageFilesOnRemove: enabled });
     saveSettings(get());
   },
   setStatusText: (text) => set({ statusText: text }),

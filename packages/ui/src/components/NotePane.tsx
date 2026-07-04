@@ -5,7 +5,6 @@ import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./Markdow
 import { OutlinePanel } from "./OutlinePanel.js";
 import type { OutlineHeading } from "../markdown-outline.js";
 import { formatImageMarkdown, savePastedNoteImage } from "../note-images.js";
-import { attachImageClickHandlers } from "../image-open.js";
 import { isDefaultUntitledName, useLocale, useT } from "../i18n/index.js";
 import { eventBus, useAppStore, vaultService, workspaceStore } from "../store.js";
 
@@ -120,12 +119,6 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
       .finally(() => setLoading(false));
     eventBus.emit("file-open", { path });
   }, [path]);
-
-  useEffect(() => {
-    const pane = notePaneRef.current;
-    if (!pane || viewMode !== "live") return;
-    return attachImageClickHandlers(pane, path);
-  }, [path, viewMode, content]);
 
   const onChange = useCallback(
     (next: string) => {

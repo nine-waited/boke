@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   absolutePathToVaultRelative,
+  extractMarkdownImageRefs,
+  markdownReferencesImage,
   normalizeMarkdownAssetRef,
   resolveNoteImageVaultPath,
 } from "./note-images.js";
@@ -44,5 +46,36 @@ describe("resolveNoteImageVaultPath", () => {
 
   it("resolves bare filenames relative to the note directory", () => {
     expect(resolveNoteImageVaultPath("image.png", notePath)).toBe("notes/sub/image.png");
+  });
+});
+
+describe("extractMarkdownImageRefs", () => {
+  it("extracts plain and angle-bracket image paths", () => {
+    const md = [
+      "![a](foo_pic/a.png)",
+      '![b](<C:/vault/note_pic/spaced name.png>)',
+      '![c](bar.png "caption")',
+    ].join("\n");
+    expect(extractMarkdownImageRefs(md)).toEqual([
+      "foo_pic/a.png",
+      "C:/vault/note_pic/spaced name.png",
+      "bar.png",
+    ]);
+  });
+});
+
+describe("markdownReferencesImage", () => {
+  const notePath = "notes/foo.md";
+  const vaultPath = "notes/foo_pic/image.png";
+  const root = "C:/vault";
+
+  it("detects references in markdown", () => {
+    expect(markdownReferencesImage("![x](foo_pic/image.png)", vaultPath, notePath)).toBe(true);
+    expect(markdownReferencesImage("![x](foo_pic/other.png)", vaultPath, notePath)).toBe(false);
+  });
+
+  it("detects absolute paths under vault root", () => {
+    const md = "![x](<C:/vault/notes/foo_pic/image.png>)";
+    expect(markdownReferencesImage(md, vaultPath, notePath, root)).toBe(true);
   });
 });

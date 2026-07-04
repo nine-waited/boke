@@ -1,11 +1,14 @@
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { editorViewCtx } from "@milkdown/kit/core";
+import type { Ctx } from "@milkdown/ctx";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
-import { replaceAll } from "@milkdown/utils";
+import { replaceAll, getMarkdown } from "@milkdown/utils";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type MutableRefObject } from "react";
 import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
+import { attachNoteImageSelectHandlers } from "../note-image-select.js";
+import { deleteNoteImageFileOnRemove, getImageVaultPathFromView } from "../note-image-delete.js";
 import { getT } from "../i18n/index.js";
 import "../crepe-theme.css";
 
@@ -23,6 +26,84 @@ interface MarkdownEditorProps {
 
 interface MilkdownCrepeEditorProps extends MarkdownEditorProps {
   crepeRef: MutableRefObject<Crepe | null>;
+}
+
+function deleteImageAtDom(view: EditorView, img: HTMLImageElement): boolean {
+  let deleted = false;
+  view.state.doc.descendants((node, pos) => {
+    if (deleted) return false;
+    const name = node.type.name.toLowerCase();
+    if (!name.includes("image")) return;
+    const domNode = view.nodeDOM(pos);
+    if (domNode === img || (domNode instanceof HTMLElement && domNode.contains(img))) {
+      view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize));
+      deleted = true;
+      return false;
+    }
+    return undefined;
+  });
+  return deleted;
+}
+
+function findImageNodeAtDom(
+  view: EditorView,
+  img: HTMLImageElement,
+): { pos: number; nodeSize: number } | null {
+  let found: { pos: number; nodeSize: number } | null = null;
+  view.state.doc.descendants((node, pos) => {
+    if (found) return false;
+    const name = node.type.name.toLowerCase();
+    if (!name.includes("image")) return;
+    const domNode = view.nodeDOM(pos);
+    if (domNode === img || (domNode instanceof HTMLElement && domNode.contains(img))) {
+      found = { pos, nodeSize: node.nodeSize };
+      return false;
+    }
+    return undefined;
+  });
+  return found;
+}
+
+function insertLineBelowImageAtDom(view: EditorView, img: HTMLImageElement): boolean {
+  const imageNode = findImageNodeAtDom(view, img);
+  if (!imageNode) return false;
+
+  const { state } = view;
+  const insertPos = imageNode.pos + imageNode.nodeSize;
+  const paragraphType = state.schema.nodes.paragraph;
+  if (!paragraphType) return false;
+
+  const nodeAfter = insertPos < state.doc.content.size ? state.doc.nodeAt(insertPos) : null;
+  if (nodeAfter?.type === paragraphType && nodeAfter.content.size === 0) {
+    const cursorPos = insertPos + 1;
+    view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, cursorPos)));
+    view.focus();
+    return true;
+  }
+
+  const paragraph = paragraphType.create();
+  const tr = state.tr.insert(insertPos, paragraph);
+  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+  view.dispatch(tr);
+  view.focus();
+  return true;
+}
+
+function updateImageCaptionAtDom(view: EditorView, img: HTMLImageElement, caption: string): boolean {
+  const imageNode = findImageNodeAtDom(view, img);
+  if (!imageNode) return false;
+
+  const node = view.state.doc.nodeAt(imageNode.pos);
+  if (!node) return false;
+
+  const attr = node.type.name === "image-block" ? "caption" : "alt";
+  view.dispatch(view.state.tr.setNodeAttribute(imageNode.pos, attr, caption));
+  return true;
+}
+
+function refreshEditorMarkdown(ctx: Ctx) {
+  const markdown = getMarkdown()(ctx);
+  replaceAll(markdown, true)(ctx);
 }
 
 function findHeadingPos(view: EditorView, markdown: string, docLine: number): number | null {
@@ -66,12 +147,14 @@ function MilkdownCrepeEditor({
   const notePathRef = useRef(notePath);
   const lastEmitted = useRef(content);
   const skipExternalSync = useRef(false);
+  const editorRootRef = useRef<HTMLElement | null>(null);
 
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
   notePathRef.current = notePath;
 
   const { loading } = useEditor((root) => {
+    editorRootRef.current = root;
     const uploadImage = async (file: File) => savePastedNoteImage(notePathRef.current, file);
 
     const t = getT();
@@ -92,6 +175,8 @@ function MilkdownCrepeEditor({
           inlineOnUpload: uploadImage,
           blockOnUpload: uploadImage,
           proxyDomURL: (url) => resolveImageSrcForDisplay(url),
+          blockCaptionIcon: "",
+          blockCaptionPlaceholderText: t("note.imageCaptionPlaceholder"),
         },
       },
     });
@@ -128,6 +213,82 @@ function MilkdownCrepeEditor({
       // Editor may still be initializing.
     }
   }, [content, loading, crepeRef]);
+
+  useEffect(() => {
+    if (loading || presentation !== "live") return;
+    const crepe = crepeRef.current;
+    if (!crepe) return;
+
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    let boundEditor: HTMLElement | null = null;
+
+    const bindIfNeeded = () => {
+      const root = editorRootRef.current;
+      const editorEl =
+        root?.querySelector<HTMLElement>(".ProseMirror") ??
+        root?.closest<HTMLElement>(".ProseMirror") ??
+        root;
+      if (!(editorEl instanceof HTMLElement) || editorEl === boundEditor) return;
+
+      cleanup?.();
+      boundEditor = editorEl;
+      cleanup = attachNoteImageSelectHandlers(editorEl, {
+        onDelete: async (img) => {
+          await crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            const vaultPath = getImageVaultPathFromView(view, img, notePathRef.current);
+            deleteImageAtDom(view, img);
+            if (!vaultPath) return;
+            const md = getMarkdown()(ctx);
+            void deleteNoteImageFileOnRemove(vaultPath, notePathRef.current, md);
+          });
+        },
+        onInsertLineBelow: (img) => {
+          crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            insertLineBelowImageAtDom(view, img);
+          });
+        },
+        onUpdateCaption: async (img, caption) => {
+          await crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            if (!updateImageCaptionAtDom(view, img, caption)) return;
+            refreshEditorMarkdown(ctx);
+          });
+        },
+      });
+    };
+
+    const tryAttach = () => {
+      if (cancelled) return;
+      if (!editorRootRef.current?.querySelector(".ProseMirror")) {
+        requestAnimationFrame(tryAttach);
+        return;
+      }
+      bindIfNeeded();
+    };
+
+    tryAttach();
+
+    const root = editorRootRef.current;
+    const observer =
+      root &&
+      new MutationObserver(() => {
+        if (cancelled) return;
+        bindIfNeeded();
+      });
+    if (observer && root) {
+      observer.observe(root, { childList: true, subtree: true });
+    }
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+      cleanup?.();
+      boundEditor = null;
+    };
+  }, [loading, presentation, crepeRef]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

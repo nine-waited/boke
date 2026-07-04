@@ -139,6 +139,51 @@ export function formatImageMarkdown(imagePath: string, alt = ""): string {
   return `![${alt}](${dest})`;
 }
 
+const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\s*\)/g;
+
+/** Extract raw image URL/path strings from markdown image syntax. */
+export function extractMarkdownImageRefs(content: string): string[] {
+  const refs: string[] = [];
+  for (const match of content.matchAll(MARKDOWN_IMAGE_RE)) {
+    const ref = (match[1] ?? match[2] ?? "").trim();
+    if (ref) refs.push(ref);
+  }
+  return refs;
+}
+
+function resolveMarkdownImageRefToVaultPath(
+  ref: string,
+  notePath: string,
+  vaultRoot?: string | null,
+): string | null {
+  const fromNote = resolveNoteImageVaultPath(ref, notePath);
+  if (fromNote) return fromNote;
+
+  const normalized = normalizeMarkdownAssetRef(ref);
+  if (vaultRoot && /^[a-zA-Z]:\//.test(normalized)) {
+    const rel = absolutePathToVaultRelative(normalized, vaultRoot);
+    if (rel) return rel;
+  }
+
+  const bare = resolvePathSegments(normalized);
+  return bare && !/^https?:\/\//i.test(bare) && isImage(bare) ? bare : null;
+}
+
+/** True when markdown content references the given vault-relative image path. */
+export function markdownReferencesImage(
+  content: string,
+  vaultPath: string,
+  notePath: string,
+  vaultRoot?: string | null,
+): boolean {
+  const target = normalizePath(vaultPath);
+  for (const ref of extractMarkdownImageRefs(content)) {
+    const resolved = resolveMarkdownImageRefToVaultPath(ref, notePath, vaultRoot);
+    if (resolved && normalizePath(resolved) === target) return true;
+  }
+  return false;
+}
+
 export function rewriteNotePicPaths(
   content: string,
   oldPicDir: string,

@@ -5,6 +5,7 @@ import { UI_FONTS, type UiFont } from "../ui-font.js";
 import type { AppTheme } from "../ui-theme.js";
 import { SettingsLocalVaultPath } from "./SettingsLocalVaultPath.js";
 import { SettingsKeyboardShortcuts } from "./SettingsKeyboardShortcuts.js";
+import { SettingsDeleteImageFilesToggle } from "./SettingsDeleteImageFilesToggle.js";
 
 export function SettingsPanel() {
   const t = useT();
@@ -60,6 +61,9 @@ export function SettingsPanel() {
       <h3>{t("settings.localStorage")}</h3>
       <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>{t("settings.localStorageHint")}</p>
       <SettingsLocalVaultPath />
+
+      <h3>{t("settings.notes")}</h3>
+      <SettingsDeleteImageFilesToggle />
 
       <h3>{t("settings.shortcuts")}</h3>
       <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>{t("settings.shortcutsHint")}</p>
