@@ -59,8 +59,6 @@
   --crepe-color-hover: var(--boke-surface);
   --crepe-color-selected: var(--boke-surface);
   --crepe-color-inline-area: var(--boke-bg-tertiary);
-  --crepe-font-default: var(--boke-font);
-  --crepe-font-title: var(--boke-font);
 }
 
 [data-theme="dark"] .boke-source-editor .cm-wikilink {
@@ -758,6 +756,7 @@ body.boke-sidebar-resizing * {
   display: block;
   width: 100%;
   padding: 0 16px;
+  font-family: var(--boke-font);
   font-size: 1.65rem;
   font-weight: 600;
   line-height: 1.35;
@@ -1572,6 +1571,9 @@ body.boke-sidebar-resizing * {
 
 .boke-milkdown-wrap .milkdown {
   min-height: 100%;
+  --crepe-font-default: var(--boke-font);
+  --crepe-font-title: var(--boke-font);
+  --crepe-font-code: var(--boke-mono);
 }
 
 .boke-note-pane {
