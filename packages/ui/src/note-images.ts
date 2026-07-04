@@ -1,4 +1,4 @@
-import { absolutePathToVaultRelative, formatImageMarkdown, normalizeMarkdownAssetRef, normalizePath } from "@boke/core";
+import { absolutePathToVaultRelative, formatImageMarkdown, normalizeMarkdownAssetRef, normalizePath } from "@chestnut/core";
 import { trackImageDisplayUrl } from "./image-open.js";
 import { useAppStore, vaultService } from "./store.js";
 

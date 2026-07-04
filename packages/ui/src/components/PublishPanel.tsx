@@ -83,7 +83,7 @@ export function PublishPanel() {
   <channel>
     <title>Knowledge Blog</title>
     <link>${baseUrl}</link>
-    <description>Published notes from Boke</description>
+    <description>Published notes from Chestnut Editor</description>
 ${rssItems.join("\n")}
   </channel>
 </rss>`);

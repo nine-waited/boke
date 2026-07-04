@@ -1,5 +1,5 @@
-import type { VaultAdapter, VaultEntry } from "@boke/core";
-import { joinPath, normalizePath, vaultTrashPath } from "@boke/core";
+import type { VaultAdapter, VaultEntry } from "@chestnut/core";
+import { joinPath, normalizePath, vaultTrashPath } from "@chestnut/core";
 
 export interface RemoteConfig {
   baseUrl: string;

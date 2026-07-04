@@ -1,5 +1,5 @@
 {
-  "name": "@boke/ui",
+  "name": "@chestnut/ui",
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@boke/core": "workspace:*",
-    "@boke/plugin-sdk": "workspace:*",
-    "@boke/storage-adapters": "workspace:*",
+    "@chestnut/core": "workspace:*",
+    "@chestnut/plugin-sdk": "workspace:*",
+    "@chestnut/storage-adapters": "workspace:*",
     "@chinese-fonts/xiaolai": "^3.0.0",
     "@chinese-fonts/yozai": "^3.0.0",
     "@codemirror/commands": "^6.10.4",

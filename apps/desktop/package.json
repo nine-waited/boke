@@ -1,5 +1,5 @@
 {
-  "name": "@boke/desktop",
+  "name": "@chestnut/desktop",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@boke/ui": "workspace:*",
+    "@chestnut/ui": "workspace:*",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "react": "^19.0.0",

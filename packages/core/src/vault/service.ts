@@ -54,7 +54,7 @@ export class VaultService {
         const { body } = stripFrontmatter(content);
         searchIndex.indexFile(cache, body);
       } catch (err) {
-        console.warn(`[boke] failed to index ${file.path}:`, err);
+        console.warn(`[Chestnut] failed to index ${file.path}:`, err);
       }
     }
   }
@@ -323,7 +323,7 @@ export class VaultService {
       {
         type: "excalidraw",
         version: 2,
-        source: "boke",
+        source: "Chestnut",
         elements: [],
         appState: { viewBackgroundColor: "#ffffff" },
         files: {},

@@ -9,10 +9,10 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@boke/ui": path.resolve(__dirname, "../../packages/ui/src"),
-      "@boke/core": path.resolve(__dirname, "../../packages/core/src"),
-      "@boke/plugin-sdk": path.resolve(__dirname, "../../packages/plugin-sdk/src"),
-      "@boke/storage-adapters": path.resolve(__dirname, "../../packages/storage-adapters/src"),
+      "@chestnut/ui": path.resolve(__dirname, "../../packages/ui/src"),
+      "@chestnut/core": path.resolve(__dirname, "../../packages/core/src"),
+      "@chestnut/plugin-sdk": path.resolve(__dirname, "../../packages/plugin-sdk/src"),
+      "@chestnut/storage-adapters": path.resolve(__dirname, "../../packages/storage-adapters/src"),
     },
   },
   server: {

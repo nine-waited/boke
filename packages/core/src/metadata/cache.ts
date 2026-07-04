@@ -4,7 +4,7 @@ const TAG_RE = /(?:^|\s)#([a-zA-Z\u4e00-\u9fff][\w\u4e00-\u9fff/-]*)/g;
 const HEADING_RE = /^(#{1,6})\s+(.+)$/gm;
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 
-import type { FileCache } from "@boke/plugin-sdk";
+import type { FileCache } from "@chestnut/plugin-sdk";
 import { normalizePath } from "../vault/types.js";
 
 function parseFrontmatter(content: string): { frontmatter: Record<string, unknown>; body: string } {

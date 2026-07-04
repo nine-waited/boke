@@ -1,6 +1,6 @@
 # Cloud storage reference server
 
-Reference FastAPI implementation for Boke's REST vault API. The desktop app (`RemoteRestAdapter`) talks to this API; production cloud service will evolve from this codebase.
+Reference FastAPI implementation for Chestnut's REST vault API. The desktop app (`RemoteRestAdapter`) talks to this API; production cloud service will evolve from this codebase.
 
 ## Quick start
 

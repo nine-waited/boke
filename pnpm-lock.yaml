@@ -10,7 +10,7 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@boke/ui':
+      '@chestnut/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@tauri-apps/api':
@@ -47,7 +47,7 @@ importers:
 
   packages/core:
     dependencies:
-      '@boke/plugin-sdk':
+      '@chestnut/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
       minisearch:
@@ -69,7 +69,7 @@ importers:
 
   packages/storage-adapters:
     dependencies:
-      '@boke/core':
+      '@chestnut/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -82,13 +82,13 @@ importers:
 
   packages/ui:
     dependencies:
-      '@boke/core':
+      '@chestnut/core':
         specifier: workspace:*
         version: link:../core
-      '@boke/plugin-sdk':
+      '@chestnut/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
-      '@boke/storage-adapters':
+      '@chestnut/storage-adapters':
         specifier: workspace:*
         version: link:../storage-adapters
       '@chinese-fonts/xiaolai':

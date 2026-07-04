@@ -1,14 +1,14 @@
 ---
 name: git-sync
 description: >-
-  Bidirectional Git sync (pull + push) for the Boke repo on GitCode. Use when the
+  Bidirectional Git sync (pull + push) for the Chestnut repo on GitCode. Use when the
   user asks to sync, pull, push, upload/download code, 同步, 拉取, 推送, or work
   with https://gitcode.com/Nineee999/boke.git.
 ---
 
-# Boke Git 双向同步
+# Chestnut Git 双向同步
 
-在 **仓库根目录**（含 `package.json` 的 `boke/`）执行所有 Git 命令。
+在 **仓库根目录**（含 `package.json`，建议目录名 `chestnut/`）执行所有 Git 命令。
 
 ## 仓库约定
 
@@ -90,7 +90,7 @@ git pull --rebase origin main
 
 1. `git status` 列出 `both modified` 文件
 2. 打开文件，去掉 `<<<<<<<` / `=======` / `>>>>>>>` 标记
-3. 保留正确内容（Boke 项目文档优先保留完整 `README.md`）
+3. 保留正确内容（Chestnut 项目文档优先保留完整 `README.md`）
 4. `git add <file>` → `git commit -m "Merge remote main and resolve conflicts."`
 
 常见冲突：`README.md`（远程常为简短占位，本地为完整项目说明）。

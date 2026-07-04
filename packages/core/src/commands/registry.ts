@@ -1,4 +1,4 @@
-import type { Command } from "@boke/plugin-sdk";
+import type { Command } from "@chestnut/plugin-sdk";
 
 export class CommandRegistry {
   private commands = new Map<string, Command>();
@@ -6,7 +6,7 @@ export class CommandRegistry {
 
   register(command: Command): () => void {
     if (this.commands.has(command.id)) {
-      console.warn(`[boke] Command "${command.id}" already registered; overwriting.`);
+      console.warn(`[Chestnut] Command "${command.id}" already registered; overwriting.`);
     }
     this.commands.set(command.id, command);
     this.notify();

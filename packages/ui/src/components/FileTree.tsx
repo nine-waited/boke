@@ -12,8 +12,8 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import type { VaultEntry } from "@boke/core";
-import { fileBaseName, isExcalidraw, isExportTargetFolder, isHiddenPath, isImage, isInExportTargetFolder, isInNotePicFolder, isMarkdown, isNotePicFolder, isPdf, sanitizeFolderName, sanitizeNoteTitle, sortFileTreeEntries } from "@boke/core";
+import type { VaultEntry } from "@chestnut/core";
+import { fileBaseName, isExcalidraw, isExportTargetFolder, isHiddenPath, isImage, isInExportTargetFolder, isInNotePicFolder, isMarkdown, isNotePicFolder, isPdf, sanitizeFolderName, sanitizeNoteTitle, sortFileTreeEntries } from "@chestnut/core";
 import {
   createAndOpenDrawing,
   createAndOpenNote,
@@ -25,7 +25,7 @@ import {
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeCollapseGeneration, useFileTreeReveal } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
-import { isTauri } from "@boke/storage-adapters";
+import { isTauri } from "@chestnut/storage-adapters";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 
 interface FileTreeProps {
@@ -484,7 +484,7 @@ function FileTreeContextMenuExportPdfItem({
           try {
             await exportNoteToPdf(path);
           } catch (err) {
-            console.error("[boke] export pdf failed:", err);
+            console.error("[Chestnut] export pdf failed:", err);
             setStatusText(t("status.exportPdfFailed"));
           }
         });
@@ -667,7 +667,7 @@ export function FileTree() {
           refreshTree();
         }
       } catch (err) {
-        console.warn("[boke] rename failed:", err);
+        console.warn("[Chestnut] rename failed:", err);
       } finally {
         setRenamingPath(null);
       }

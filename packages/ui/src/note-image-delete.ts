@@ -3,7 +3,7 @@ import {
   markdownReferencesImage,
   normalizePath,
   notePicDirPath,
-} from "@boke/core";
+} from "@chestnut/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { resolveImageVaultPath } from "./image-open.js";
 import { useAppStore, vaultService } from "./store.js";

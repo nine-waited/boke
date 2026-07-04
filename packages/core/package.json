@@ -1,5 +1,5 @@
 {
-  "name": "@boke/core",
+  "name": "@chestnut/core",
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@boke/plugin-sdk": "workspace:*",
+    "@chestnut/plugin-sdk": "workspace:*",
     "minisearch": "^7.1.2"
   },
   "devDependencies": {

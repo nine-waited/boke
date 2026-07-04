@@ -1,5 +1,5 @@
 import MiniSearch from "minisearch";
-import type { FileCache } from "@boke/plugin-sdk";
+import type { FileCache } from "@chestnut/plugin-sdk";
 
 export interface SearchResult {
   path: string;

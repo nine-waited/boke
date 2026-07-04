@@ -113,34 +113,34 @@ export function itemStyle(): CSSProperties {
 
 ## 组合模式（三场景同时满足）
 
-Boke 顶栏参考实现：
+Chestnut 顶栏参考实现：
 
 | 文件 | 作用 |
 |------|------|
-| `App.tsx` | `boke-toolbar-side` > `boke-toolbar-leading` > Logo + Path |
-| `styles.css` | `.boke-toolbar-side { align-items: center }`、`.boke-toolbar-leading { align-items: flex-end }` |
+| `App.tsx` | `Chestnut-toolbar-side` > `Chestnut-toolbar-leading` > Logo + Path |
+| `styles.css` | `.chestnut-toolbar-side { align-items: center }`、`.chestnut-toolbar-leading { align-items: flex-end }` |
 | `toolbar-path-layout.ts` | `copyOffsetYPx` + `copyButtonStyle()` |
 | `VaultPathCopyButton.tsx` | `style={copyButtonStyle()}` 仅移动复制图标 |
 
 ```css
-.boke-toolbar-side {
+.chestnut-toolbar-side {
   display: flex;
   align-items: center; /* 场景 3 */
 }
 
-.boke-toolbar-leading {
+.chestnut-toolbar-leading {
   display: flex;
   align-items: flex-end; /* 场景 1 */
   gap: 8px;
 }
 
-.boke-toolbar-path-group {
+.chestnut-toolbar-path-group {
   display: inline-flex;
   align-items: flex-end; /* 路径 + 复制图标底对齐 */
 }
 
-.boke-toolbar .boke-toolbar-path-reveal {
-  transform: translateY(var(--boke-toolbar-path-copy-offset-y, 0)); /* 场景 2 备用 */
+.chestnut-toolbar .chestnut-toolbar-path-reveal {
+  transform: translateY(var(--Chestnut-toolbar-path-copy-offset-y, 0)); /* 场景 2 备用 */
 }
 ```
 

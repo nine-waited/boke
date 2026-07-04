@@ -1,12 +1,12 @@
 ---
 name: start-desktop
 description: >-
-  Start or build the Boke desktop app (Tauri). Use immediately when the user says
+  Start or build the Chestnut desktop app (Tauri). Use immediately when the user says
   启动项目, 启动桌面版, 帮我以exe的方式启动, exe启动, 桌面版, 开一下应用,
   pnpm dev — execute without asking for confirmation.
 ---
 
-# 启动 Boke 桌面版
+# 启动 Chestnut 桌面版
 
 用户要启动/编译桌面版时，**直接执行**，不要反复确认。
 
@@ -14,11 +14,11 @@ description: >-
 
 | 项 | 值 |
 |---|---|
-| 仓库根 | 含 `package.json` 的 `boke/` |
+| 仓库根 | 含 `package.json` 的项目根目录（建议目录名 `chestnut/`） |
 | 开发启动 | `pnpm dev`（Tauri dev，MSVC 目标） |
 | 打包 exe | `pnpm build:desktop` |
 | 前端 dev 端口 | 1420（仅 Tauri 内嵌，不是给用户开的网站） |
-| 成功标志 | 弹出 **Boke — Knowledge Manager** 窗口 |
+| 成功标志 | 弹出 **Chestnut Editor** 窗口 |
 | 存储 | 本地文件夹 + 可配置 REST 云端 |
 
 ## 前置条件（Windows，首次或失败时核对）
@@ -82,14 +82,14 @@ PowerShell 用 `;` 连接命令，不要用 `&&`（除非在 `cmd /c` 内）。
 轮询终端直到出现：
 
 ```
-Running `target\debug\boke.exe`
+Running `target\debug\Chestnut.exe`
 ```
 
 或进程持续运行且无报错。首次全量编译约 **3～10 分钟**；超时 10 分钟再报错。
 
 ### 5. 回复用户
 
-> 桌面版已启动，请查看弹出的 Boke 窗口。
+> 桌面版已启动，请查看弹出的 Chestnut 窗口。
 
 ## 常见错误与处理
 
@@ -117,7 +117,7 @@ cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxi
 
 产物：
 
-- `apps/desktop/src-tauri/target/release/boke.exe`
+- `apps/desktop/src-tauri/target/release/Chestnut.exe`
 - 安装包：`apps/desktop/src-tauri/target/release/bundle/`
 
 ## 不要做的事

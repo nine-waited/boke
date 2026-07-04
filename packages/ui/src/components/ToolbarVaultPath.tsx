@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
+import { isTauri, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { resolveVaultDisplayPath, isPickCancelled } from "../vault-path-utils.js";
 import { useT } from "../i18n/index.js";
 import { toolbarPathGroupStyle } from "../toolbar-path-layout.js";
@@ -31,7 +31,7 @@ export function ToolbarVaultPath() {
       await mountVault(adapter);
     } catch (err) {
       if (isPickCancelled(err)) return;
-      console.error("[boke] pick vault folder failed:", err);
+      console.error("[Chestnut] pick vault folder failed:", err);
       setStatusText(t("status.pickFolderFailed"));
     }
   };

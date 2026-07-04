@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { normalizeLeafMode, noteBaseName, sanitizeNoteTitle, type LeafMode } from "@boke/core";
+import { normalizeLeafMode, noteBaseName, sanitizeNoteTitle, type LeafMode } from "@chestnut/core";
 import { MarkdownEditor, type MarkdownEditorHandle } from "./MarkdownEditor.js";
 import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./MarkdownSourceEditor.js";
 import { OutlinePanel } from "./OutlinePanel.js";
@@ -63,7 +63,7 @@ function NoteTitleBar({
         refreshTree();
       }
     } catch (err) {
-      console.warn("[boke] rename failed:", err);
+      console.warn("[Chestnut] rename failed:", err);
       setDraft(noteBaseName(path));
     } finally {
       committingRef.current = false;

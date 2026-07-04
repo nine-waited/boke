@@ -1,6 +1,6 @@
 # Cloud storage (REST API)
 
-Boke desktop can connect to a remote vault service over HTTP. The desktop app stores API settings locally (Base URL, Bearer token, vault path).
+Chestnut desktop can connect to a remote vault service over HTTP. The desktop app stores API settings locally (Base URL, Bearer token, vault path).
 
 ## Reference server
 
@@ -34,7 +34,7 @@ copy .env.example .env
 python main.py
 ```
 
-In Boke Settings → 云端存储:
+In Chestnut Settings → 云端存储:
 
 - Base URL: `http://localhost:8787`
 - Token: value from `.env` (`BOKE_API_TOKEN`)
@@ -46,7 +46,7 @@ See [server/nginx.conf.example](../server/nginx.conf.example) for reverse-proxy 
 
 ```bash
 export BOKE_API_TOKEN=long-random-token
-export BOKE_DATA_DIR=/var/lib/boke/data
+export BOKE_DATA_DIR=/var/lib/Chestnut/data
 uvicorn main:app --host 127.0.0.1 --port 8787
 ```
 

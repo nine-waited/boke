@@ -1,5 +1,5 @@
 {
-  "name": "@boke/storage-adapters",
+  "name": "@chestnut/storage-adapters",
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@boke/core": "workspace:*"
+    "@chestnut/core": "workspace:*"
   },
   "devDependencies": {
     "@tauri-apps/plugin-fs": "^2.2.0",

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { VaultAdapter } from "@boke/core";
+import type { VaultAdapter } from "@chestnut/core";
 import {
   commandRegistry,
   eventBus,
@@ -7,12 +7,12 @@ import {
   searchIndex,
   vaultService,
   workspaceStore,
-} from "@boke/core";
-import type { PluginApi, PluginManifest } from "@boke/plugin-sdk";
-import { APP_VERSION } from "@boke/plugin-sdk";
-import { PluginHost } from "@boke/core";
-import type { RemoteConfig } from "@boke/storage-adapters";
-import { DEFAULT_README_PATH, ensureDefaultReadme } from "./default-readme.js";
+} from "@chestnut/core";
+import type { PluginApi, PluginManifest } from "@chestnut/plugin-sdk";
+import { APP_VERSION } from "@chestnut/plugin-sdk";
+import { PluginHost } from "@chestnut/core";
+import type { RemoteConfig } from "@chestnut/storage-adapters";
+import { ensureDefaultReadme, getDefaultReadmePathForLocale, resolveWelcomeReadmePath } from "./default-readme.js";
 import {
   DEFAULT_SHORTCUTS,
   loadKeyboardShortcuts,
@@ -64,7 +64,8 @@ export interface AppActions {
   toggleSidebarCollapsed: () => void;
 }
 
-const SETTINGS_KEY = "boke-app-settings";
+const SETTINGS_KEY = "chestnut-app-settings";
+const LEGACY_SETTINGS_KEY = "boke-app-settings";
 
 interface PersistedSettings {
   enabledPlugins?: string[];
@@ -81,7 +82,8 @@ interface PersistedSettings {
 
 function loadSettings(): PersistedSettings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw =
+      localStorage.getItem(SETTINGS_KEY) ?? localStorage.getItem(LEGACY_SETTINGS_KEY);
     return raw ? (JSON.parse(raw) as PersistedSettings) : {};
   } catch {
     return {};
@@ -111,12 +113,12 @@ const pluginHost = new PluginHost({
   readPluginModule: async (pluginId, main) => {
     const adapter = vaultService.getAdapter();
     if (!adapter) throw new Error("No vault");
-    const code = await adapter.read(`.boke/plugins/${pluginId}/${main}`);
+    const code = await adapter.read(`.chestnut/plugins/${pluginId}/${main}`);
     const blob = new Blob([code], { type: "text/javascript" });
     const url = URL.createObjectURL(blob);
     try {
       const mod = await import(/* @vite-ignore */ url);
-      return mod as import("@boke/plugin-sdk").PluginExports;
+      return mod as import("@chestnut/plugin-sdk").PluginExports;
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -125,12 +127,12 @@ const pluginHost = new PluginHost({
     const adapter = vaultService.getAdapter();
     if (!adapter) return [];
     try {
-      const entries = await adapter.list(".boke/plugins");
+      const entries = await adapter.list(".chestnut/plugins");
       const manifests: PluginManifest[] = [];
       for (const e of entries) {
         if (e.kind !== "directory") continue;
         try {
-          const raw = await adapter.read(`.boke/plugins/${e.name}/manifest.json`);
+          const raw = await adapter.read(`.chestnut/plugins/${e.name}/manifest.json`);
           manifests.push(JSON.parse(raw) as PluginManifest);
         } catch {
           /* skip */
@@ -145,7 +147,7 @@ const pluginHost = new PluginHost({
     const adapter = vaultService.getAdapter();
     if (!adapter) return null;
     try {
-      const raw = await adapter.read(`.boke/plugins/${pluginId}/data.json`);
+      const raw = await adapter.read(`.chestnut/plugins/${pluginId}/data.json`);
       return JSON.parse(raw);
     } catch {
       return null;
@@ -154,8 +156,8 @@ const pluginHost = new PluginHost({
   savePluginData: async (pluginId, data) => {
     const adapter = vaultService.getAdapter();
     if (!adapter) return;
-    await adapter.mkdir(`.boke/plugins/${pluginId}`);
-    await adapter.write(`.boke/plugins/${pluginId}/data.json`, JSON.stringify(data, null, 2));
+    await adapter.mkdir(`.chestnut/plugins/${pluginId}`);
+    await adapter.write(`.chestnut/plugins/${pluginId}/data.json`, JSON.stringify(data, null, 2));
   },
 });
 
@@ -201,7 +203,7 @@ function buildPluginApi(pluginId: string): PluginApi {
         };
       },
     },
-    boke: { version: APP_VERSION },
+    chestnut: { version: APP_VERSION },
     loadData: () => pluginHost.loadData(pluginId) as Promise<null>,
     saveData: (data) => pluginHost.saveData(pluginId, data),
     addSettingsTab: () => () => {},
@@ -242,7 +244,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const created = await ensureDefaultReadme(
         (path) => vaultAdapter.exists(path),
         (path, content) => vaultService.write(path, content, true),
-        get().locale,
       );
       if (created) {
         await vaultService.reindex();
@@ -255,8 +256,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     for (const id of get().enabledPlugins) {
       try {
         if (vaultAdapter) {
-          const raw = await vaultAdapter.read(`.boke/plugins/${id}/manifest.json`);
-          const manifest = JSON.parse(raw) as import("@boke/plugin-sdk").PluginManifest;
+          const raw = await vaultAdapter.read(`.chestnut/plugins/${id}/manifest.json`);
+          const manifest = JSON.parse(raw) as import("@chestnut/plugin-sdk").PluginManifest;
           await pluginHost.enable(id, manifest);
         }
       } catch (err) {
@@ -274,7 +275,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
     const workspace = workspaceStore.getState();
     if (!workspace.active || workspace.active.type === "empty") {
-      workspaceStore.openFile(DEFAULT_README_PATH);
+      const welcomePath = vaultAdapter
+        ? await resolveWelcomeReadmePath(get().locale, (path) => vaultAdapter.exists(path))
+        : getDefaultReadmePathForLocale(get().locale);
+      workspaceStore.openFile(welcomePath);
     }
   },
 

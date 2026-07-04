@@ -1,15 +1,15 @@
 {
-  "name": "boke",
+  "name": "chestnut",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop-first Markdown + Excalidraw knowledge manager",
+  "description": "Chestnut Editor — desktop Markdown and Excalidraw editor",
   "license": "MIT",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "pnpm --filter @boke/desktop tauri dev -t x86_64-pc-windows-msvc",
-    "build": "pnpm --filter @boke/desktop build",
+    "dev": "pnpm --filter @chestnut/desktop tauri dev -t x86_64-pc-windows-msvc",
+    "build": "pnpm --filter @chestnut/desktop build",
     "clean:desktop": "node scripts/clean-desktop-build.mjs",
-    "build:desktop": "pnpm --filter @boke/desktop tauri build -t x86_64-pc-windows-msvc",
+    "build:desktop": "pnpm --filter @chestnut/desktop tauri build -t x86_64-pc-windows-msvc",
     "build:desktop:win64": "pnpm clean:desktop && pnpm build:desktop",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"

@@ -1,4 +1,4 @@
-import { isImage, normalizePath, normalizeMarkdownAssetRef, absolutePathToVaultRelative, resolveNoteImageVaultPath } from "@boke/core";
+import { isImage, normalizePath, normalizeMarkdownAssetRef, absolutePathToVaultRelative, resolveNoteImageVaultPath } from "@chestnut/core";
 import { workspaceStore } from "./store.js";
 
 const displayUrlToVaultPath = new Map<string, string>();

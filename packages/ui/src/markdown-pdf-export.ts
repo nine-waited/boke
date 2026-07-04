@@ -1,6 +1,6 @@
 import html2pdf from "html2pdf.js";
-import { fileBaseName, pdfPathForMarkdown } from "@boke/core";
-import { isTauri } from "@boke/storage-adapters";
+import { fileBaseName, pdfPathForMarkdown } from "@chestnut/core";
+import { isTauri } from "@chestnut/storage-adapters";
 import { useExportProgressStore } from "./export-progress.js";
 import {
   buildMarkdownExportBody,

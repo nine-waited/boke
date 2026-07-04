@@ -39,7 +39,7 @@ export function joinPath(...parts: string[]): string {
 export function vaultTrashPath(originalPath: string, stamp?: string): string {
   const normalized = normalizePath(originalPath);
   const bucket = stamp ?? String(Date.now());
-  return joinPath(".boke/trash", bucket, normalized);
+  return joinPath(".chestnut/trash", bucket, normalized);
 }
 
 export function isMarkdown(path: string): boolean {
@@ -66,7 +66,7 @@ export function isAttachment(path: string): boolean {
   );
 }
 
-const HIDDEN = new Set([".boke", ".obsidian", ".git", "node_modules"]);
+const HIDDEN = new Set([".chestnut", ".boke", ".obsidian", ".git", "node_modules"]);
 
 export function isHiddenPath(path: string): boolean {
   const parts = normalizePath(path).split("/");

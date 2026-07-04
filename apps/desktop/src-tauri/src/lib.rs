@@ -49,7 +49,7 @@ fn home_dir() -> Result<PathBuf, String> {
 
 #[tauri::command]
 fn default_vault_path() -> Result<String, String> {
-  let path = home_dir()?.join(".boke");
+  let path = home_dir()?.join(".chestnut");
   fs::create_dir_all(&path).map_err(|e| e.to_string())?;
   Ok(path.to_string_lossy().to_string())
 }

@@ -1,4 +1,4 @@
-import { parseMarkdownFile } from "@boke/core";
+import { parseMarkdownFile } from "@chestnut/core";
 
 const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 

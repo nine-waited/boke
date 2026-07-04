@@ -1,4 +1,4 @@
-import { absolutePathToVaultRelative, isImage, normalizeMarkdownAssetRef, normalizePath } from "@boke/core";
+import { absolutePathToVaultRelative, isImage, normalizeMarkdownAssetRef, normalizePath } from "@chestnut/core";
 import { renderMarkdown } from "./markdown.js";
 import { resolveImageVaultPath } from "./image-open.js";
 import { vaultService } from "./store.js";

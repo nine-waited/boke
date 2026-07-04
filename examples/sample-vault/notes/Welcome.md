@@ -1,6 +1,6 @@
 ---
-title: Welcome to Boke
-tags: [boke, welcome]
+title: Welcome to Chestnut
+tags: [Chestnut, welcome]
 publish: true
 slug: welcome
 date: 2026-07-01
@@ -8,7 +8,7 @@ date: 2026-07-01
 
 # Welcome
 
-This is a sample vault for **Boke** — a local-first knowledge manager.
+This is a sample vault for **Chestnut Editor** — a local-first Markdown editor.
 
 ## Features
 

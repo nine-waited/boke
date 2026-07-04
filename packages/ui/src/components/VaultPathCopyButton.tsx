@@ -18,7 +18,7 @@ export function VaultPathCopyButton({
       await navigator.clipboard.writeText(path);
       setStatusText(t("status.vaultPathCopied"));
     } catch (err) {
-      console.error("[boke] copy vault path failed:", err);
+      console.error("[Chestnut] copy vault path failed:", err);
       setStatusText(t("status.copyFailed"));
     }
   };

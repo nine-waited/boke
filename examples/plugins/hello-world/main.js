@@ -1,4 +1,4 @@
-/** @type {import('@boke/plugin-sdk').PluginExports} */
+/** @type {import('@chestnut/plugin-sdk').PluginExports} */
 export const onLoad = (api) => {
   const dispose = api.commands.register({
     id: "hello-world:greet",

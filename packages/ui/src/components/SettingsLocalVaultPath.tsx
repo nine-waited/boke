@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
+import { isTauri, TauriFsAdapter } from "@chestnut/storage-adapters";
 import {
   normalizeVaultPathInput,
   resolveVaultDisplayPath,
@@ -40,7 +40,7 @@ export function SettingsLocalVaultPath() {
 
       await mountVault(await TauriFsAdapter.open(normalized));
     } catch (err) {
-      console.error("[boke] vault path change failed:", err);
+      console.error("[Chestnut] vault path change failed:", err);
       setStatusText(t("status.vaultPathInvalid"));
       setDraft(displayPath);
     } finally {

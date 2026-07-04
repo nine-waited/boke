@@ -1,5 +1,5 @@
 import { useSyncExternalStore, useEffect, useRef, lazy, Suspense, type CSSProperties } from "react";
-import { isTauri, TauriFsAdapter } from "@boke/storage-adapters";
+import { isTauri, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
 import { FileTreeExpandProvider } from "./file-tree-expand-context.js";
@@ -143,7 +143,7 @@ export function App() {
       <div className={`boke-toolbar${vaultMounted ? " boke-toolbar--vault-mounted" : ""}`}>
         <div className="boke-toolbar-side">
           <div className="boke-toolbar-leading">
-            <span className="boke-toolbar-brand">Boke</span>
+            <span className="boke-toolbar-brand">Chestnut</span>
             <ToolbarVaultPath />
           </div>
         </div>
@@ -167,7 +167,7 @@ export function App() {
             </ToolbarIconButton>
             <ToolbarIconButton
               label={t("toolbar.settingsTooltip")}
-              onClick={() => commandRegistry.run("boke:open-settings")}
+              onClick={() => commandRegistry.run("chestnut:open-settings")}
             >
               <SettingsIcon />
             </ToolbarIconButton>

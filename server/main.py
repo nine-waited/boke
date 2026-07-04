@@ -1,5 +1,5 @@
 """
-Boke Remote Vault Server — FastAPI file-based storage API.
+Chestnut Remote Vault Server — FastAPI file-based storage API.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ ATTACHMENTS_DIR = DATA_DIR / "attachments"
 
 API_TOKEN = os.environ.get("BOKE_API_TOKEN", "dev-token-change-me")
 
-app = FastAPI(title="Boke Vault API", version="0.1.0")
+app = FastAPI(title="Chestnut Vault API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

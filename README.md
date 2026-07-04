@@ -1,16 +1,16 @@
-# Boke
+# Chestnut
 
-**Desktop knowledge app for local Markdown and Excalidraw files.**
+**Chestnut Editor — desktop app for local Markdown and Excalidraw files.**
 
 English · [中文](README.zh-CN.md)
 
 ---
 
-Boke is a **desktop** app (Tauri 2) that reads and writes plain files in a folder you choose. Your vault is just files on disk — no proprietary database, no cloud requirement.
+Chestnut Editor is a **desktop** app (Tauri 2) that reads and writes plain files in a folder you choose. Your vault is just files on disk — no proprietary database, no cloud requirement.
 
 ## Screenshot
 
-![Boke desktop UI](docs/images/desktop-ui.png)
+![Chestnut desktop UI](docs/images/desktop-ui.png)
 
 ## Interface overview
 
@@ -34,7 +34,7 @@ Boke is a **desktop** app (Tauri 2) that reads and writes plain files in a folde
 
 **Vault**
 
-- Pick any local folder as the vault; default on first launch: `~/.boke`
+- Pick any local folder as the vault; default on first launch: `~/.chestnut`
 - Auto-save: Markdown ~400 ms debounce; Excalidraw ~600 ms debounce
 - `Ctrl+S` saves the current note or drawing immediately
 - File tree with create, rename, and delete (filesystem operations)
@@ -72,12 +72,12 @@ Boke is a **desktop** app (Tauri 2) that reads and writes plain files in a folde
 **Prerequisites:** Node.js 20+, pnpm 9+, Rust and [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) (Windows: MSVC Build Tools).
 
 ```bash
-cd boke
+cd Chestnut
 pnpm install
 pnpm dev
 ```
 
-On first launch the app opens `~/.boke` (created if missing).
+On first launch the app opens `~/.chestnut` (created if missing).
 
 **Change vault folder:** edit the path in the toolbar, use the folder icon, or set it under **Settings → Local storage**.
 
@@ -89,7 +89,7 @@ On first launch the app opens `~/.boke` (created if missing).
 pnpm build:desktop:win64
 ```
 
-Output: `apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Boke_*-setup.exe`
+Output: `apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Chestnut_*-setup.exe`
 
 First release build — generate icons:
 
@@ -100,7 +100,7 @@ cd apps/desktop && pnpm tauri icon public/favicon.svg
 ## Project structure
 
 ```
-boke/
+Chestnut/
 ├── apps/desktop          # Tauri desktop app
 ├── packages/
 │   ├── core              # Vault service, metadata, search

@@ -143,20 +143,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "boke-desktop"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "opener",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "trash",
-]
-
-[[package]]
 name = "brotli"
 version = "8.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -333,6 +319,20 @@ name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+
+[[package]]
+name = "chestnut-desktop"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "opener",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "trash",
+]
 
 [[package]]
 name = "chrono"

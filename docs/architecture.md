@@ -2,7 +2,7 @@
 
 ## Overview
 
-Boke is a pnpm monorepo: **Tauri desktop app** + shared TypeScript packages. v0.1 focuses on local folder access and configurable cloud storage via REST API.
+Chestnut is a pnpm monorepo: **Tauri desktop app** + shared TypeScript packages. v0.1 focuses on local folder access and configurable cloud storage via REST API.
 
 ```mermaid
 flowchart LR
@@ -20,7 +20,7 @@ flowchart LR
 my-vault/
 ├── notes/*.md
 ├── attachments/*
-├── .boke/
+├── .chestnut/
 │   ├── plugins/{id}/manifest.json + main.js
 │   └── themes/*.css
 └── .obsidian/   (read-only compat, optional)
@@ -44,7 +44,7 @@ Both implement `VaultAdapter` in `packages/core/src/vault/types.ts`.
 
 ## Plugin host
 
-Plugins are ES modules loaded from `.boke/plugins/{id}/main.js` via dynamic `import()`. They receive a whitelisted `PluginApi` (no raw `fs` / `require`).
+Plugins are ES modules loaded from `.chestnut/plugins/{id}/main.js` via dynamic `import()`. They receive a whitelisted `PluginApi` (no raw `fs` / `require`).
 
 Lifecycle: `onLoad(api)` → register commands / status bar → `onUnload(api)` on disable.
 

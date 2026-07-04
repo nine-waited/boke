@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    boke_desktop_lib::run()
+    chestnut_desktop_lib::run()
 }

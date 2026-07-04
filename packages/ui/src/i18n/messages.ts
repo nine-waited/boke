@@ -146,7 +146,7 @@ const en: MessageTable = {
   "commands.openSettings": "Open settings",
   "commands.openPublish": "Open publish panel",
   "commands.toggleSource": "Toggle source mode",
-  "commands.category": "Boke",
+  "commands.category": "Chestnut",
   "shortcuts.quick-open": "Quick open",
   "shortcuts.search": "Full-text search",
 };
@@ -289,7 +289,7 @@ const zhCN: MessageTable = {
   "commands.openSettings": "打开设置",
   "commands.openPublish": "打开发布面板",
   "commands.toggleSource": "切换源码模式",
-  "commands.category": "Boke",
+  "commands.category": "Chestnut",
   "shortcuts.quick-open": "快速打开",
   "shortcuts.search": "全文搜索",
 };
@@ -321,9 +321,9 @@ export function applyDocumentLang(locale: Locale): void {
   document.documentElement.lang = locale === "zh-CN" ? "zh-CN" : "en";
 }
 
-const README_EN = `# Welcome to Boke
+const README_EN = `# Welcome to Chestnut Editor
 
-Boke is a personal knowledge manager. Your notes and drawings live as plain files in a folder you control.
+Chestnut Editor is a personal Markdown and Excalidraw editor. Your notes and drawings live as plain files in a folder you control.
 
 ## Get started
 
@@ -340,9 +340,9 @@ Boke is a personal knowledge manager. Your notes and drawings live as plain file
 Start writing your first note here.
 `;
 
-const README_ZH = `# 欢迎使用 Boke
+const README_ZH = `# 欢迎使用 Chestnut Editor
 
-Boke 是一款面向个人的知识管理应用，笔记与绘图都以普通文件保存在你指定的文件夹中。
+Chestnut Editor 是一款面向个人的 Markdown 与 Excalidraw 编辑器，笔记与绘图都以普通文件保存在你指定的文件夹中。
 
 ## 快速开始
 
@@ -358,6 +358,14 @@ Boke 是一款面向个人的知识管理应用，笔记与绘图都以普通文
 
 从这里开始，写下属于你的第一条笔记吧。
 `;
+
+export function getDefaultReadmeEnContent(): string {
+  return README_EN;
+}
+
+export function getDefaultReadmeCnContent(): string {
+  return README_ZH;
+}
 
 export function getDefaultReadmeContent(locale: Locale): string {
   return locale === "zh-CN" ? README_ZH : README_EN;

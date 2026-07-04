@@ -1,5 +1,5 @@
-import type { VaultAdapter, VaultEntry } from "@boke/core";
-import { joinPath, normalizePath } from "@boke/core";
+import type { VaultAdapter, VaultEntry } from "@chestnut/core";
+import { joinPath, normalizePath } from "@chestnut/core";
 
 function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -32,7 +32,7 @@ export class TauriFsAdapter implements VaultAdapter {
 
   static async default(): Promise<TauriFsAdapter> {
     const path = await invoke<string>("default_vault_path");
-    return new TauriFsAdapter(path, ".boke");
+    return new TauriFsAdapter(path, ".chestnut");
   }
 
   static async open(path: string): Promise<TauriFsAdapter> {

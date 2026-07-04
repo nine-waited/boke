@@ -6,8 +6,8 @@ import type {
   PluginManifest,
   PluginSettingsTabSpec,
   PluginStatusBarItemHandle,
-} from "@boke/plugin-sdk";
-import { APP_VERSION } from "@boke/plugin-sdk";
+} from "@chestnut/plugin-sdk";
+import { APP_VERSION } from "@chestnut/plugin-sdk";
 
 type PluginContext = {
   id: string;
@@ -118,7 +118,7 @@ export class PluginHost {
       log(...args: unknown[]) {
         console.log(`[plugin:${pluginId}]`, ...args);
       },
-      boke: { version: APP_VERSION },
+      chestnut: { version: APP_VERSION },
     };
   }
 }
@@ -140,7 +140,7 @@ export class EventBus {
       try {
         listener(data as never);
       } catch (err) {
-        console.error(`[boke] event listener "${event}" threw:`, err);
+        console.error(`[Chestnut] event listener "${event}" threw:`, err);
       }
     }
   }

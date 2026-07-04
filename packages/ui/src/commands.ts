@@ -6,7 +6,7 @@ export function registerCoreCommands(): void {
   const t = getT();
 
   commandRegistry.register({
-    id: "boke:new-note",
+    id: "chestnut:new-note",
     name: t("commands.newNote"),
     category: t("commands.category"),
     callback: async () => {
@@ -15,7 +15,7 @@ export function registerCoreCommands(): void {
   });
 
   commandRegistry.register({
-    id: "boke:new-drawing",
+    id: "chestnut:new-drawing",
     name: t("commands.newDrawing"),
     category: t("commands.category"),
     callback: async () => {
@@ -24,7 +24,7 @@ export function registerCoreCommands(): void {
   });
 
   commandRegistry.register({
-    id: "boke:open-graph",
+    id: "chestnut:open-graph",
     name: t("commands.openGraph"),
     category: t("commands.category"),
     callback: () => {
@@ -33,7 +33,7 @@ export function registerCoreCommands(): void {
   });
 
   commandRegistry.register({
-    id: "boke:open-settings",
+    id: "chestnut:open-settings",
     name: t("commands.openSettings"),
     category: t("commands.category"),
     callback: () => {
@@ -42,7 +42,7 @@ export function registerCoreCommands(): void {
   });
 
   commandRegistry.register({
-    id: "boke:open-publish",
+    id: "chestnut:open-publish",
     name: t("commands.openPublish"),
     category: t("commands.category"),
     callback: () => {
@@ -51,7 +51,7 @@ export function registerCoreCommands(): void {
   });
 
   commandRegistry.register({
-    id: "boke:toggle-source",
+    id: "chestnut:toggle-source",
     name: t("commands.toggleSource"),
     category: t("commands.category"),
     callback: () => {

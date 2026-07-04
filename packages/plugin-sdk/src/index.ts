@@ -1,4 +1,4 @@
-/** Plugin manifest stored in `.boke/plugins/{id}/manifest.json` */
+/** Plugin manifest stored in `.chestnut/plugins/{id}/manifest.json` */
 export interface PluginManifest {
   readonly id: string;
   readonly name: string;
@@ -111,7 +111,7 @@ export interface WorkspaceApi {
   getActivePath(): string | null;
 }
 
-export interface BokeApi {
+export interface ChestnutApi {
   readonly version: string;
 }
 
@@ -122,7 +122,7 @@ export interface PluginApi {
   readonly metadataCache: MetadataCacheApi;
   readonly events: PluginEventsApi;
   readonly statusBar: PluginStatusBarApi;
-  readonly boke: BokeApi;
+  readonly chestnut: ChestnutApi;
   loadData<T = unknown>(): Promise<T | null>;
   saveData(data: unknown): Promise<void>;
   addSettingsTab(spec: PluginSettingsTabSpec): () => void;

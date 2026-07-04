@@ -2,7 +2,7 @@
 
 ## Install a plugin
 
-1. Create `.boke/plugins/my-plugin/` in your vault
+1. Create `.chestnut/plugins/my-plugin/` in your vault
 2. Add `manifest.json`:
 
 ```json
@@ -28,7 +28,7 @@
 | `metadataCache` | Backlinks, tags, file cache |
 | `events` | `file-open`, `file-save`, etc. |
 | `statusBar` | Status bar items |
-| `loadData` / `saveData` | Persist plugin state in `.boke/plugins/{id}/data.json` |
+| `loadData` / `saveData` | Persist plugin state in `.chestnut/plugins/{id}/data.json` |
 | `addSettingsTab` | Settings UI tab |
 | `log` | Prefixed console logging |
 
@@ -38,10 +38,10 @@ See [examples/plugins/hello-world](../examples/plugins/hello-world/).
 
 ## TypeScript
 
-For editor hints, reference `@boke/plugin-sdk` types in JSDoc:
+For editor hints, reference `@chestnut/plugin-sdk` types in JSDoc:
 
 ```js
-/** @type {import('@boke/plugin-sdk').PluginExports} */
+/** @type {import('@chestnut/plugin-sdk').PluginExports} */
 export const onLoad = (api) => { ... };
 ```
 

@@ -1,4 +1,4 @@
-import { TauriFsAdapter } from "@boke/storage-adapters";
+import { TauriFsAdapter } from "@chestnut/storage-adapters";
 import { FolderToolbarIcon } from "../icons/sidebar-icons.js";
 import { useT } from "../i18n/index.js";
 import { isPickCancelled, resolveVaultDisplayPath } from "../vault-path-utils.js";
@@ -23,7 +23,7 @@ export function VaultPathPickButton({
       await mountVault(adapter);
     } catch (err) {
       if (isPickCancelled(err)) return;
-      console.error("[boke] pick vault folder failed:", err);
+      console.error("[Chestnut] pick vault folder failed:", err);
       onError(t("status.pickFolderFailed"));
     }
   };

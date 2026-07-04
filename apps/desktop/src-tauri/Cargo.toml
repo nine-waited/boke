@@ -1,12 +1,12 @@
 [package]
-name = "boke-desktop"
+name = "chestnut-desktop"
 version = "0.1.0"
-description = "Boke Knowledge Manager Desktop"
-authors = ["Boke Contributors"]
+description = "Chestnut Editor Desktop"
+authors = ["Chestnut Contributors"]
 edition = "2021"
 
 [lib]
-name = "boke_desktop_lib"
+name = "chestnut_desktop_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]
