@@ -22,6 +22,7 @@ import {
 import { applyDocumentLang, detectLocale, type Locale } from "./i18n/messages.js";
 import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "./sidebar-layout.js";
 import { DEFAULT_UI_FONT, applyUiFont, resolveUiFont, type UiFont } from "./ui-font.js";
+import { DEFAULT_APP_THEME, applyAppTheme, resolveAppTheme, type AppTheme } from "./ui-theme.js";
 
 export interface AppState {
   vaultMounted: boolean;
@@ -36,6 +37,7 @@ export interface AppState {
   keyboardShortcuts: KeyboardShortcuts;
   locale: Locale;
   uiFont: UiFont;
+  theme: AppTheme;
   statusText: string;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
@@ -53,6 +55,7 @@ export interface AppActions {
   resetKeyboardShortcuts: () => void;
   setLocale: (locale: Locale) => void;
   setUiFont: (font: UiFont) => void;
+  setTheme: (theme: AppTheme) => void;
   setStatusText: (text: string) => void;
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -68,6 +71,7 @@ interface PersistedSettings {
   keyboardShortcuts?: Partial<KeyboardShortcuts>;
   locale?: Locale;
   uiFont?: UiFont;
+  theme?: AppTheme;
   sidebarWidth?: number;
   sidebarCollapsed?: boolean;
 }
@@ -91,6 +95,7 @@ function saveSettings(state: AppState): void {
       keyboardShortcuts: state.keyboardShortcuts,
       locale: state.locale,
       uiFont: state.uiFont,
+      theme: state.theme,
       sidebarWidth: state.sidebarWidth,
       sidebarCollapsed: state.sidebarCollapsed,
     }),
@@ -205,6 +210,7 @@ if (saved.locale) {
   applyDocumentLang(saved.locale);
 }
 applyUiFont(resolveUiFont(saved.uiFont));
+applyAppTheme(resolveAppTheme(saved.theme));
 
 export const useAppStore = create<AppState & AppActions>((set, get) => ({
   vaultMounted: false,
@@ -219,6 +225,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   keyboardShortcuts: loadKeyboardShortcuts(saved.keyboardShortcuts),
   locale: saved.locale ?? detectLocale(),
   uiFont: resolveUiFont(saved.uiFont),
+  theme: resolveAppTheme(saved.theme),
   statusText: "",
   sidebarWidth: clampSidebarWidth(saved.sidebarWidth ?? SIDEBAR_WIDTH_DEFAULT),
   sidebarCollapsed: saved.sidebarCollapsed ?? false,
@@ -301,6 +308,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   setUiFont: (font) => {
     set({ uiFont: font });
     applyUiFont(font);
+    saveSettings(get());
+  },
+  setTheme: (theme) => {
+    set({ theme });
+    applyAppTheme(theme);
     saveSettings(get());
   },
   setStatusText: (text) => set({ statusText: text }),

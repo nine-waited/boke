@@ -7,8 +7,7 @@ import { replaceAll } from "@milkdown/utils";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type MutableRefObject } from "react";
 import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
 import { getT } from "../i18n/index.js";
-import "@milkdown/crepe/theme/common/style.css";
-import "@milkdown/crepe/theme/frame.css";
+import "../crepe-theme.css";
 
 export interface MarkdownEditorHandle {
   goToDocLine(docLine: number, content: string): void;

@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { LOCALES, useT } from "../i18n/index.js";
 import { useAppStore } from "../store.js";
 import type { Locale } from "../i18n/index.js";
 import { UI_FONTS, type UiFont } from "../ui-font.js";
+import type { AppTheme } from "../ui-theme.js";
 import { SettingsLocalVaultPath } from "./SettingsLocalVaultPath.js";
 import { SettingsKeyboardShortcuts } from "./SettingsKeyboardShortcuts.js";
 
@@ -12,12 +12,8 @@ export function SettingsPanel() {
   const setLocale = useAppStore((s) => s.setLocale);
   const uiFont = useAppStore((s) => s.uiFont);
   const setUiFont = useAppStore((s) => s.setUiFont);
-  const [theme, setTheme] = useState(() => document.documentElement.getAttribute("data-theme") ?? "light");
-
-  const applyTheme = (next: string) => {
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-  };
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
 
   return (
     <div className="boke-settings">
@@ -60,7 +56,11 @@ export function SettingsPanel() {
       <SettingsKeyboardShortcuts />
 
       <h3>{t("settings.theme")}</h3>
-      <select value={theme} onChange={(e) => applyTheme(e.target.value)}>
+      <select
+        value={theme}
+        onChange={(e) => setTheme(e.target.value as AppTheme)}
+        aria-label={t("settings.theme")}
+      >
         <option value="light">{t("settings.themeLight")}</option>
         <option value="dark">{t("settings.themeDark")}</option>
       </select>

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { searchKeymap } from "@codemirror/search";
 import { Decoration, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 import { formatImageMarkdown, getClipboardImageFile, savePastedNoteImage } from "../note-images.js";
+import { buildSourceEditorTheme } from "../source-editor-theme.js";
+import { useAppStore } from "../store.js";
 
 const wikilinkPlugin = ViewPlugin.fromClass(
   class {
@@ -63,9 +64,13 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
   function MarkdownSourceEditor({ content, notePath, onChange, onSave }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const themeCompartmentRef = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
+  const onSaveRef = useRef(onSave);
   const notePathRef = useRef(notePath);
+  const appTheme = useAppStore((s) => s.theme);
   onChangeRef.current = onChange;
+  onSaveRef.current = onSave;
   notePathRef.current = notePath;
 
   useImperativeHandle(ref, () => ({
@@ -89,7 +94,7 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
       {
         key: "Mod-s",
         run: () => {
-          onSave?.();
+          onSaveRef.current?.();
           return true;
         },
       },
@@ -102,10 +107,10 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
         highlightActiveLine(),
         history(),
         markdown({ base: markdownLanguage }),
-        syntaxHighlighting(defaultHighlightStyle),
         wikilinkPlugin,
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         saveKeymap,
+        themeCompartmentRef.current.of(buildSourceEditorTheme(useAppStore.getState().theme)),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChangeRef.current(update.state.doc.toString());
@@ -129,19 +134,6 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
             return true;
           },
         }),
-        EditorView.theme({
-          "&": { height: "100%" },
-          ".cm-scroller": {
-            overflow: "auto",
-            fontFamily: "var(--boke-font)",
-            fontSize: "14px",
-          },
-          ".cm-gutters": {
-            backgroundColor: "var(--boke-bg-tertiary)",
-            borderRight: "1px solid var(--boke-border)",
-            fontFamily: "var(--boke-font)",
-          },
-        }),
       ],
     });
 
@@ -155,6 +147,14 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
       viewRef.current = null;
     };
   }, [initEditor]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: themeCompartmentRef.current.reconfigure(buildSourceEditorTheme(appTheme)),
+    });
+  }, [appTheme]);
 
   useEffect(() => {
     const view = viewRef.current;

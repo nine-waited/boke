@@ -20,6 +20,8 @@
   --boke-status-height: 28px;
   --boke-content-width: 820px;
   --boke-content-padding-x: 24px;
+  --boke-note-title-bg: var(--boke-bg-secondary);
+  --boke-note-title-text: var(--boke-text);
 }
 
 [data-theme="dark"] {
@@ -38,6 +40,37 @@
   --boke-link: #89dceb;
   --boke-tag: #cba6f7;
 }
+
+[data-theme="dark"] .boke-milkdown-wrap .milkdown {
+  --crepe-color-background: var(--boke-bg-secondary);
+  --crepe-color-on-background: var(--boke-text);
+  --crepe-color-surface: var(--boke-bg-tertiary);
+  --crepe-color-surface-low: var(--boke-bg);
+  --crepe-color-on-surface: var(--boke-text);
+  --crepe-color-on-surface-variant: var(--boke-text-muted);
+  --crepe-color-outline: var(--boke-border);
+  --crepe-color-primary: var(--boke-text);
+  --crepe-color-secondary: var(--boke-surface);
+  --crepe-color-on-secondary: var(--boke-text);
+  --crepe-color-inverse: var(--boke-text);
+  --crepe-color-on-inverse: var(--boke-bg-secondary);
+  --crepe-color-inline-code: var(--boke-error);
+  --crepe-color-error: var(--boke-error);
+  --crepe-color-hover: var(--boke-surface);
+  --crepe-color-selected: var(--boke-surface);
+  --crepe-color-inline-area: var(--boke-bg-tertiary);
+  --crepe-font-default: var(--boke-font);
+  --crepe-font-title: var(--boke-font);
+}
+
+[data-theme="dark"] .boke-source-editor .cm-wikilink {
+  color: var(--boke-link);
+}
+
+[data-theme="dark"] .boke-source-editor .cm-tag {
+  color: var(--boke-tag);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -716,7 +749,7 @@ body.boke-sidebar-resizing * {
 .boke-note-title-bar {
   flex-shrink: 0;
   width: 100%;
-  background: #ffffff;
+  background: var(--boke-note-title-bg);
   padding: 20px 0 4px;
   box-sizing: border-box;
 }
@@ -730,7 +763,7 @@ body.boke-sidebar-resizing * {
   line-height: 1.35;
   letter-spacing: -0.02em;
   text-align: center;
-  color: #1f2328;
+  color: var(--boke-note-title-text);
   background: transparent;
   border: none;
   outline: none;

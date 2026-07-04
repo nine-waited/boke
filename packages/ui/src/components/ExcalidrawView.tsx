@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { vaultService } from "../store.js";
+import { vaultService, useAppStore } from "../store.js";
 import { useT } from "../i18n/index.js";
 import { parseExcalidrawFile, serializeExcalidrawScene } from "../excalidraw-persist.js";
 import type { ExcalidrawInitialDataState } from "@excalidraw/excalidraw/types";
@@ -23,6 +23,7 @@ type SceneSnapshot = {
 
 export function ExcalidrawView({ path }: ExcalidrawViewProps) {
   const t = useT();
+  const theme = useAppStore((s) => s.theme);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestScene = useRef<SceneSnapshot | null>(null);
@@ -88,9 +89,9 @@ export function ExcalidrawView({ path }: ExcalidrawViewProps) {
     <div ref={wrapRef} className="boke-excalidraw-wrap" tabIndex={-1}>
       <Suspense fallback={<div style={{ padding: 24 }}>{t("excalidraw.loadingApp")}</div>}>
         <Excalidraw
-          key={path}
+          key={`${path}-${theme}`}
           name={fileName}
-          theme="light"
+          theme={theme}
           initialData={initialData}
           onChange={(elements, appState, files) => scheduleSave(elements, appState, files)}
           UIOptions={{
