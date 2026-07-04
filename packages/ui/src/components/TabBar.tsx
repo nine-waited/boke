@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
 import { useT } from "../i18n/index.js";
 import { useAppStore, workspaceStore } from "../store.js";
-import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { focusMainContent, isFileContentTab } from "../focus-main-content.js";
 
 function TabContextMenu({
@@ -104,6 +104,8 @@ export function TabBar() {
         return leaf.path?.split("/").pop() ?? t("tab.drawing");
       case "image":
         return leaf.path?.split("/").pop() ?? t("tab.image");
+      case "pdf":
+        return leaf.path?.split("/").pop() ?? t("tab.pdf");
       case "graph":
         return t("tab.graph");
       case "settings":
@@ -152,6 +154,11 @@ export function TabBar() {
             {leaf.type === "image" && (
               <span className="boke-tab-icon boke-tab-icon--image" aria-hidden="true">
                 <ImageGrayIcon />
+              </span>
+            )}
+            {leaf.type === "pdf" && (
+              <span className="boke-tab-icon boke-tab-icon--pdf" aria-hidden="true">
+                <PdfGrayIcon />
               </span>
             )}
             {label(leaf)}

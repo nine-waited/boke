@@ -3,6 +3,7 @@ import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
 import { isTauri, openVaultFolderInExplorer, TauriFsAdapter } from "@boke/storage-adapters";
 import { formatNativePath } from "./vault-path-utils.js";
+import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
 
 function refreshTree(): void {
   useAppStore.getState().refreshTree();
@@ -69,4 +70,12 @@ export async function revealInFileManager(relativePath = ""): Promise<void> {
   if (!adapter || adapter.kind !== "tauri") return;
   const abs = formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(relativePath));
   await openVaultFolderInExplorer(abs);
+}
+
+export async function exportNoteToPdf(relativePath: string): Promise<void> {
+  if (!isTauri()) return;
+  const pdfPath = await exportMarkdownToPdf(relativePath);
+  useAppStore.getState().refreshTree();
+  workspaceStore.openPdf(pdfPath);
+  useAppStore.getState().setStatusText(getT()("status.exportPdfSuccess", { path: pdfPath }));
 }

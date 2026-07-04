@@ -13,15 +13,16 @@ import {
   type Ref,
 } from "react";
 import type { VaultEntry } from "@boke/core";
-import { fileBaseName, isExcalidraw, isHiddenPath, isImage, isInNotePicFolder, isMarkdown, isNotePicFolder, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
+import { fileBaseName, isExcalidraw, isHiddenPath, isImage, isInNotePicFolder, isMarkdown, isNotePicFolder, isPdf, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
 import {
   createAndOpenDrawing,
   createAndOpenNote,
   createFolder,
   confirmAndDeleteVaultPath,
+  exportNoteToPdf,
   revealInFileManager,
 } from "../note-actions.js";
-import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
+import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeCollapseGeneration, useFileTreeReveal } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
 import { isTauri } from "@boke/storage-adapters";
@@ -128,6 +129,13 @@ function FileTreeFileIcon({ path }: { path: string }) {
     return (
       <span className="boke-file-tree-icon boke-file-tree-icon--image" aria-hidden="true">
         <ImageGrayIcon />
+      </span>
+    );
+  }
+  if (isPdf(path)) {
+    return (
+      <span className="boke-file-tree-icon boke-file-tree-icon--pdf" aria-hidden="true">
+        <PdfGrayIcon />
       </span>
     );
   }
@@ -306,6 +314,8 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
       workspaceStore.openExcalidraw(entry.path);
     } else if (isImage(entry.path)) {
       workspaceStore.openImage(entry.path);
+    } else if (isPdf(entry.path)) {
+      workspaceStore.openPdf(entry.path);
     } else if (entry.path.endsWith(".md")) {
       workspaceStore.openFile(entry.path);
     }
@@ -436,6 +446,38 @@ function FileTreeContextMenuRevealItem({
   );
 }
 
+function FileTreeContextMenuExportPdfItem({
+  path,
+  onRun,
+}: {
+  path: string;
+  onRun: (action: () => void | Promise<unknown>) => void;
+}) {
+  const t = useT();
+  const setStatusText = useAppStore((s) => s.setStatusText);
+  const desktopOnly = !isTauri();
+
+  return (
+    <button
+      type="button"
+      className={`boke-context-menu-item${desktopOnly ? " boke-context-menu-item--disabled" : ""}`}
+      onClick={() => {
+        if (desktopOnly) return;
+        onRun(async () => {
+          try {
+            await exportNoteToPdf(path);
+          } catch (err) {
+            console.error("[boke] export pdf failed:", err);
+            setStatusText(t("status.exportPdfFailed"));
+          }
+        });
+      }}
+    >
+      {t("fileTree.exportPdf")}
+    </button>
+  );
+}
+
 function FileTreeContextMenu({
   target,
   onClose,
@@ -473,6 +515,9 @@ function FileTreeContextMenu({
           </button>
         )}
         <FileTreeContextMenuRevealItem path={target.path} onRun={run} />
+        {isMarkdown(target.path) && (
+          <FileTreeContextMenuExportPdfItem path={target.path} onRun={run} />
+        )}
         <button
           type="button"
           className="boke-context-menu-item boke-context-menu-item--danger"

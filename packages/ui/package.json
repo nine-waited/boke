@@ -28,6 +28,7 @@
     "@milkdown/crepe": "^7.21.2",
     "@milkdown/kit": "^7.21.2",
     "@milkdown/react": "^7.21.2",
+    "html2pdf.js": "^0.14.0",
     "markdown-it": "^14.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -265,6 +265,7 @@ fn vault_asset_url(path: String) -> Result<String, String> {
         Some("gif") => "image/gif",
         Some("webp") => "image/webp",
         Some("svg") => "image/svg+xml",
+        Some("pdf") => "application/pdf",
         _ => "application/octet-stream",
     };
     Ok(format!("data:{};base64,{}", mime, STANDARD.encode(bytes)))

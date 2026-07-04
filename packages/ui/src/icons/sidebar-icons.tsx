@@ -57,6 +57,28 @@ export function ImageGrayIcon() {
   );
 }
 
+export function PdfGrayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path
+        d="M14 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8l-4-5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinejoin="round"
+      />
+      <path d="M14 3v5h5" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinejoin="round" />
+      <path
+        d="M9 13h6M9 17h4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function ExcalidrawGrayIcon() {
   return (
     <svg viewBox="0 0 40 40" focusable="false" aria-hidden="true">

@@ -54,6 +54,19 @@ export function isImage(path: string): boolean {
   return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(path);
 }
 
+export function isPdf(path: string): boolean {
+  return path.toLowerCase().endsWith(".pdf");
+}
+
+/** Vault-relative PDF path for a markdown note, e.g. `notes/foo.md` → `notes/foo.pdf`. */
+export function pdfPathForMarkdown(mdPath: string): string {
+  if (!isMarkdown(mdPath)) {
+    const base = mdPath.replace(/\.[^./\\]+$/, "");
+    return `${base}.pdf`;
+  }
+  return mdPath.replace(/\.md$/i, ".pdf");
+}
+
 export function isAttachment(path: string): boolean {
   const lower = path.toLowerCase();
   return (

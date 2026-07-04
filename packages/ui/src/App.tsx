@@ -7,6 +7,7 @@ import { SidebarNav } from "./components/SidebarNav.js";
 import { SidebarBoundaryControl } from "./components/SidebarBoundaryControl.js";
 import { NotePane } from "./components/NotePane.js";
 import { ImageView } from "./components/ImageView.js";
+import { PdfView } from "./components/PdfView.js";
 import { GraphView } from "./components/GraphView.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
 import { PublishPanel } from "./components/PublishPanel.js";
@@ -26,6 +27,7 @@ import {
 } from "./store.js";
 import { registerCoreCommands } from "./commands.js";
 import { ConfirmDialogHost } from "./confirm-dialog.js";
+import { PdfExportProgressHost } from "./pdf-export-progress.js";
 import { createAndOpenNote } from "./note-actions.js";
 
 const ExcalidrawView = lazy(() =>
@@ -73,6 +75,8 @@ function EditorContent() {
       ) : null;
     case "image":
       return active.path ? <ImageView path={active.path} /> : null;
+    case "pdf":
+      return active.path ? <PdfView path={active.path} /> : null;
     case "graph":
       return <GraphView />;
     case "settings":
@@ -206,6 +210,7 @@ export function App() {
       <CommandPalette />
       <SearchPanel />
       <ConfirmDialogHost />
+      <PdfExportProgressHost />
       <GlobalKeyboardShortcuts />
     </div>
   );

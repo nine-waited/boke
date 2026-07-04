@@ -380,6 +380,16 @@ export class VaultService {
     return this.adapter.getAssetUrl(normalizePath(path));
   }
 
+  async readBinary(path: string): Promise<Uint8Array> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    return this.adapter.readBinary(normalizePath(path));
+  }
+
+  async writeBinary(path: string, content: Uint8Array): Promise<void> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    await this.adapter.writeBinary(normalizePath(path), content);
+  }
+
   async getPublishableNotes(): Promise<
     Array<{ path: string; title: string; slug: string; date: string; tags: string[] }>
   > {
