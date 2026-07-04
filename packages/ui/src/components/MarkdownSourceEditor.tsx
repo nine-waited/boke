@@ -133,13 +133,13 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
           "&": { height: "100%" },
           ".cm-scroller": {
             overflow: "auto",
-            fontFamily: '"Microsoft YaHei", "微软雅黑", sans-serif',
+            fontFamily: "var(--boke-font)",
             fontSize: "14px",
           },
           ".cm-gutters": {
             backgroundColor: "var(--boke-bg-tertiary)",
             borderRight: "1px solid var(--boke-border)",
-            fontFamily: '"Microsoft YaHei", "微软雅黑", sans-serif',
+            fontFamily: "var(--boke-font)",
           },
         }),
       ],

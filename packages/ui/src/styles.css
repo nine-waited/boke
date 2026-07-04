@@ -13,7 +13,7 @@
   --boke-error: #dc2626;
   --boke-link: #0f766e;
   --boke-tag: #7c3aed;
-  --boke-font: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --boke-font: "Xiaolai SC", "小赖", "Microsoft YaHei", "微软雅黑", sans-serif;
   --boke-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
   --boke-radius: 8px;
   --boke-sidebar-width: 260px;
@@ -658,7 +658,7 @@ body.boke-sidebar-resizing * {
   color: #8b919a;
   font-size: 11px;
   font-weight: 700;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--boke-font);
   letter-spacing: 0.02em;
   line-height: 1;
 }
@@ -788,7 +788,7 @@ body.boke-sidebar-resizing * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-family: var(--boke-font);
 }
 
 .boke-note-toc-item:hover {
@@ -917,7 +917,7 @@ body.boke-sidebar-resizing * {
   color: #8b919a;
   font-size: 10px;
   font-weight: 700;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--boke-font);
   letter-spacing: 0.02em;
   line-height: 1;
 }
@@ -1563,7 +1563,7 @@ body.boke-sidebar-resizing * {
 
 .boke-source-editor {
   height: 100%;
-  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-family: var(--boke-font);
 }
 
 .boke-source-editor .cm-editor,
@@ -1571,7 +1571,7 @@ body.boke-sidebar-resizing * {
 .boke-source-editor .cm-content,
 .boke-source-editor .cm-line,
 .boke-source-editor .cm-gutters {
-  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-family: var(--boke-font);
 }
 
 .boke-source-editor .cm-wikilink {
