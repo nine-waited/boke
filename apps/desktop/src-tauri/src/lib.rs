@@ -33,29 +33,32 @@ fn resolve(root: &str, rel: &str) -> Result<PathBuf, String> {
 }
 
 fn home_dir() -> Result<PathBuf, String> {
-  #[cfg(windows)]
-  {
-    std::env::var("USERPROFILE")
-      .map(PathBuf::from)
-      .map_err(|e| e.to_string())
-  }
-  #[cfg(not(windows))]
-  {
-    std::env::var("HOME")
-      .map(PathBuf::from)
-      .map_err(|e| e.to_string())
-  }
+    #[cfg(windows)]
+    {
+        std::env::var("USERPROFILE")
+            .map(PathBuf::from)
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var("HOME")
+            .map(PathBuf::from)
+            .map_err(|e| e.to_string())
+    }
 }
 
 #[tauri::command]
 fn default_vault_path() -> Result<String, String> {
-  let path = home_dir()?.join(".chestnut");
-  fs::create_dir_all(&path).map_err(|e| e.to_string())?;
-  Ok(path.to_string_lossy().to_string())
+    let path = home_dir()?.join(".chestnut");
+    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-fn pick_vault_folder(app: tauri::AppHandle, default_path: Option<String>) -> Result<String, String> {
+fn pick_vault_folder(
+    app: tauri::AppHandle,
+    default_path: Option<String>,
+) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;
 
     let mut dialog = app.dialog().file();
@@ -155,7 +158,11 @@ fn vault_list(root: String, dir: String) -> Result<Vec<VaultEntry>, String> {
             path: rel,
             name,
             kind: if meta.is_dir() { "directory" } else { "file" }.into(),
-            size: if meta.is_file() { Some(meta.len()) } else { None },
+            size: if meta.is_file() {
+                Some(meta.len())
+            } else {
+                None
+            },
             mtime_ms: meta
                 .modified()
                 .ok()
@@ -207,6 +214,7 @@ fn vault_asset_url(path: String) -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             default_vault_path,

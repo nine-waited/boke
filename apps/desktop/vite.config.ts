@@ -13,6 +13,10 @@ export default defineConfig({
       "@chestnut/core": path.resolve(__dirname, "../../packages/core/src"),
       "@chestnut/plugin-sdk": path.resolve(__dirname, "../../packages/plugin-sdk/src"),
       "@chestnut/storage-adapters": path.resolve(__dirname, "../../packages/storage-adapters/src"),
+      "@tauri-apps/plugin-clipboard-manager": path.resolve(
+        __dirname,
+        "node_modules/@tauri-apps/plugin-clipboard-manager",
+      ),
     },
   },
   server: {

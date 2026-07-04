@@ -1,2 +1,18 @@
 @import "@milkdown/crepe/theme/common/style.css";
 @import "@milkdown/crepe/theme/frame.css";
+
+.milkdown .milkdown-slash-menu .tab-group {
+  display: none;
+}
+
+.milkdown .milkdown-slash-menu .menu-groups .menu-group h6 {
+  display: none;
+}
+
+.milkdown .milkdown-slash-menu .menu-groups .menu-group + .menu-group::before {
+  display: none;
+}
+
+.milkdown .milkdown-block-handle {
+  display: none !important;
+}

@@ -1162,6 +1162,63 @@ body.boke-file-tree-dragging .boke-file-tree-item {
   background: rgba(220, 38, 38, 0.08);
 }
 
+.boke-md-editor-context-menu {
+  min-width: 168px;
+  padding: 6px;
+}
+
+.boke-md-editor-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--boke-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.boke-md-editor-context-menu-item:hover {
+  background: var(--boke-surface);
+}
+
+.boke-md-editor-context-menu-item__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  color: var(--boke-text-muted);
+}
+
+.boke-md-editor-context-menu-item__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.boke-md-editor-context-menu-item:hover .boke-md-editor-context-menu-item__icon {
+  color: var(--boke-text);
+}
+
+.boke-md-editor-context-menu-item--disabled,
+.boke-md-editor-context-menu-item--disabled:hover {
+  color: var(--boke-text-muted);
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.boke-md-editor-context-menu-item--disabled .boke-md-editor-context-menu-item__icon,
+.boke-md-editor-context-menu-item--disabled:hover .boke-md-editor-context-menu-item__icon {
+  color: var(--boke-text-muted);
+}
+
 .boke-vault-loading {
   display: flex;
   align-items: center;
@@ -2037,6 +2094,47 @@ body.boke-file-tree-dragging .boke-file-tree-item {
 
 .boke-live-pane .milkdown .ProseMirror {
   padding: 0 40px 48px !important;
+}
+
+/* Live headings: match note typography; avoid Crepe 42px h1 jump on `# ` input. */
+.boke-live-pane .milkdown .ProseMirror h1,
+.boke-live-pane .milkdown .ProseMirror h2,
+.boke-live-pane .milkdown .ProseMirror h3,
+.boke-live-pane .milkdown .ProseMirror h4,
+.boke-live-pane .milkdown .ProseMirror h5,
+.boke-live-pane .milkdown .ProseMirror h6 {
+  font-family: var(--boke-font);
+  font-weight: 600;
+  padding: 0;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.boke-live-pane .milkdown .ProseMirror h1 {
+  font-size: 1.65rem;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.boke-live-pane .milkdown .ProseMirror h2 {
+  font-size: 1.35rem;
+  line-height: 1.4;
+}
+
+.boke-live-pane .milkdown .ProseMirror h3 {
+  font-size: 1.15rem;
+  line-height: 1.45;
+}
+
+.boke-live-pane .milkdown .ProseMirror h4 {
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.boke-live-pane .milkdown .ProseMirror h5,
+.boke-live-pane .milkdown .ProseMirror h6 {
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 .boke-live-pane .ProseMirror > :first-child {

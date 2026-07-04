@@ -5,11 +5,19 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { replaceAll, getMarkdown } from "@milkdown/utils";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type MutableRefObject } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type MutableRefObject } from "react";
 import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
 import { attachNoteImageSelectHandlers } from "../note-image-select.js";
 import { deleteNoteImageFileOnRemove, getImageVaultPathFromView } from "../note-image-delete.js";
 import { getT } from "../i18n/index.js";
+import {
+  attachMarkdownEditorContextMenu,
+  type EditorContextMenuPoint,
+} from "../markdown-editor-context-menu.js";
+import type { EditorSelectionRange } from "../markdown-editor-clipboard.js";
+import { readClipboardForPaste } from "../markdown-editor-clipboard.js";
+import { attachLiveEditorScrollLock } from "../markdown-editor-live-view.js";
+import { MarkdownEditorContextMenu } from "./MarkdownEditorContextMenu.js";
 import "../crepe-theme.css";
 
 export interface MarkdownEditorHandle {
@@ -26,6 +34,12 @@ interface MarkdownEditorProps {
 
 interface MilkdownCrepeEditorProps extends MarkdownEditorProps {
   crepeRef: MutableRefObject<Crepe | null>;
+  onOpenContextMenu: (state: EditorContextMenuState) => void;
+}
+
+interface EditorContextMenuState extends EditorContextMenuPoint {
+  selection: EditorSelectionRange;
+  clipboardText: string | null;
 }
 
 function deleteImageAtDom(view: EditorView, img: HTMLImageElement): boolean {
@@ -141,6 +155,7 @@ function MilkdownCrepeEditor({
   onSave,
   presentation = "default",
   crepeRef,
+  onOpenContextMenu,
 }: MilkdownCrepeEditorProps) {
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
@@ -148,10 +163,12 @@ function MilkdownCrepeEditor({
   const lastEmitted = useRef(content);
   const skipExternalSync = useRef(false);
   const editorRootRef = useRef<HTMLElement | null>(null);
+  const onOpenContextMenuRef = useRef(onOpenContextMenu);
 
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
   notePathRef.current = notePath;
+  onOpenContextMenuRef.current = onOpenContextMenu;
 
   const { loading } = useEditor((root) => {
     editorRootRef.current = root;
@@ -163,6 +180,7 @@ function MilkdownCrepeEditor({
       defaultValue: content,
       features: {
         [CrepeFeature.TopBar]: presentation !== "live",
+        [CrepeFeature.BlockEdit]: false,
       },
       featureConfigs: {
         [CrepeFeature.Placeholder]: {
@@ -233,31 +251,35 @@ function MilkdownCrepeEditor({
 
       cleanup?.();
       boundEditor = editorEl;
-      cleanup = attachNoteImageSelectHandlers(editorEl, {
-        onDelete: async (img) => {
-          await crepe.editor.action((ctx) => {
-            const view = ctx.get(editorViewCtx);
-            const vaultPath = getImageVaultPathFromView(view, img, notePathRef.current);
-            deleteImageAtDom(view, img);
-            if (!vaultPath) return;
-            const md = getMarkdown()(ctx);
-            void deleteNoteImageFileOnRemove(vaultPath, notePathRef.current, md);
-          });
-        },
-        onInsertLineBelow: (img) => {
-          crepe.editor.action((ctx) => {
-            const view = ctx.get(editorViewCtx);
-            insertLineBelowImageAtDom(view, img);
-          });
-        },
-        onUpdateCaption: async (img, caption) => {
-          await crepe.editor.action((ctx) => {
-            const view = ctx.get(editorViewCtx);
-            if (!updateImageCaptionAtDom(view, img, caption)) return;
-            refreshEditorMarkdown(ctx);
-          });
-        },
-      });
+      const cleanups = [
+        attachNoteImageSelectHandlers(editorEl, {
+          onDelete: async (img) => {
+            await crepe.editor.action((ctx) => {
+              const view = ctx.get(editorViewCtx);
+              const vaultPath = getImageVaultPathFromView(view, img, notePathRef.current);
+              deleteImageAtDom(view, img);
+              if (!vaultPath) return;
+              const md = getMarkdown()(ctx);
+              void deleteNoteImageFileOnRemove(vaultPath, notePathRef.current, md);
+            });
+          },
+          onInsertLineBelow: (img) => {
+            crepe.editor.action((ctx) => {
+              const view = ctx.get(editorViewCtx);
+              insertLineBelowImageAtDom(view, img);
+            });
+          },
+          onUpdateCaption: async (img, caption) => {
+            await crepe.editor.action((ctx) => {
+              const view = ctx.get(editorViewCtx);
+              if (!updateImageCaptionAtDom(view, img, caption)) return;
+              refreshEditorMarkdown(ctx);
+            });
+          },
+        }),
+        attachLiveEditorScrollLock(editorEl),
+      ];
+      cleanup = () => cleanups.forEach((fn) => fn());
     };
 
     const tryAttach = () => {
@@ -291,6 +313,47 @@ function MilkdownCrepeEditor({
   }, [loading, presentation, crepeRef]);
 
   useEffect(() => {
+    if (loading) return;
+    const crepe = crepeRef.current;
+    if (!crepe) return;
+
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+
+    const tryAttach = () => {
+      if (cancelled) return;
+      try {
+        crepe.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          if (!view?.dom) {
+            requestAnimationFrame(tryAttach);
+            return;
+          }
+          if (cleanup) return;
+          cleanup = attachMarkdownEditorContextMenu(view.dom, (point) => {
+            if (!view.editable) return;
+            view.focus();
+            const { from, to } = view.state.selection;
+            const selection = { from, to };
+            void readClipboardForPaste().then((clipboardText) => {
+              onOpenContextMenuRef.current({ ...point, selection, clipboardText });
+            });
+          });
+        });
+      } catch {
+        requestAnimationFrame(tryAttach);
+      }
+    };
+
+    tryAttach();
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [loading, crepeRef]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
         event.preventDefault();
@@ -308,6 +371,11 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
   function MarkdownEditor({ presentation = "default", content, ...props }, ref) {
     const wrapRef = useRef<HTMLDivElement>(null);
     const crepeRef = useRef<Crepe | null>(null);
+    const [contextMenu, setContextMenu] = useState<EditorContextMenuState | null>(null);
+
+    const openContextMenu = useCallback((state: EditorContextMenuState) => {
+      setContextMenu(state);
+    }, []);
 
     const goToDocLine = useCallback((docLine: number, markdown: string) => {
       const crepe = crepeRef.current;
@@ -349,6 +417,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
                   crepeRef={crepeRef}
                   presentation={presentation}
                   content={content}
+                  onOpenContextMenu={openContextMenu}
                   {...props}
                 />
               </MilkdownProvider>
@@ -356,8 +425,24 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
           </div>
         ) : (
           <MilkdownProvider>
-            <MilkdownCrepeEditor crepeRef={crepeRef} presentation={presentation} content={content} {...props} />
+            <MilkdownCrepeEditor
+              crepeRef={crepeRef}
+              presentation={presentation}
+              content={content}
+              onOpenContextMenu={openContextMenu}
+              {...props}
+            />
           </MilkdownProvider>
+        )}
+        {contextMenu && (
+          <MarkdownEditorContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            selection={contextMenu.selection}
+            clipboardText={contextMenu.clipboardText}
+            crepe={crepeRef.current}
+            onClose={() => setContextMenu(null)}
+          />
         )}
       </div>
     );

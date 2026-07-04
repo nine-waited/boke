@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:ensure": "node scripts/ensure-vite-dev.mjs",
     "build": "tsc -b && vite build",
     "tauri": "tauri",
     "typecheck": "tsc -b"
@@ -12,6 +13,7 @@
   "dependencies": {
     "@chestnut/ui": "workspace:*",
     "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/plugin-clipboard-manager": "~2",
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
