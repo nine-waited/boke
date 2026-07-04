@@ -47,14 +47,6 @@ export function SettingsPanel() {
         ))}
       </select>
 
-      <h3>{t("settings.localStorage")}</h3>
-      <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>{t("settings.localStorageHint")}</p>
-      <SettingsLocalVaultPath />
-
-      <h3>{t("settings.shortcuts")}</h3>
-      <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>{t("settings.shortcutsHint")}</p>
-      <SettingsKeyboardShortcuts />
-
       <h3>{t("settings.theme")}</h3>
       <select
         value={theme}
@@ -64,6 +56,14 @@ export function SettingsPanel() {
         <option value="light">{t("settings.themeLight")}</option>
         <option value="dark">{t("settings.themeDark")}</option>
       </select>
+
+      <h3>{t("settings.localStorage")}</h3>
+      <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>{t("settings.localStorageHint")}</p>
+      <SettingsLocalVaultPath />
+
+      <h3>{t("settings.shortcuts")}</h3>
+      <p style={{ color: "var(--boke-text-muted)", fontSize: 13 }}>{t("settings.shortcutsHint")}</p>
+      <SettingsKeyboardShortcuts />
     </div>
   );
 }

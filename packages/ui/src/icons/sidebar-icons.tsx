@@ -149,11 +149,11 @@ export function LocateActiveFileIcon() {
         d="M8 4H4v4M16 4h4v4M20 16v4h-4M8 20H4v-4"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="12" cy="12" r="1.75" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
     </svg>
   );
 }
