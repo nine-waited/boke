@@ -55,12 +55,26 @@ fn default_vault_path() -> Result<String, String> {
 }
 
 #[tauri::command]
-fn pick_vault_folder(app: tauri::AppHandle) -> Result<String, String> {
+fn pick_vault_folder(app: tauri::AppHandle, default_path: Option<String>) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;
-    let folder = app
-        .dialog()
-        .file()
-        .blocking_pick_folder();
+
+    let mut dialog = app.dialog().file();
+    if let Some(default_path) = default_path {
+        let path = PathBuf::from(default_path);
+        let start = if path.is_dir() {
+            path.canonicalize().unwrap_or(path)
+        } else {
+            path.parent()
+                .filter(|p| p.is_dir())
+                .map(|p| p.canonicalize().unwrap_or_else(|_| p.to_path_buf()))
+                .unwrap_or(path)
+        };
+        if start.is_dir() {
+            dialog = dialog.set_directory(start);
+        }
+    }
+
+    let folder = dialog.blocking_pick_folder();
     folder
         .map(|p| p.to_string())
         .ok_or_else(|| "cancelled".into())
@@ -162,22 +176,33 @@ fn vault_list(root: String, dir: String) -> Result<Vec<VaultEntry>, String> {
 fn open_vault_folder(path: String) -> Result<(), String> {
     let path = PathBuf::from(path);
     if !path.exists() {
-        fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+        return Err(format!("path not found: {}", path.display()));
     }
     let path = path.canonicalize().map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "windows")]
     {
-        let arg = format!("/root,{}", path.display());
-        std::process::Command::new("explorer")
-            .arg(arg)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        if path.is_file() {
+            std::process::Command::new("explorer")
+                .arg(format!("/select,{}", path.display()))
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        } else {
+            // Open the folder directly; `/root,` falls back to Documents when the path is misparsed.
+            std::process::Command::new("explorer")
+                .arg(path.as_os_str())
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        }
     }
 
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
+        let mut command = std::process::Command::new("open");
+        if path.is_file() {
+            command.arg("-R");
+        }
+        command
             .arg(&path)
             .spawn()
             .map_err(|e| e.to_string())?;
@@ -185,10 +210,42 @@ fn open_vault_folder(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        if path.is_file() {
+            if std::process::Command::new("nautilus")
+                .arg("--select")
+                .arg(&path)
+                .spawn()
+                .is_ok()
+            {
+                return Ok(());
+            }
+            if std::process::Command::new("dbus-send")
+                .args([
+                    "--print-reply",
+                    "--dest=org.freedesktop.FileManager1",
+                    "/org/freedesktop/FileManager1",
+                    "org.freedesktop.FileManager1.ShowItems",
+                    &format!("array:string:\"file://{}\"", path.display()),
+                    "string:",
+                ])
+                .spawn()
+                .is_ok()
+            {
+                return Ok(());
+            }
+            if let Some(parent) = path.parent() {
+                std::process::Command::new("xdg-open")
+                    .arg(parent)
+                    .spawn()
+                    .map_err(|e| e.to_string())?;
+                return Ok(());
+            }
+        } else {
+            std::process::Command::new("xdg-open")
+                .arg(&path)
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        }
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]

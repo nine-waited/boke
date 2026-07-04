@@ -19,10 +19,12 @@ import {
   createAndOpenNote,
   createFolder,
   confirmAndDeleteVaultPath,
+  revealInFileManager,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeCollapseGeneration, useFileTreeReveal } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
+import { isTauri } from "@boke/storage-adapters";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 
 interface FileTreeProps {
@@ -410,6 +412,30 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   );
 }
 
+function FileTreeContextMenuRevealItem({
+  path,
+  onRun,
+}: {
+  path: string;
+  onRun: (action: () => void | Promise<unknown>) => void;
+}) {
+  const t = useT();
+  const desktopOnly = !isTauri();
+
+  return (
+    <button
+      type="button"
+      className={`boke-context-menu-item${desktopOnly ? " boke-context-menu-item--disabled" : ""}`}
+      onClick={() => {
+        if (desktopOnly) return;
+        onRun(() => revealInFileManager(path));
+      }}
+    >
+      {t("fileTree.revealInFileManager")}
+    </button>
+  );
+}
+
 function FileTreeContextMenu({
   target,
   onClose,
@@ -446,6 +472,7 @@ function FileTreeContextMenu({
             {t("fileTree.rename")}
           </button>
         )}
+        <FileTreeContextMenuRevealItem path={target.path} onRun={run} />
         <button
           type="button"
           className="boke-context-menu-item boke-context-menu-item--danger"
@@ -494,6 +521,10 @@ function FileTreeContextMenu({
       >
         {t("fileTree.newFolder")}
       </button>
+      <FileTreeContextMenuRevealItem
+        path={target.kind === "root" ? "" : target.path}
+        onRun={run}
+      />
       {target.kind === "folder" && (
         <>
           <button

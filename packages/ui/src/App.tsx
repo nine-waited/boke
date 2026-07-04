@@ -5,7 +5,7 @@ import { FileTree } from "./components/FileTree.js";
 import { FileTreeExpandProvider } from "./file-tree-expand-context.js";
 import { SidebarNav } from "./components/SidebarNav.js";
 import { SidebarBoundaryControl } from "./components/SidebarBoundaryControl.js";
-import { NotePane, ModeToggle } from "./components/NotePane.js";
+import { NotePane } from "./components/NotePane.js";
 import { ImageView } from "./components/ImageView.js";
 import { GraphView } from "./components/GraphView.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
@@ -60,7 +60,6 @@ function EditorContent() {
     case "markdown":
       return (
         <div className="boke-markdown-shell">
-          {active.path && <ModeToggle leafId={active.id} mode={active.mode ?? "live"} />}
           {active.path && (
             <NotePane path={active.path} mode={active.mode ?? "live"} leafId={active.id} />
           )}

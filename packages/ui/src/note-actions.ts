@@ -1,6 +1,8 @@
 import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
+import { isTauri, openVaultFolderInExplorer, TauriFsAdapter } from "@boke/storage-adapters";
+import { formatNativePath } from "./vault-path-utils.js";
 
 function refreshTree(): void {
   useAppStore.getState().refreshTree();
@@ -59,4 +61,12 @@ export async function confirmAndDeleteVaultPath(
   if (!confirmed) return false;
   await deleteVaultPath(path, kind);
   return true;
+}
+
+export async function revealInFileManager(relativePath = ""): Promise<void> {
+  if (!isTauri()) return;
+  const adapter = vaultService.getAdapter();
+  if (!adapter || adapter.kind !== "tauri") return;
+  const abs = formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(relativePath));
+  await openVaultFolderInExplorer(abs);
 }

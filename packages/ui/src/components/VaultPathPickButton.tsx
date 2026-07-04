@@ -1,7 +1,7 @@
 import { TauriFsAdapter } from "@boke/storage-adapters";
 import { FolderToolbarIcon } from "../icons/sidebar-icons.js";
 import { useT } from "../i18n/index.js";
-import { isPickCancelled } from "../vault-path-utils.js";
+import { isPickCancelled, resolveVaultDisplayPath } from "../vault-path-utils.js";
 import { useAppStore } from "../store.js";
 
 export function VaultPathPickButton({
@@ -13,10 +13,13 @@ export function VaultPathPickButton({
 }) {
   const t = useT();
   const mountVault = useAppStore((s) => s.mountVault);
+  const localVaultPath = useAppStore((s) => s.localVaultPath);
+  const vaultKind = useAppStore((s) => s.vaultKind);
 
   const pickFolder = async () => {
     try {
-      const adapter = await TauriFsAdapter.pick();
+      const defaultPath = resolveVaultDisplayPath(localVaultPath, vaultKind);
+      const adapter = await TauriFsAdapter.pick(defaultPath || undefined);
       await mountVault(adapter);
     } catch (err) {
       if (isPickCancelled(err)) return;

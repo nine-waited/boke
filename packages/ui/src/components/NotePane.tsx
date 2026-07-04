@@ -23,10 +23,12 @@ const MODE_OPTIONS = [
 function NoteTitleBar({
   path,
   leafId,
+  mode,
   flushContent,
 }: {
   path: string;
   leafId: string;
+  mode: LeafMode | string;
   flushContent: () => Promise<void>;
 }) {
   const t = useT();
@@ -82,6 +84,7 @@ function NoteTitleBar({
 
   return (
     <div className="boke-note-title-bar">
+      <ModeToggle leafId={leafId} mode={mode} />
       <input
         ref={inputRef}
         className="boke-note-title-input"
@@ -173,7 +176,7 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
   return (
     <div className="boke-note-layout" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <div className="boke-note-main">
-        <NoteTitleBar path={path} leafId={leafId} flushContent={flushContent} />
+        <NoteTitleBar path={path} leafId={leafId} mode={mode} flushContent={flushContent} />
         <div ref={notePaneRef} className={`boke-note-pane boke-note-pane--${viewMode}`}>
           {viewMode === "live" ? (
             <MarkdownEditor
@@ -208,17 +211,30 @@ export function ModeToggle({ leafId, mode }: { leafId: string; mode: string }) {
   const t = useT();
   const viewMode = normalizeLeafMode(mode);
 
+  const toggleMode = () => {
+    workspaceStore.setMode(leafId, viewMode === "live" ? "source" : "live");
+  };
+
   return (
-    <div className="boke-mode-toggle">
+    <button
+      type="button"
+      className="boke-mode-switch"
+      data-mode={viewMode}
+      role="switch"
+      aria-checked={viewMode === "source"}
+      aria-label={t("note.modeSwitchAria")}
+      onClick={toggleMode}
+    >
+      <span className="boke-mode-switch__thumb" aria-hidden="true" />
       {MODE_OPTIONS.map(({ id, key }) => (
-        <button
+        <span
           key={id}
-          className={viewMode === id ? "active" : ""}
-          onClick={() => workspaceStore.setMode(leafId, id)}
+          className={`boke-mode-switch__label${viewMode === id ? " is-active" : ""}`}
+          aria-hidden="true"
         >
           {t(key)}
-        </button>
+        </span>
       ))}
-    </div>
+    </button>
   );
 }

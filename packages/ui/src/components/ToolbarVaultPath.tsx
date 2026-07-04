@@ -27,7 +27,7 @@ export function ToolbarVaultPath() {
 
   const pickFolder = async () => {
     try {
-      const adapter = await TauriFsAdapter.pick();
+      const adapter = await TauriFsAdapter.pick(displayPath || undefined);
       await mountVault(adapter);
     } catch (err) {
       if (isPickCancelled(err)) return;

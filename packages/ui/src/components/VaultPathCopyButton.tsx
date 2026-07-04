@@ -2,6 +2,7 @@ import { CopyIcon } from "../icons/toolbar-icons.js";
 import { useT } from "../i18n/index.js";
 import { copyButtonStyle } from "../toolbar-path-layout.js";
 import { useAppStore } from "../store.js";
+
 export function VaultPathCopyButton({
   className,
   path,
@@ -27,7 +28,8 @@ export function VaultPathCopyButton({
       type="button"
       className={className}
       style={copyButtonStyle()}
-      title={t("toolbar.copyVaultPath")}      aria-label={t("toolbar.copyVaultPathAria")}
+      title={t("toolbar.copyVaultPath")}
+      aria-label={t("toolbar.copyVaultPathAria")}
       onClick={(e) => {
         e.stopPropagation();
         void copyPath();

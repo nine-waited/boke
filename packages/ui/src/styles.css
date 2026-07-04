@@ -745,17 +745,19 @@ body.boke-sidebar-resizing * {
 }
 
 .boke-note-title-bar {
+  position: relative;
   flex-shrink: 0;
   width: 100%;
   background: var(--boke-note-title-bg);
-  padding: 20px 0 4px;
+  padding: 12px 16px 4px;
   box-sizing: border-box;
+  min-height: 52px;
 }
 
 .boke-note-title-input {
   display: block;
   width: 100%;
-  padding: 0 16px;
+  padding: 20px 16px 0;
   font-family: var(--boke-font);
   font-size: 1.65rem;
   font-weight: 600;
@@ -1674,26 +1676,68 @@ body.boke-sidebar-resizing * {
   padding: 8px 0 0;
 }
 
-.boke-mode-toggle {
-  display: flex;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--boke-border);
-  background: var(--boke-bg-secondary);
+.boke-mode-switch {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: stretch;
+  padding: 2px;
+  border: 1px solid var(--boke-border);
+  border-radius: 6px;
+  background: var(--boke-bg-tertiary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
 }
 
-.boke-mode-toggle button {
-  font-size: 11px;
-  padding: 2px 10px;
-  background: var(--boke-surface);
-  color: var(--boke-text);
-  border: none;
+.boke-mode-switch:hover {
+  border-color: color-mix(in srgb, var(--boke-border) 70%, var(--boke-text));
+}
+
+.boke-mode-switch__thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
   border-radius: 4px;
+  background: var(--boke-bg-secondary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--boke-text) 12%, transparent);
+  transition: transform 0.2s ease;
+  pointer-events: none;
 }
 
-.boke-mode-toggle button.active {
-  background: var(--boke-accent);
-  color: #ffffff;
+.boke-mode-switch[data-mode="source"] .boke-mode-switch__thumb {
+  transform: translateX(calc(100% + 2px));
+}
+
+[data-theme="dark"] .boke-mode-switch__thumb {
+  background: var(--boke-surface);
+  box-shadow: none;
+}
+
+.boke-mode-switch__label {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 36px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--boke-text-muted);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.boke-mode-switch__label.is-active {
+  color: var(--boke-text);
 }
 
 .boke-excalidraw-wrap {
