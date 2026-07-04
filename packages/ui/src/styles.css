@@ -1511,6 +1511,17 @@ body.boke-sidebar-resizing * {
   border-color: var(--boke-accent);
 }
 
+.boke-note-image-toolbar__zoom {
+  background: var(--boke-bg-secondary, var(--boke-surface));
+  color: var(--boke-text);
+  border: 1px solid var(--boke-border);
+}
+
+.boke-note-image-toolbar__zoom:hover {
+  color: var(--boke-accent);
+  border-color: var(--boke-accent);
+}
+
 .boke-note-image-toolbar__delete {
   background: var(--boke-danger, #dc2626);
   color: #fff;
@@ -1518,6 +1529,28 @@ body.boke-sidebar-resizing * {
 
 .boke-note-image-toolbar__delete:hover {
   filter: brightness(1.05);
+}
+
+.boke-note-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: rgb(0 0 0 / 78%);
+  cursor: zoom-out;
+}
+
+.boke-note-image-lightbox__img {
+  max-width: min(92vw, 100%);
+  max-height: 92vh;
+  object-fit: contain;
+  border-radius: var(--boke-radius);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 45%);
+  cursor: default;
+  user-select: none;
 }
 
 .boke-image-view {

@@ -1,6 +1,7 @@
 import { getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
-import { NOTE_IMAGE_EDIT_ICON, NOTE_IMAGE_TRASH_ICON } from "./note-image-toolbar-icons.js";
+import { NOTE_IMAGE_EDIT_ICON, NOTE_IMAGE_TRASH_ICON, NOTE_IMAGE_ZOOM_ICON } from "./note-image-toolbar-icons.js";
+import { closeNoteImageLightbox, isNoteImageLightboxOpen, openNoteImageLightbox } from "./note-image-lightbox.js";
 import { useAppStore } from "./store.js";
 
 export interface NoteImageSelectOptions {
@@ -19,6 +20,7 @@ const IMAGE_BLOCK_SELECTOR = [
 
 function resolveNoteImage(target: HTMLElement, container: HTMLElement): HTMLImageElement | null {
   if (target.closest(".boke-note-image-toolbar")) return null;
+  if (target.closest(".boke-note-image-lightbox")) return null;
 
   const direct =
     target instanceof HTMLImageElement
@@ -132,6 +134,9 @@ export function attachNoteImageSelectHandlers(
       <button type="button" class="boke-note-image-toolbar__btn boke-note-image-toolbar__edit" title="${t("note.editImageCaption")}" aria-label="${t("note.editImageCaption")}">
         ${NOTE_IMAGE_EDIT_ICON}
       </button>
+      <button type="button" class="boke-note-image-toolbar__btn boke-note-image-toolbar__zoom" title="${t("note.zoomImageAction")}" aria-label="${t("note.zoomImageAction")}">
+        ${NOTE_IMAGE_ZOOM_ICON}
+      </button>
       <button type="button" class="boke-note-image-toolbar__btn boke-note-image-toolbar__delete" title="${t("note.deleteImageAction")}" aria-label="${t("note.deleteImageAction")}">
         ${NOTE_IMAGE_TRASH_ICON}
       </button>
@@ -164,6 +169,11 @@ export function attachNoteImageSelectHandlers(
       }
       openCaptionInput(img);
     });
+    toolbar.querySelector(".boke-note-image-toolbar__zoom")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openNoteImageLightbox(img);
+    });
     toolbar.querySelector(".boke-note-image-toolbar__delete")?.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -172,6 +182,19 @@ export function attachNoteImageSelectHandlers(
 
     document.body.appendChild(toolbar);
     positionToolbar(img);
+  };
+
+  const onDoubleClick = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const img = resolveNoteImage(target, container);
+    if (!img) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (selected !== img) selectImage(img);
+    openNoteImageLightbox(img);
   };
 
   const onPointerDown = (event: PointerEvent) => {
@@ -187,7 +210,7 @@ export function attachNoteImageSelectHandlers(
       return;
     }
 
-    if (!target.closest(".boke-note-image-toolbar")) {
+    if (!target.closest(".boke-note-image-toolbar") && !target.closest(".boke-note-image-lightbox")) {
       clearSelection();
     }
   };
@@ -201,6 +224,10 @@ export function attachNoteImageSelectHandlers(
       }
     }
     if (event.key === "Escape") {
+      if (isNoteImageLightboxOpen()) {
+        closeNoteImageLightbox();
+        return;
+      }
       clearSelection();
       return;
     }
@@ -220,13 +247,16 @@ export function attachNoteImageSelectHandlers(
   };
 
   container.addEventListener("pointerdown", onPointerDown, true);
+  container.addEventListener("dblclick", onDoubleClick, true);
   document.addEventListener("keydown", onKeyDown);
   window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", onScroll);
 
   return () => {
+    closeNoteImageLightbox();
     clearSelection();
     container.removeEventListener("pointerdown", onPointerDown, true);
+    container.removeEventListener("dblclick", onDoubleClick, true);
     document.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("scroll", onScroll, true);
     window.removeEventListener("resize", onScroll);
