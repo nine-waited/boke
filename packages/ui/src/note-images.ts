@@ -1,4 +1,4 @@
-import { formatImageMarkdown, normalizePath } from "@boke/core";
+import { absolutePathToVaultRelative, formatImageMarkdown, normalizeMarkdownAssetRef, normalizePath } from "@boke/core";
 import { trackImageDisplayUrl } from "./image-open.js";
 import { useAppStore, vaultService } from "./store.js";
 
@@ -24,17 +24,19 @@ export async function resolveImageSrcForDisplay(src: string): Promise<string> {
   const adapter = vaultService.getAdapter();
   if (!adapter) return src;
 
-  const normSrc = src.replace(/\\/g, "/");
+  const normSrc = normalizeMarkdownAssetRef(src);
   const root =
     adapter.kind === "tauri" && "getRootPath" in adapter
       ? (adapter as { getRootPath(): string }).getRootPath().replace(/\\/g, "/").replace(/\/$/, "")
       : null;
 
-  if (root && normSrc.toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
-    const rel = normalizePath(normSrc.slice(root.length));
-    const url = await vaultService.getAssetUrl(rel);
-    trackImageDisplayUrl(url, rel);
-    return url;
+  if (root) {
+    const rel = absolutePathToVaultRelative(normSrc, root);
+    if (rel) {
+      const url = await vaultService.getAssetUrl(rel);
+      trackImageDisplayUrl(url, rel);
+      return url;
+    }
   }
 
   if (!/^[a-zA-Z]:\//.test(normSrc) && !normSrc.startsWith("/")) {

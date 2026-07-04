@@ -15,6 +15,10 @@ import {
   sanitizeImageFileName,
   toMarkdownAssetPath,
 } from "./note-images.js";
+import {
+  exportTargetDirPath,
+  isInExportTargetFolder,
+} from "./export-target.js";
 import { metadataCache } from "../metadata/cache.js";
 import { searchIndex } from "../search/index.js";
 import { eventBus } from "../plugins/host.js";
@@ -165,6 +169,7 @@ export class VaultService {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
     if (isInNotePicFolder(base)) throw new Error("Cannot create in a note image folder");
+    if (isInExportTargetFolder(base)) throw new Error("Cannot create in the export folder");
     if (base) await this.adapter.mkdir(base);
     let path = joinPath(base, `${title}.md`);
     let i = 1;
@@ -241,6 +246,7 @@ export class VaultService {
     if (!this.adapter) throw new Error("No vault mounted");
     const normalized = normalizePath(path);
     if (isNotePicFolder(normalized)) throw new Error("Cannot rename a note image folder");
+    if (isInExportTargetFolder(normalized)) throw new Error("Cannot rename inside the export folder");
     const safe = sanitizeFolderName(newName);
     const currentName = normalized.split("/").pop() ?? normalized;
     if (safe === currentName) return normalized;
@@ -288,6 +294,7 @@ export class VaultService {
     if (!this.adapter) throw new Error("No vault mounted");
     const parent = normalizePath(dir);
     if (isInNotePicFolder(parent)) throw new Error("Cannot create in a note image folder");
+    if (isInExportTargetFolder(parent)) throw new Error("Cannot create in the export folder");
     if (parent) await this.adapter.mkdir(parent);
     const safe = sanitizeFolderName(title);
     let path = parent ? `${parent}/${safe}` : safe;
@@ -304,6 +311,7 @@ export class VaultService {
     if (!this.adapter) throw new Error("No vault mounted");
     const base = normalizePath(dir);
     if (isInNotePicFolder(base)) throw new Error("Cannot create in a note image folder");
+    if (isInExportTargetFolder(base)) throw new Error("Cannot create in the export folder");
     if (base) await this.adapter.mkdir(base);
     let path = joinPath(base, `${title}.excalidraw`);
     let i = 1;
@@ -390,6 +398,11 @@ export class VaultService {
     await this.adapter.writeBinary(normalizePath(path), content);
   }
 
+  async ensureExportTargetDir(): Promise<void> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    await this.adapter.mkdir(exportTargetDirPath());
+  }
+
   async getPublishableNotes(): Promise<
     Array<{ path: string; title: string; slug: string; date: string; tags: string[] }>
   > {
@@ -455,3 +468,11 @@ export {
   formatImageMarkdown,
   toMarkdownAssetPath,
 } from "./note-images.js";
+export {
+  EXPORT_TARGET_DIR,
+  exportTargetDirPath,
+  isExportTargetFolder,
+  isInExportTargetFolder,
+  pdfPathForMarkdown,
+  sortFileTreeEntries,
+} from "./export-target.js";

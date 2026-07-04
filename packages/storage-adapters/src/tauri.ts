@@ -75,7 +75,7 @@ export class TauriFsAdapter implements VaultAdapter {
   }
 
   async writeBinary(path: string, content: Uint8Array): Promise<void> {
-    await invoke("vault_write_binary", { path: this.abs(path), content: [...content] });
+    await invoke("vault_write_binary", { path: this.abs(path), content: Array.from(content) });
   }
 
   async delete(path: string): Promise<void> {

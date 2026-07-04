@@ -13,7 +13,7 @@ import {
   type Ref,
 } from "react";
 import type { VaultEntry } from "@boke/core";
-import { fileBaseName, isExcalidraw, isHiddenPath, isImage, isInNotePicFolder, isMarkdown, isNotePicFolder, isPdf, sanitizeFolderName, sanitizeNoteTitle } from "@boke/core";
+import { fileBaseName, isExcalidraw, isExportTargetFolder, isHiddenPath, isImage, isInExportTargetFolder, isInNotePicFolder, isMarkdown, isNotePicFolder, isPdf, sanitizeFolderName, sanitizeNoteTitle, sortFileTreeEntries } from "@boke/core";
 import {
   createAndOpenDrawing,
   createAndOpenNote,
@@ -157,12 +157,22 @@ function FileTreeFolderRow({
 }) {
   const ctx = useContext(FileTreeContext);
   const t = useT();
+  const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const isPicFolder = isNotePicFolder(folderPath);
+  const isExportFolder = isExportTargetFolder(folderPath);
   const isContextTarget = ctx?.contextMenuPath === folderPath;
   const isRenaming = ctx?.renamingPath === folderPath;
   const [draft, setDraft] = useState(folderName);
   const inputRef = useRef<HTMLInputElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   const committingRef = useRef(false);
+
+  useEffect(() => {
+    if (!revealTargetPath || revealGeneration === 0 || !folderPath) return;
+    if (revealTargetPath === folderPath || revealTargetPath.startsWith(`${folderPath}/`)) {
+      rowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [revealGeneration, revealTargetPath, folderPath]);
 
   useEffect(() => {
     if (isRenaming) {
@@ -225,6 +235,7 @@ function FileTreeFolderRow({
 
   return (
     <TreeRow
+      ref={rowRef}
       depth={depth}
       className={`boke-file-tree-dir${isContextTarget ? " context-target" : ""}`}
       onClick={onToggle}
@@ -242,6 +253,11 @@ function FileTreeFolderRow({
         <span className="boke-file-tree-name">{folderName}</span>
         {isPicFolder && (
           <span className="boke-file-tree-lock" title={t("fileTree.picFolderLocked")} aria-hidden="true">
+            <FolderLockIcon />
+          </span>
+        )}
+        {isExportFolder && (
+          <span className="boke-file-tree-lock" title={t("fileTree.exportTargetFolderLocked")} aria-hidden="true">
             <FolderLockIcon />
           </span>
         )}
@@ -382,7 +398,8 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
 
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {
-      setEntries(list.filter((e) => !isHiddenPath(e.path)));
+      const visible = list.filter((e) => !isHiddenPath(e.path));
+      setEntries(sortFileTreeEntries(visible, dir));
     });
   }, [dir, treeVersion]);
 
@@ -532,7 +549,9 @@ function FileTreeContextMenu({
   const folderLabel =
     target.kind === "root" ? t("fileTree.currentFolder") : (target.path.split("/").pop() ?? target.path);
   const isPicFolder = target.kind === "folder" && isNotePicFolder(target.path);
-  const cannotCreateHere = isInNotePicFolder(parentDir);
+  const cannotCreateHere = isInNotePicFolder(parentDir) || isInExportTargetFolder(parentDir);
+  const cannotRenameFolder =
+    target.kind === "folder" && (isPicFolder || isInExportTargetFolder(target.path));
 
   return (
     <>
@@ -574,9 +593,9 @@ function FileTreeContextMenu({
         <>
           <button
             type="button"
-            className={`boke-context-menu-item${isPicFolder ? " boke-context-menu-item--disabled" : ""}`}
+            className={`boke-context-menu-item${cannotRenameFolder ? " boke-context-menu-item--disabled" : ""}`}
             onClick={() => {
-              if (isPicFolder) return;
+              if (cannotRenameFolder) return;
               run(() => onRename(target.path));
             }}
           >
@@ -620,7 +639,7 @@ export function FileTree() {
   }, [contextMenu]);
 
   const startRename = useCallback((path: string) => {
-    if (path && isNotePicFolder(path)) return;
+    if (path && (isNotePicFolder(path) || isInExportTargetFolder(path))) return;
     setRenamingPath(path || null);
   }, []);
 
@@ -630,7 +649,7 @@ export function FileTree() {
 
   const commitRename = useCallback(
     async (path: string, title: string) => {
-      if (isNotePicFolder(path)) {
+      if (isNotePicFolder(path) || isInExportTargetFolder(path)) {
         setRenamingPath(null);
         return;
       }

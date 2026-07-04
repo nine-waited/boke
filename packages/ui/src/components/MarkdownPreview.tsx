@@ -13,7 +13,7 @@ export function MarkdownPreview({ content, path }: MarkdownPreviewProps) {
     if (!ref.current) return;
     ref.current.innerHTML = renderMarkdown(content);
     attachPreviewHandlers(ref.current, path);
-    hydrateEmbedImages(ref.current);
+    hydrateEmbedImages(ref.current, path);
   }, [content, path]);
 
   return <div ref={ref} className="boke-markdown-preview" />;

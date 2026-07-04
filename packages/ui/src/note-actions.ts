@@ -1,9 +1,11 @@
+import { exportTargetDirPath } from "@boke/core";
 import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
 import { isTauri, openVaultFolderInExplorer, TauriFsAdapter } from "@boke/storage-adapters";
 import { formatNativePath } from "./vault-path-utils.js";
 import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
+import { revealFileInTreeWhenReady } from "./file-tree-expand-context.js";
 
 function refreshTree(): void {
   useAppStore.getState().refreshTree();
@@ -65,17 +67,45 @@ export async function confirmAndDeleteVaultPath(
 }
 
 export async function revealInFileManager(relativePath = ""): Promise<void> {
-  if (!isTauri()) return;
+  if (!isTauri() || !relativePath) return;
   const adapter = vaultService.getAdapter();
   if (!adapter || adapter.kind !== "tauri") return;
   const abs = formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(relativePath));
   await openVaultFolderInExplorer(abs);
 }
 
+async function waitForVaultTreeEntry(relativePath: string): Promise<void> {
+  const parentDir = relativePath.includes("/")
+    ? relativePath.slice(0, relativePath.lastIndexOf("/"))
+    : "";
+
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const list = await vaultService.listTree(parentDir);
+    if (list.some((entry) => entry.path === relativePath)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+async function revealExportedPdfInFileManager(pdfPath: string): Promise<void> {
+  try {
+    await revealInFileManager(pdfPath);
+  } catch (err) {
+    console.error("[boke] reveal exported pdf failed, opening target folder:", err);
+    await revealInFileManager(exportTargetDirPath());
+  }
+}
+
 export async function exportNoteToPdf(relativePath: string): Promise<void> {
   if (!isTauri()) return;
   const pdfPath = await exportMarkdownToPdf(relativePath);
-  useAppStore.getState().refreshTree();
   workspaceStore.openPdf(pdfPath);
+  useAppStore.getState().refreshTree();
+  await waitForVaultTreeEntry(pdfPath);
+  await revealFileInTreeWhenReady(pdfPath);
+  try {
+    await revealExportedPdfInFileManager(pdfPath);
+  } catch (err) {
+    console.error("[boke] reveal exported pdf in file manager failed:", err);
+  }
   useAppStore.getState().setStatusText(getT()("status.exportPdfSuccess", { path: pdfPath }));
 }

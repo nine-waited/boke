@@ -27,7 +27,7 @@ import {
 } from "./store.js";
 import { registerCoreCommands } from "./commands.js";
 import { ConfirmDialogHost } from "./confirm-dialog.js";
-import { PdfExportProgressHost } from "./pdf-export-progress.js";
+import { ExportProgressHost } from "./export-progress.js";
 import { createAndOpenNote } from "./note-actions.js";
 
 const ExcalidrawView = lazy(() =>
@@ -210,7 +210,7 @@ export function App() {
       <CommandPalette />
       <SearchPanel />
       <ConfirmDialogHost />
-      <PdfExportProgressHost />
+      <ExportProgressHost />
       <GlobalKeyboardShortcuts />
     </div>
   );

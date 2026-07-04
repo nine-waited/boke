@@ -180,77 +180,10 @@ fn open_vault_folder(path: String) -> Result<(), String> {
     }
     let path = path.canonicalize().map_err(|e| e.to_string())?;
 
-    #[cfg(target_os = "windows")]
-    {
-        if path.is_file() {
-            std::process::Command::new("explorer")
-                .arg(format!("/select,{}", path.display()))
-                .spawn()
-                .map_err(|e| e.to_string())?;
-        } else {
-            // Open the folder directly; `/root,` falls back to Documents when the path is misparsed.
-            std::process::Command::new("explorer")
-                .arg(path.as_os_str())
-                .spawn()
-                .map_err(|e| e.to_string())?;
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        let mut command = std::process::Command::new("open");
-        if path.is_file() {
-            command.arg("-R");
-        }
-        command
-            .arg(&path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        if path.is_file() {
-            if std::process::Command::new("nautilus")
-                .arg("--select")
-                .arg(&path)
-                .spawn()
-                .is_ok()
-            {
-                return Ok(());
-            }
-            if std::process::Command::new("dbus-send")
-                .args([
-                    "--print-reply",
-                    "--dest=org.freedesktop.FileManager1",
-                    "/org/freedesktop/FileManager1",
-                    "org.freedesktop.FileManager1.ShowItems",
-                    &format!("array:string:\"file://{}\"", path.display()),
-                    "string:",
-                ])
-                .spawn()
-                .is_ok()
-            {
-                return Ok(());
-            }
-            if let Some(parent) = path.parent() {
-                std::process::Command::new("xdg-open")
-                    .arg(parent)
-                    .spawn()
-                    .map_err(|e| e.to_string())?;
-                return Ok(());
-            }
-        } else {
-            std::process::Command::new("xdg-open")
-                .arg(&path)
-                .spawn()
-                .map_err(|e| e.to_string())?;
-        }
-    }
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    {
-        return Err("unsupported platform".into());
+    if path.is_file() {
+        opener::reveal(&path).map_err(|e| e.to_string())?;
+    } else {
+        opener::open(&path).map_err(|e| e.to_string())?;
     }
 
     Ok(())

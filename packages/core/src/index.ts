@@ -1,5 +1,6 @@
 export * from "./vault/types.js";
 export * from "./vault/note-images.js";
+export * from "./vault/export-target.js";
 export * from "./vault/service.js";
 export * from "./metadata/cache.js";
 export * from "./search/index.js";

@@ -1,6 +1,107 @@
-import { joinPath, normalizePath } from "./types.js";
+import { isImage, joinPath, normalizePath } from "./types.js";
 
 export const NOTE_PIC_SUFFIX = "_pic";
+
+/** Normalize markdown image URLs: angle brackets, file://, URI encoding, slashes. */
+export function normalizeMarkdownAssetRef(raw: string): string {
+  let next = raw.trim();
+  if (next.startsWith("<") && next.endsWith(">")) {
+    next = next.slice(1, -1).trim();
+  }
+  next = next.replace(/\\/g, "/");
+
+  if (/^file:/i.test(next)) {
+    try {
+      const url = new URL(next);
+      next = decodeURIComponent(url.pathname);
+      if (/^\/[a-zA-Z]:\//.test(next)) {
+        next = next.slice(1);
+      }
+    } catch {
+      next = next.replace(/^file:\/\/\/+/i, "").replace(/^file:\/\//i, "");
+      try {
+        next = decodeURIComponent(next);
+      } catch {
+        // keep decoded best-effort path
+      }
+    }
+  } else {
+    try {
+      next = decodeURIComponent(next);
+    } catch {
+      // keep literal path
+    }
+  }
+
+  return next;
+}
+
+/** Map an absolute filesystem path under `vaultRoot` to a vault-relative path. */
+export function absolutePathToVaultRelative(absPath: string, vaultRoot: string): string | null {
+  const norm = normalizeMarkdownAssetRef(absPath);
+  const root = normalizeMarkdownAssetRef(vaultRoot).replace(/\/$/, "");
+  if (!/^[a-zA-Z]:\//.test(norm) || !/^[a-zA-Z]:\//.test(root)) return null;
+
+  const normLower = norm.toLowerCase();
+  const rootLower = root.toLowerCase();
+  if (normLower === rootLower) return "";
+  if (!normLower.startsWith(`${rootLower}/`)) return null;
+
+  return normalizePath(norm.slice(root.length).replace(/^\//, ""));
+}
+
+function decodeImageRef(raw: string): string {
+  return normalizeMarkdownAssetRef(raw);
+}
+
+/** Directory containing the note file, e.g. `notes/sub` for `notes/sub/foo.md`. */
+export function noteDirectoryPath(mdPath: string): string {
+  const normalized = normalizePath(mdPath);
+  const slash = normalized.lastIndexOf("/");
+  return slash >= 0 ? normalized.slice(0, slash) : "";
+}
+
+/** Collapse `.` / `..` segments in a vault-relative path. */
+export function resolvePathSegments(path: string): string {
+  const parts = normalizePath(path).split("/");
+  const stack: string[] = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (stack.length > 0) stack.pop();
+      continue;
+    }
+    stack.push(part);
+  }
+  return stack.join("/");
+}
+
+/**
+ * Resolve an image reference from markdown against a note path.
+ * Handles `foo_pic/image.png`, vault-root paths like `notes/sub/foo_pic/x.png`, and `/attachments/x.png`.
+ */
+export function resolveNoteImageVaultPath(imageRef: string, notePath: string): string | null {
+  if (!imageRef || !notePath) return null;
+
+  const raw = imageRef.replace(/\\/g, "/");
+  const norm = resolvePathSegments(decodeImageRef(imageRef));
+  if (!norm || /^https?:\/\//i.test(norm) || norm.startsWith("data:") || norm.startsWith("blob:")) {
+    return null;
+  }
+  if (/^[a-zA-Z]:\//.test(norm)) return null;
+
+  let vaultPath = norm;
+  const noteDir = noteDirectoryPath(notePath);
+
+  if (raw.trimStart().startsWith("/")) {
+    vaultPath = norm;
+  } else if (noteDir && !norm.startsWith(`${noteDir}/`)) {
+    vaultPath = joinPath(noteDir, norm);
+  }
+
+  vaultPath = resolvePathSegments(vaultPath);
+  return isImage(vaultPath) ? vaultPath : null;
+}
 
 export function isNotePicFolder(pathOrName: string): boolean {
   const name = pathOrName.split("/").pop() ?? pathOrName;
@@ -33,7 +134,9 @@ export function toMarkdownAssetPath(path: string): string {
 }
 
 export function formatImageMarkdown(imagePath: string, alt = ""): string {
-  return `![${alt}](${toMarkdownAssetPath(imagePath)})`;
+  const path = toMarkdownAssetPath(imagePath);
+  const dest = /[\s<>()]/.test(path) ? `<${path}>` : path;
+  return `![${alt}](${dest})`;
 }
 
 export function rewriteNotePicPaths(

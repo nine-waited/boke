@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { workspaceStore } from "./store.js";
 
 interface FileTreeExpandContextValue {
@@ -11,6 +11,24 @@ interface FileTreeExpandContextValue {
 
 const FileTreeExpandContext = createContext<FileTreeExpandContextValue | null>(null);
 
+let revealPathInTree: ((path: string) => void) | null = null;
+
+/** Scroll the file tree to `path`, expanding parent folders as needed. */
+export function revealFileInTree(path: string): void {
+  revealPathInTree?.(path);
+}
+
+/** Reveal after async tree refresh; retries until folders expand and the row mounts. */
+export async function revealFileInTreeWhenReady(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    revealFileInTree(path);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (attempt < 5) {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+  }
+}
+
 export function FileTreeExpandProvider({ children }: { children: ReactNode }) {
   const [collapseGeneration, setCollapseGeneration] = useState(0);
   const [revealGeneration, setRevealGeneration] = useState(0);
@@ -20,12 +38,23 @@ export function FileTreeExpandProvider({ children }: { children: ReactNode }) {
     setCollapseGeneration((generation) => generation + 1);
   }, []);
 
-  const revealActiveFile = useCallback(() => {
-    const path = workspaceStore.getActivePath();
-    if (!path) return;
+  const revealFile = useCallback((path: string) => {
     setRevealTargetPath(path);
     setRevealGeneration((generation) => generation + 1);
   }, []);
+
+  useEffect(() => {
+    revealPathInTree = revealFile;
+    return () => {
+      revealPathInTree = null;
+    };
+  }, [revealFile]);
+
+  const revealActiveFile = useCallback(() => {
+    const path = workspaceStore.getActivePath();
+    if (!path) return;
+    revealFile(path);
+  }, [revealFile]);
 
   return (
     <FileTreeExpandContext.Provider

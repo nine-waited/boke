@@ -18,6 +18,7 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
+opener = { version = "0.7", features = ["reveal"] }
 trash = "5"
 
 [profile.release]

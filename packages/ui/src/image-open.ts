@@ -1,4 +1,4 @@
-import { isImage, joinPath, normalizePath } from "@boke/core";
+import { isImage, normalizePath, normalizeMarkdownAssetRef, absolutePathToVaultRelative, resolveNoteImageVaultPath } from "@boke/core";
 import { workspaceStore } from "./store.js";
 
 const displayUrlToVaultPath = new Map<string, string>();
@@ -7,27 +7,34 @@ export function trackImageDisplayUrl(displayUrl: string, vaultPath: string): voi
   displayUrlToVaultPath.set(displayUrl, normalizePath(vaultPath));
 }
 
-export function resolveImageVaultPath(src: string, notePath?: string): string | null {
+export function resolveImageVaultPath(src: string, notePath?: string, vaultRoot?: string | null): string | null {
   if (!src) return null;
 
   const tracked = displayUrlToVaultPath.get(src);
   if (tracked) return tracked;
 
-  if (src.startsWith("blob:") || src.startsWith("data:") || /^https?:\/\//i.test(src)) {
+  const normalized = normalizeMarkdownAssetRef(src);
+
+  if (normalized.startsWith("blob:") || normalized.startsWith("data:") || /^https?:\/\//i.test(normalized)) {
     return null;
   }
 
-  const norm = src.replace(/\\/g, "/");
-  if (/^[a-zA-Z]:\//.test(norm) || norm.startsWith("/")) return null;
-
-  let vaultPath = norm;
-  if (!norm.includes("/") && notePath) {
-    const slash = notePath.lastIndexOf("/");
-    const dir = slash >= 0 ? notePath.slice(0, slash) : "";
-    vaultPath = dir ? joinPath(dir, norm) : norm;
+  if (/^[a-zA-Z]:\//.test(normalized)) {
+    if (vaultRoot) {
+      const rel = absolutePathToVaultRelative(normalized, vaultRoot);
+      if (rel && isImage(rel)) return rel;
+    }
+    return null;
   }
 
-  vaultPath = normalizePath(vaultPath);
+  if (normalized.startsWith("/")) return null;
+
+  if (notePath) {
+    const resolved = resolveNoteImageVaultPath(normalized, notePath);
+    if (resolved) return resolved;
+  }
+
+  const vaultPath = normalizePath(normalized);
   return isImage(vaultPath) ? vaultPath : null;
 }
 

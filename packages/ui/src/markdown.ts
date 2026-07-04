@@ -67,17 +67,23 @@ export function attachPreviewHandlers(container: HTMLElement, notePath?: string)
   attachImageClickHandlers(container, notePath);
 }
 
-export async function hydrateEmbedImages(container: HTMLElement): Promise<void> {
+export async function hydrateEmbedImages(container: HTMLElement, notePath?: string): Promise<void> {
   const images = container.querySelectorAll<HTMLImageElement>("img[data-embed]");
   const { vaultService } = await import("./store.js");
-  const { trackImageDisplayUrl } = await import("./image-open.js");
+  const { resolveImageVaultPath, trackImageDisplayUrl } = await import("./image-open.js");
+  const adapter = vaultService.getAdapter();
+  const vaultRoot =
+    adapter?.kind === "tauri" && "getRootPath" in adapter
+      ? (adapter as { getRootPath(): string }).getRootPath()
+      : null;
   for (const img of images) {
     const path = img.dataset.embed;
     if (!path) continue;
+    const vaultPath = resolveImageVaultPath(path, notePath, vaultRoot) ?? path;
     try {
-      const url = await vaultService.getAssetUrl(path);
-      img.dataset.vaultPath = path;
-      trackImageDisplayUrl(url, path);
+      const url = await vaultService.getAssetUrl(vaultPath);
+      img.dataset.vaultPath = vaultPath;
+      trackImageDisplayUrl(url, vaultPath);
       img.src = url;
     } catch {
       img.alt = `Failed to load ${path}`;
@@ -91,8 +97,8 @@ export async function hydrateEmbedImages(container: HTMLElement): Promise<void> 
       continue;
     }
     try {
-      const vaultPath = src.replace(/\\/g, "/");
-      const url = await resolveImageSrcForDisplay(src);
+      const vaultPath = resolveImageVaultPath(src, notePath, vaultRoot) ?? src.replace(/\\/g, "/");
+      const url = await resolveImageSrcForDisplay(vaultPath);
       img.dataset.vaultPath = vaultPath;
       img.src = url;
     } catch {
