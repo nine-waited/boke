@@ -70,11 +70,11 @@ git push --force origin main
 若用户已配置 SSH，可改用：
 
 ```
-git@gitcode.com:Nineee999/boke.git
+git@github.com:nine-waited/ChestnutEditor.git
 ```
 
 ```powershell
-git remote set-url origin git@gitcode.com:Nineee999/boke.git
+git remote set-url origin git@github.com:nine-waited/ChestnutEditor.git
 ```
 
 不要未经用户同意切换 remote URL。

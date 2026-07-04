@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
   type HTMLAttributes,
+  type PointerEvent,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
@@ -23,7 +24,25 @@ import {
   revealInFileManager,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
-import { useFileTreeCollapseGeneration, useFileTreeReveal } from "../file-tree-expand-context.js";
+import { useFileTreeCollapseGeneration, useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
+import {
+  canDragFileTreeEntry,
+  canDropFileTreeEntry,
+  type FileTreeDragKind,
+  type FileTreeDragPayload,
+} from "../file-tree-move.js";
+import {
+  attachFileTreeDragGhost,
+  detachFileTreeDragGhost,
+  moveFileTreeDragGhost,
+} from "../file-tree-drag-ghost.js";
+import {
+  createPointerDragSession,
+  FILE_TREE_DRAG_LONG_PRESS_MS,
+  findDropFolderAt,
+  pointerDragMovedEnough,
+  type FileTreePointerDragSession,
+} from "../file-tree-pointer-dnd.js";
 import { useT } from "../i18n/index.js";
 import { isTauri } from "@chestnut/storage-adapters";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
@@ -42,15 +61,36 @@ interface FileTreeContextValue {
   activePath: string | null;
   contextMenuPath: string | null;
   renamingPath: string | null;
+  dragging: FileTreeDragPayload | null;
+  dropTarget: string | null;
+  expandFolderRequest: string | null;
+  consumeClickAfterDrag: () => boolean;
   startRename: (path: string) => void;
   openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
   commitRename: (path: string, title: string) => Promise<void>;
+  handlePointerDown: (event: PointerEvent, path: string, kind: FileTreeDragKind) => void;
 }
 
 const FileTreeContext = createContext<FileTreeContextValue | null>(null);
 
 function isRenamableFile(path: string): boolean {
   return isMarkdown(path) || isExcalidraw(path);
+}
+
+function fileTreeItemClassName(
+  base: string,
+  path: string,
+  kind: FileTreeDragKind,
+  ctx: FileTreeContextValue | null,
+): string {
+  const classes = [base];
+  if (ctx?.dragging?.path === path && ctx.dragging.kind === kind) {
+    classes.push("boke-file-tree-item--dragging");
+  }
+  if (kind === "directory" && ctx?.dropTarget === path) {
+    classes.push("boke-file-tree-item--drop-target");
+  }
+  return classes.join(" ");
 }
 
 function isPathInsideDir(dir: string, path: string): boolean {
@@ -74,17 +114,29 @@ function TreeRow({
   className = "",
   children,
   ref,
-  ...props
+  dropPath,
+  parentDir,
+  interactionProps,
 }: {
   depth: number;
   className?: string;
   children: ReactNode;
   ref?: Ref<HTMLDivElement>;
-} & HTMLAttributes<HTMLDivElement>) {
+  dropPath?: string;
+  parentDir?: string;
+  interactionProps?: HTMLAttributes<HTMLDivElement>;
+}) {
   return (
-    <div ref={ref} className="boke-file-tree-row" {...props}>
+    <div ref={ref} className="boke-file-tree-row">
       <TreeGuides depth={depth} />
-      <div className={`boke-file-tree-item ${className}`.trim()}>{children}</div>
+      <div
+        className={`boke-file-tree-item ${className}`.trim()}
+        data-file-tree-drop={dropPath}
+        data-file-tree-parent={parentDir}
+        {...interactionProps}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -162,6 +214,7 @@ function FileTreeFolderRow({
   const isExportFolder = isExportTargetFolder(folderPath);
   const isContextTarget = ctx?.contextMenuPath === folderPath;
   const isRenaming = ctx?.renamingPath === folderPath;
+  const draggable = !isRenaming && !isPicFolder && !isExportFolder && canDragFileTreeEntry(folderPath, "directory");
   const [draft, setDraft] = useState(folderName);
   const inputRef = useRef<HTMLInputElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -237,12 +290,26 @@ function FileTreeFolderRow({
     <TreeRow
       ref={rowRef}
       depth={depth}
-      className={`boke-file-tree-dir${isContextTarget ? " context-target" : ""}`}
-      onClick={onToggle}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        ctx?.openContextMenu(e, { kind: "folder", path: folderPath });
+      className={fileTreeItemClassName(
+        `boke-file-tree-dir${isContextTarget ? " context-target" : ""}${draggable ? " boke-file-tree-item--draggable" : ""}`,
+        folderPath,
+        "directory",
+        ctx,
+      )}
+      dropPath={folderPath}
+      interactionProps={{
+        onPointerDown: draggable
+          ? (event) => ctx?.handlePointerDown(event, folderPath, "directory")
+          : undefined,
+        onClick: () => {
+          if (ctx?.consumeClickAfterDrag()) return;
+          onToggle();
+        },
+        onContextMenu: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          ctx?.openContextMenu(e, { kind: "folder", path: folderPath });
+        },
       }}
     >
       <TreeChevronIcon expanded={expanded} />
@@ -337,6 +404,9 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
     }
   };
 
+  const draggable = !isRenaming && canDragFileTreeEntry(entry.path, "file");
+  const parentDir = entry.path.includes("/") ? entry.path.slice(0, entry.path.lastIndexOf("/")) : "";
+
   if (isRenaming) {
     return (
       <TreeRow depth={depth} className="boke-file-tree-file boke-file-tree-item--renaming">
@@ -361,12 +431,26 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
     <TreeRow
       ref={rowRef}
       depth={depth}
-      className={`boke-file-tree-file${isActive ? " active" : ""}${isContextTarget ? " context-target" : ""}`}
-      onClick={openFile}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        ctx?.openContextMenu(e, { kind: "file", path: entry.path });
+      className={fileTreeItemClassName(
+        `boke-file-tree-file${isActive ? " active" : ""}${isContextTarget ? " context-target" : ""}${draggable ? " boke-file-tree-item--draggable" : ""}`,
+        entry.path,
+        "file",
+        ctx,
+      )}
+      parentDir={parentDir}
+      interactionProps={{
+        onPointerDown: draggable
+          ? (event) => ctx?.handlePointerDown(event, entry.path, "file")
+          : undefined,
+        onClick: () => {
+          if (ctx?.consumeClickAfterDrag()) return;
+          openFile();
+        },
+        onContextMenu: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          ctx?.openContextMenu(e, { kind: "file", path: entry.path });
+        },
       }}
     >
       <TreeChevronSpacer />
@@ -395,6 +479,15 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
       setExpanded(true);
     }
   }, [revealGeneration, revealTargetPath, dir]);
+
+  const treeCtx = useContext(FileTreeContext);
+  useEffect(() => {
+    if (!treeCtx?.expandFolderRequest || !dir) return;
+    const request = treeCtx.expandFolderRequest;
+    if (request === dir || request.startsWith(`${dir}/`)) {
+      setExpanded(true);
+    }
+  }, [treeCtx?.expandFolderRequest, dir]);
 
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {
@@ -615,7 +708,9 @@ function FileTreeContextMenu({
 }
 
 export function FileTree() {
+  const t = useT();
   const refreshTree = useAppStore((s) => s.refreshTree);
+  const setStatusText = useAppStore((s) => s.setStatusText);
   const activePath = useSyncExternalStore(
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getActivePath(),
@@ -626,6 +721,58 @@ export function FileTree() {
     target: ContextTarget;
   } | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<FileTreeDragPayload | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [expandFolderRequest, setExpandFolderRequest] = useState<string | null>(null);
+  const draggingRef = useRef<FileTreeDragPayload | null>(null);
+  const pointerSessionRef = useRef<FileTreePointerDragSession | null>(null);
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    draggingRef.current = dragging;
+  }, [dragging]);
+
+  const endPointerDrag = useCallback(() => {
+    pointerSessionRef.current = null;
+    draggingRef.current = null;
+    setDragging(null);
+    setDropTarget(null);
+    setExpandFolderRequest(null);
+    detachFileTreeDragGhost();
+    document.body.classList.remove("boke-file-tree-dragging");
+  }, []);
+
+  const beginPointerDrag = useCallback((session: FileTreePointerDragSession, clientX: number, clientY: number) => {
+    session.active = true;
+    session.didDrag = true;
+    draggingRef.current = session.payload;
+    setDragging(session.payload);
+    setDropTarget(null);
+    attachFileTreeDragGhost(session.sourceElement, clientX, clientY);
+    document.body.classList.add("boke-file-tree-dragging");
+  }, []);
+
+  const updateDropTargetAt = useCallback((clientX: number, clientY: number, payload: FileTreeDragPayload) => {
+    const folderPath = findDropFolderAt(clientX, clientY);
+    if (folderPath === null) {
+      setDropTarget(null);
+      return;
+    }
+    if (!canDropFileTreeEntry(payload.path, payload.kind, folderPath)) {
+      setDropTarget(null);
+      return;
+    }
+    setDropTarget(folderPath);
+    if (folderPath) {
+      setExpandFolderRequest(folderPath);
+    }
+  }, []);
+
+  const consumeClickAfterDrag = useCallback(() => {
+    if (!suppressClickRef.current) return false;
+    suppressClickRef.current = false;
+    return true;
+  }, []);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -675,6 +822,94 @@ export function FileTree() {
     [refreshTree],
   );
 
+  const performMove = useCallback(
+    async (payload: FileTreeDragPayload, targetDir: string) => {
+      if (!canDropFileTreeEntry(payload.path, payload.kind, targetDir)) return;
+      try {
+        const newPath = await vaultService.moveEntry(payload.path, payload.kind, targetDir);
+        if (payload.kind === "directory") {
+          workspaceStore.renamePathPrefix(payload.path, newPath);
+        } else {
+          workspaceStore.renamePath(payload.path, newPath);
+        }
+        refreshTree();
+        await revealFileInTreeWhenReady(newPath);
+      } catch (err) {
+        console.warn("[Chestnut] move failed:", err);
+        setStatusText(t("fileTree.moveFailed"));
+      }
+    },
+    [refreshTree, setStatusText, t],
+  );
+
+  const handlePointerDown = useCallback(
+    (event: PointerEvent, path: string, kind: FileTreeDragKind) => {
+      if (event.button !== 0 || !canDragFileTreeEntry(path, kind)) return;
+      if (pointerSessionRef.current) return;
+
+      const session = createPointerDragSession(
+        { path, kind },
+        event.pointerId,
+        event.clientX,
+        event.clientY,
+        event.currentTarget as HTMLElement,
+      );
+      pointerSessionRef.current = session;
+
+      session.longPressTimer = setTimeout(() => {
+        if (pointerSessionRef.current !== session || session.active) return;
+        beginPointerDrag(session, session.lastClientX, session.lastClientY);
+        updateDropTargetAt(session.lastClientX, session.lastClientY, session.payload);
+      }, FILE_TREE_DRAG_LONG_PRESS_MS);
+
+      const finish = (ev: globalThis.PointerEvent) => {
+        if (ev.pointerId !== session.pointerId) return;
+        if (session.longPressTimer) {
+          clearTimeout(session.longPressTimer);
+          session.longPressTimer = null;
+        }
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", finish);
+        document.removeEventListener("pointercancel", finish);
+
+        if (session.active) {
+          suppressClickRef.current = true;
+          const targetDir = findDropFolderAt(ev.clientX, ev.clientY);
+          const payload = session.payload;
+          endPointerDrag();
+          if (targetDir !== null && canDropFileTreeEntry(payload.path, payload.kind, targetDir)) {
+            void performMove(payload, targetDir);
+          }
+        } else {
+          pointerSessionRef.current = null;
+        }
+      };
+
+      const onMove = (ev: globalThis.PointerEvent) => {
+        if (ev.pointerId !== session.pointerId) return;
+        session.lastClientX = ev.clientX;
+        session.lastClientY = ev.clientY;
+        if (!session.active && pointerDragMovedEnough(session, ev.clientX, ev.clientY)) {
+          if (session.longPressTimer) {
+            clearTimeout(session.longPressTimer);
+            session.longPressTimer = null;
+          }
+          beginPointerDrag(session, ev.clientX, ev.clientY);
+        }
+        if (session.active) {
+          ev.preventDefault();
+          moveFileTreeDragGhost(ev.clientX, ev.clientY);
+          updateDropTargetAt(ev.clientX, ev.clientY, session.payload);
+        }
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", finish);
+      document.addEventListener("pointercancel", finish);
+    },
+    [beginPointerDrag, endPointerDrag, performMove, updateDropTargetAt],
+  );
+
   const contextMenuPath =
     contextMenu && contextMenu.target.kind !== "root" ? contextMenu.target.path : null;
 
@@ -682,16 +917,22 @@ export function FileTree() {
     activePath,
     contextMenuPath,
     renamingPath,
+    dragging,
+    dropTarget,
+    expandFolderRequest,
+    consumeClickAfterDrag,
     startRename,
     openContextMenu,
     commitRename,
+    handlePointerDown,
   };
 
   return (
     <>
       <FileTreeContext.Provider value={ctxValue}>
         <div
-          className="boke-file-tree"
+          className={`boke-file-tree${dropTarget === "" ? " boke-file-tree--drop-root" : ""}`}
+          {...{ "data-file-tree-drop": "" }}
           onContextMenu={(e) => {
             if (e.target !== e.currentTarget) return;
             e.preventDefault();

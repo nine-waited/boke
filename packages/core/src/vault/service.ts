@@ -17,6 +17,7 @@ import {
 } from "./note-images.js";
 import {
   exportTargetDirPath,
+  isExportTargetFolder,
   isInExportTargetFolder,
 } from "./export-target.js";
 import { metadataCache } from "../metadata/cache.js";
@@ -290,6 +291,142 @@ export class VaultService {
     return nextPath;
   }
 
+  async moveEntry(
+    path: string,
+    kind: "file" | "directory",
+    targetDir: string,
+  ): Promise<string> {
+    return kind === "directory"
+      ? this.moveFolder(path, targetDir)
+      : this.moveFileToDir(path, targetDir);
+  }
+
+  async moveFileToDir(path: string, targetDir: string): Promise<string> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    const normalized = normalizePath(path);
+    const target = normalizePath(targetDir);
+    if (isInNotePicFolder(normalized)) throw new Error("Cannot move from a note image folder");
+    if (isInExportTargetFolder(normalized)) throw new Error("Cannot move from the export folder");
+    if (target && isInNotePicFolder(target)) throw new Error("Cannot move into a note image folder");
+    if (target && isInExportTargetFolder(target)) throw new Error("Cannot move into the export folder");
+
+    const parent = parentDir(normalized);
+    if (parent === target) return normalized;
+
+    const fileName = normalized.split("/").pop() ?? normalized;
+    const nextPath = await uniqueSiblingPath(
+      target ? joinPath(target, fileName) : fileName,
+      (candidate) => this.adapter!.exists(candidate),
+      normalized,
+    );
+    if (nextPath === normalized) return normalized;
+
+    const pending = this.saveTimers.get(normalized);
+    if (pending) {
+      clearTimeout(pending);
+      this.saveTimers.delete(normalized);
+    }
+
+    if (isMarkdown(normalized)) {
+      const oldPicDir = notePicDirPath(normalized);
+      const newPicDir = notePicDirPath(nextPath);
+      if (oldPicDir !== newPicDir && (await this.adapter.exists(oldPicDir))) {
+        const movedPicDir = await uniqueSiblingPath(
+          newPicDir,
+          (candidate) => this.adapter!.exists(candidate),
+          oldPicDir,
+        );
+        await this.adapter.rename(oldPicDir, movedPicDir);
+        const content = rewriteNotePicPaths(
+          await this.adapter.read(normalized),
+          oldPicDir,
+          movedPicDir,
+          this.resolveAbsolutePath(oldPicDir),
+          this.resolveAbsolutePath(movedPicDir),
+        );
+        await this.adapter.write(nextPath, content);
+        await this.adapter.delete(normalized);
+        metadataCache.remove(normalized);
+        searchIndex.removeFile(normalized);
+        this.afterSave(nextPath, content);
+      } else {
+        let content = await this.adapter.read(normalized);
+        if (oldPicDir !== newPicDir) {
+          content = rewriteNotePicPaths(
+            content,
+            oldPicDir,
+            newPicDir,
+            this.resolveAbsolutePath(oldPicDir),
+            this.resolveAbsolutePath(newPicDir),
+          );
+        }
+        await this.adapter.write(nextPath, content);
+        await this.adapter.delete(normalized);
+        metadataCache.remove(normalized);
+        searchIndex.removeFile(normalized);
+        this.afterSave(nextPath, content);
+      }
+    } else {
+      await this.adapter.rename(normalized, nextPath);
+    }
+
+    eventBus.emit("file-rename", { from: normalized, to: nextPath });
+    return nextPath;
+  }
+
+  async moveFolder(path: string, targetDir: string): Promise<string> {
+    if (!this.adapter) throw new Error("No vault mounted");
+    const normalized = normalizePath(path);
+    const target = normalizePath(targetDir);
+    if (isNotePicFolder(normalized)) throw new Error("Cannot move a note image folder");
+    if (isExportTargetFolder(normalized)) throw new Error("Cannot move the export folder");
+    if (target && (target === normalized || target.startsWith(`${normalized}/`))) {
+      throw new Error("Cannot move a folder into itself");
+    }
+    if (target && isInNotePicFolder(target)) throw new Error("Cannot move into a note image folder");
+    if (target && isInExportTargetFolder(target)) throw new Error("Cannot move into the export folder");
+
+    const parent = parentDir(normalized);
+    if (parent === target) return normalized;
+
+    const folderName = normalized.split("/").pop() ?? normalized;
+    const nextPath = await uniqueSiblingPath(
+      target ? joinPath(target, folderName) : folderName,
+      (candidate) => this.adapter!.exists(candidate),
+      normalized,
+    );
+    if (nextPath === normalized) return normalized;
+
+    const prefix = `${normalized}/`;
+    const allFiles = await listAllFiles(this.adapter);
+    const affected = allFiles.filter((f) => f.path === normalized || f.path.startsWith(prefix));
+
+    for (const file of affected) {
+      const pending = this.saveTimers.get(file.path);
+      if (pending) {
+        clearTimeout(pending);
+        this.saveTimers.delete(file.path);
+      }
+      if (isMarkdown(file.path)) {
+        metadataCache.remove(file.path);
+        searchIndex.removeFile(file.path);
+      }
+    }
+
+    await this.adapter.rename(normalized, nextPath);
+
+    for (const file of affected) {
+      if (!isMarkdown(file.path)) continue;
+      const newFilePath =
+        file.path === normalized ? nextPath : `${nextPath}${file.path.slice(normalized.length)}`;
+      const content = await this.adapter.read(newFilePath);
+      this.afterSave(newFilePath, content);
+      eventBus.emit("file-rename", { from: file.path, to: newFilePath });
+    }
+
+    return nextPath;
+  }
+
   async createFolder(dir = "", title = "New folder"): Promise<string> {
     if (!this.adapter) throw new Error("No vault mounted");
     const parent = normalizePath(dir);
@@ -438,6 +575,36 @@ export class VaultService {
 function stripFrontmatter(content: string): { body: string } {
   const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
   return { body: match ? content.slice(match[0].length) : content };
+}
+
+function parentDir(path: string): string {
+  const normalized = normalizePath(path);
+  const slash = normalized.lastIndexOf("/");
+  return slash >= 0 ? normalized.slice(0, slash) : "";
+}
+
+async function uniqueSiblingPath(
+  desired: string,
+  exists: (path: string) => Promise<boolean>,
+  currentPath?: string,
+): Promise<string> {
+  const normalized = normalizePath(desired);
+  if (!(await exists(normalized)) || normalized === currentPath) return normalized;
+
+  const parts = normalized.split("/");
+  const name = parts.pop() ?? normalized;
+  const dir = parts.join("/");
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+
+  let i = 1;
+  while (true) {
+    const candidateName = `${stem} ${i}${ext}`;
+    const candidate = dir ? `${dir}/${candidateName}` : candidateName;
+    if (!(await exists(candidate)) || candidate === currentPath) return candidate;
+    i++;
+  }
 }
 
 export function fileBaseName(path: string): string {

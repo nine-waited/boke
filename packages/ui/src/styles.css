@@ -1032,6 +1032,63 @@ body.boke-sidebar-resizing * {
   cursor: default;
 }
 
+.boke-file-tree-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000;
+  pointer-events: none;
+  margin: 0;
+  opacity: 0.94;
+  border-radius: 4px;
+  background: var(--boke-bg-secondary);
+  color: var(--boke-text);
+  box-shadow:
+    0 10px 28px rgba(15, 23, 42, 0.18),
+    0 0 0 1px color-mix(in srgb, var(--boke-accent) 35%, transparent);
+  transform-origin: top left;
+  will-change: transform;
+}
+
+[data-theme="dark"] .boke-file-tree-drag-ghost {
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, var(--boke-accent) 40%, transparent);
+}
+
+.boke-file-tree-item--dragging {
+  opacity: 0.28;
+}
+
+.boke-file-tree-item--draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.boke-file-tree-item--draggable:active {
+  cursor: grabbing;
+}
+
+body.boke-file-tree-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+body.boke-file-tree-dragging .boke-file-tree-item {
+  cursor: grabbing;
+}
+
+.boke-file-tree-item--drop-target {
+  background: color-mix(in srgb, var(--boke-accent) 18%, var(--boke-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--boke-accent) 55%, transparent);
+}
+
+.boke-file-tree--drop-root {
+  outline: 1px dashed color-mix(in srgb, var(--boke-accent) 45%, transparent);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
 .boke-file-tree-rename-input {
   flex: 1;
   min-width: 0;

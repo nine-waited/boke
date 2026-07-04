@@ -15,7 +15,5 @@ export function toolbarPathGroupStyle(): CSSProperties {
 }
 
 export function copyButtonStyle(): CSSProperties {
-  const { copyOffsetYPx } = TOOLBAR_PATH_LAYOUT;
-  if (copyOffsetYPx === 0) return {};
-  return { transform: `translateY(${copyOffsetYPx}px)` };
+  return { transform: `translateY(${TOOLBAR_PATH_LAYOUT.copyOffsetYPx}px)` };
 }

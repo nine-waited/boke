@@ -1,9 +1,9 @@
 ---
 name: git-sync
 description: >-
-  Bidirectional Git sync (pull + push) for the Chestnut repo on GitCode. Use when the
+  Bidirectional Git sync (pull + push) for the Chestnut Editor repo on GitHub. Use when the
   user asks to sync, pull, push, upload/download code, 同步, 拉取, 推送, or work
-  with https://gitcode.com/Nineee999/boke.git.
+  with https://github.com/nine-waited/ChestnutEditor.git.
 ---
 
 # Chestnut Git 双向同步
@@ -15,14 +15,14 @@ description: >-
 | 项 | 值 |
 |---|---|
 | 远程名 | `origin` |
-| 远程 URL | `https://gitcode.com/Nineee999/boke.git` |
+| 远程 URL | `https://github.com/nine-waited/ChestnutEditor.git` |
 | 主分支 | `main` |
 | 作者（仅用户明确要求时配置） | `Nineee999` / `906992927@qq.com` |
 
 首次克隆：
 
 ```powershell
-git clone https://gitcode.com/Nineee999/boke.git -b main
+git clone https://github.com/nine-waited/ChestnutEditor.git -b main
 ```
 
 ## 安全规则（必须遵守）
@@ -175,7 +175,7 @@ git commit -m "简短说明做了什么以及为什么。"
 ## 远程未配置时
 
 ```powershell
-git remote add origin https://gitcode.com/Nineee999/boke.git
+git remote add origin https://github.com/nine-waited/ChestnutEditor.git
 git branch -M main
 git push -u origin main
 ```
