@@ -26,6 +26,7 @@ import {
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeCollapseGeneration, useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
 import { fileTreeSelection } from "../file-tree-selection.js";
+import { fileTreeRename } from "../file-tree-rename.js";
 import {
   canDragFileTreeEntry,
   canDropFileTreeEntry,
@@ -908,6 +909,15 @@ export function FileTree() {
     if (path && (isNotePicFolder(path) || isInExportTargetFolder(path))) return;
     setRenamingPath(path || null);
   }, []);
+
+  useEffect(() => {
+    const applyPendingRename = () => {
+      const path = fileTreeRename.consumePendingRename();
+      if (path) startRename(path);
+    };
+    applyPendingRename();
+    return fileTreeRename.subscribe(applyPendingRename);
+  }, [startRename]);
 
   const openContextMenu = useCallback((event: MouseEvent, target: ContextTarget) => {
     if (target.kind === "folder") {

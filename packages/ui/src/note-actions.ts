@@ -3,9 +3,10 @@ import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
 import { resolveNewItemParentDir, fileTreeSelection } from "./file-tree-selection.js";
+import { fileTreeRename } from "./file-tree-rename.js";
 import { isTauri, revealVaultEntry, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
-import { revealFileInTreeWhenReady } from "./file-tree-expand-context.js";
+import { revealFileInTree, revealFileInTreeWhenReady } from "./file-tree-expand-context.js";
 
 function refreshTree(): void {
   useAppStore.getState().refreshTree();
@@ -15,30 +16,40 @@ function resolveCreateDir(dir?: string): string {
   return dir !== undefined ? dir : resolveNewItemParentDir();
 }
 
+function finishCreate(
+  path: string,
+  opts: { kind: "file" | "folder"; open?: () => void },
+): void {
+  refreshTree();
+  if (opts.kind === "file") {
+    fileTreeSelection.setSelectedFilePath(path);
+  } else {
+    fileTreeSelection.setSelectedFolderPath(path);
+  }
+  revealFileInTree(path);
+  fileTreeRename.requestRename(path);
+  opts.open?.();
+  void revealFileInTreeWhenReady(path);
+}
+
 export async function createAndOpenNote(dir?: string): Promise<string> {
   const locale = useAppStore.getState().locale;
   const path = await vaultService.createNote(resolveCreateDir(dir), getDefaultTitle(locale, "note"));
-  refreshTree();
-  fileTreeSelection.setSelectedFilePath(path);
-  workspaceStore.openFile(path);
-  await revealFileInTreeWhenReady(path);
+  finishCreate(path, { kind: "file", open: () => workspaceStore.openFile(path) });
   return path;
 }
 
 export async function createAndOpenDrawing(dir?: string): Promise<string> {
   const locale = useAppStore.getState().locale;
   const path = await vaultService.createExcalidraw(resolveCreateDir(dir), getDefaultTitle(locale, "drawing"));
-  refreshTree();
-  fileTreeSelection.setSelectedFilePath(path);
-  workspaceStore.openExcalidraw(path);
-  await revealFileInTreeWhenReady(path);
+  finishCreate(path, { kind: "file", open: () => workspaceStore.openExcalidraw(path) });
   return path;
 }
 
 export async function createFolder(dir?: string): Promise<string> {
   const locale = useAppStore.getState().locale;
   const path = await vaultService.createFolder(resolveCreateDir(dir), getDefaultTitle(locale, "folder"));
-  refreshTree();
+  finishCreate(path, { kind: "folder" });
   return path;
 }
 

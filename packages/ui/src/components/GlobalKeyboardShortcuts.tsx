@@ -6,6 +6,9 @@ import {
 } from "../keyboard-shortcuts.js";
 import { useAppStore } from "../store.js";
 
+/** Ignore global shortcuts briefly after focus returns to avoid Alt+Tab residue. */
+const SHORTCUT_FOCUS_COOLDOWN_MS = 350;
+
 function isShortcutInputTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && Boolean(target.closest("[data-boke-shortcut-ignore]"));
 }
@@ -15,24 +18,37 @@ export function GlobalKeyboardShortcuts() {
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const lastShiftUpAt = useRef(0);
+  const shiftDownInWindow = useRef(false);
+  const shortcutsBlockedUntil = useRef(0);
 
   useEffect(() => {
     const quickOpenShortcut = keyboardShortcuts["quick-open"];
     const useDoubleShift = isDoubleTapShortcut(quickOpenShortcut);
+
+    const resetDoubleShift = () => {
+      lastShiftUpAt.current = 0;
+      shiftDownInWindow.current = false;
+    };
+
+    const markFocusCooldown = () => {
+      shortcutsBlockedUntil.current = Date.now() + SHORTCUT_FOCUS_COOLDOWN_MS;
+      resetDoubleShift();
+    };
+
+    const shortcutsBlocked = () =>
+      !document.hasFocus() || Date.now() < shortcutsBlockedUntil.current;
 
     const toggleQuickOpen = () => {
       const open = useAppStore.getState().commandPaletteOpen;
       setCommandPaletteOpen(!open);
     };
 
-    const resetDoubleShift = () => {
-      lastShiftUpAt.current = 0;
-    };
-
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isShortcutInputTarget(event.target)) return;
+      if (shortcutsBlocked() || isShortcutInputTarget(event.target)) return;
 
-      if (useDoubleShift && event.key !== "Shift") {
+      if (useDoubleShift && event.key === "Shift" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        shiftDownInWindow.current = true;
+      } else if (useDoubleShift && event.key !== "Shift") {
         resetDoubleShift();
       }
 
@@ -50,8 +66,11 @@ export function GlobalKeyboardShortcuts() {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (!useDoubleShift || isShortcutInputTarget(event.target)) return;
+      if (!useDoubleShift || shortcutsBlocked() || isShortcutInputTarget(event.target)) return;
       if (event.key !== "Shift" || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (!shiftDownInWindow.current) return;
+
+      shiftDownInWindow.current = false;
 
       const now = Date.now();
       if (lastShiftUpAt.current && now - lastShiftUpAt.current <= DOUBLE_TAP_WINDOW_MS) {
@@ -64,11 +83,30 @@ export function GlobalKeyboardShortcuts() {
       lastShiftUpAt.current = now;
     };
 
+    const onWindowBlur = () => {
+      resetDoubleShift();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        resetDoubleShift();
+        return;
+      }
+      markFocusCooldown();
+    };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onWindowBlur);
+    window.addEventListener("focus", markFocusCooldown);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onWindowBlur);
+      window.removeEventListener("focus", markFocusCooldown);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [keyboardShortcuts, setCommandPaletteOpen, setSearchOpen]);
 
