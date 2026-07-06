@@ -125,3 +125,29 @@ export async function revealVaultEntry(
     entryPath: entryPath ?? null,
   });
 }
+
+export interface ExternalFsEntry {
+  name: string;
+  kind: "file" | "directory";
+}
+
+export async function pickFolder(defaultPath?: string): Promise<string> {
+  return invoke<string>("pick_vault_folder", { defaultPath: defaultPath ?? null });
+}
+
+export async function listDirectory(path: string): Promise<ExternalFsEntry[]> {
+  return invoke<ExternalFsEntry[]>("list_directory", { path });
+}
+
+export async function readExternalText(path: string): Promise<string> {
+  return invoke<string>("vault_read_text", { path });
+}
+
+export async function readExternalBinary(path: string): Promise<Uint8Array> {
+  const data = await invoke<number[]>("vault_read_binary", { path });
+  return new Uint8Array(data);
+}
+
+export async function externalPathExists(path: string): Promise<boolean> {
+  return invoke<boolean>("vault_exists", { path });
+}

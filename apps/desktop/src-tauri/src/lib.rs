@@ -83,6 +83,36 @@ fn pick_vault_folder(
         .ok_or_else(|| "cancelled".into())
 }
 
+#[derive(Serialize)]
+struct FsEntry {
+    name: String,
+    kind: String,
+}
+
+#[tauri::command]
+fn list_directory(path: String) -> Result<Vec<FsEntry>, String> {
+    let target = PathBuf::from(&path);
+    if !target.is_dir() {
+        return Err(format!("not a directory: {}", path));
+    }
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(&target).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let meta = entry.metadata().map_err(|e| e.to_string())?;
+        entries.push(FsEntry {
+            name: entry.file_name().to_string_lossy().to_string(),
+            kind: if meta.is_dir() {
+                "directory"
+            } else {
+                "file"
+            }
+            .into(),
+        });
+    }
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(entries)
+}
+
 #[tauri::command]
 fn vault_read_text(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|e| e.to_string())
@@ -270,6 +300,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             default_vault_path,
             pick_vault_folder,
+            list_directory,
             open_vault_folder,
             reveal_vault_entry,
             vault_read_text,
