@@ -19,6 +19,7 @@ import {
 } from "../markdown-editor-clipboard.js";
 import { writeSystemClipboardText } from "../system-clipboard.js";
 import { useT } from "../i18n/index.js";
+import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
 interface MarkdownEditorContextMenuProps {
   x: number;
@@ -86,9 +87,10 @@ export function MarkdownEditorContextMenu({
   };
 
   return (
-    <div
+    <ContextMenuFrame
+      x={x}
+      y={y}
       className="boke-context-menu boke-md-editor-context-menu"
-      style={{ left: x, top: y }}
       onClick={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
     >
@@ -147,6 +149,6 @@ export function MarkdownEditorContextMenu({
         icon={<TaskListBlockIcon />}
         onSelect={() => run(() => insert("taskList"))}
       />
-    </div>
+    </ContextMenuFrame>
   );
 }

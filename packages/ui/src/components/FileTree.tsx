@@ -46,6 +46,7 @@ import {
 import { useT } from "../i18n/index.js";
 import { isTauri } from "@chestnut/storage-adapters";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
+import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
 interface FileTreeProps {
   dir?: string;
@@ -1003,9 +1004,9 @@ export function FileTree() {
         </div>
       </FileTreeContext.Provider>
       {contextMenu && (
-        <div
-          className="boke-context-menu"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
+        <ContextMenuFrame
+          x={contextMenu.x}
+          y={contextMenu.y}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <FileTreeContextMenu
@@ -1013,7 +1014,7 @@ export function FileTree() {
             onClose={() => setContextMenu(null)}
             onRename={startRename}
           />
-        </div>
+        </ContextMenuFrame>
       )}
     </>
   );

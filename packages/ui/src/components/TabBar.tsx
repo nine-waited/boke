@@ -3,6 +3,7 @@ import { useT } from "../i18n/index.js";
 import { useAppStore, workspaceStore } from "../store.js";
 import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { focusMainContent, isFileContentTab } from "../focus-main-content.js";
+import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
 function TabContextMenu({
   tabId,
@@ -177,9 +178,10 @@ export function TabBar() {
         ))}
       </div>
       {contextMenu && (
-        <div
+        <ContextMenuFrame
+          x={contextMenu.x}
+          y={contextMenu.y}
           className="boke-context-menu boke-context-menu--tab"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <TabContextMenu
@@ -188,7 +190,7 @@ export function TabBar() {
             tabCount={state.leaves.length}
             onClose={() => setContextMenu(null)}
           />
-        </div>
+        </ContextMenuFrame>
       )}
     </>
   );
