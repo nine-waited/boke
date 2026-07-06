@@ -24,6 +24,7 @@ type SceneSnapshot = {
 export function ExcalidrawView({ path }: ExcalidrawViewProps) {
   const t = useT();
   const theme = useAppStore((s) => s.theme);
+  const locale = useAppStore((s) => s.locale);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestScene = useRef<SceneSnapshot | null>(null);
@@ -89,9 +90,10 @@ export function ExcalidrawView({ path }: ExcalidrawViewProps) {
     <div ref={wrapRef} className="boke-excalidraw-wrap" tabIndex={-1}>
       <Suspense fallback={<div style={{ padding: 24 }}>{t("excalidraw.loadingApp")}</div>}>
         <Excalidraw
-          key={`${path}-${theme}`}
+          key={`${path}-${theme}-${locale}`}
           name={fileName}
           theme={theme}
+          langCode={locale}
           initialData={initialData}
           onChange={(elements, appState, files) => scheduleSave(elements, appState, files)}
           UIOptions={{
