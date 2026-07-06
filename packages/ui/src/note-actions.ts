@@ -1,4 +1,4 @@
-import { exportTargetDirPath, markdownExportDirPath } from "@chestnut/core";
+import { exportTargetDirPath } from "@chestnut/core";
 import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
@@ -140,14 +140,14 @@ export async function exportNoteToPdf(relativePath: string): Promise<void> {
 export async function exportNoteToMarkdown(relativePath: string): Promise<void> {
   if (!isTauri()) return;
   const mdPath = await exportMarkdownBundle(relativePath);
-  const exportDir = markdownExportDirPath(relativePath);
   useAppStore.getState().refreshTree();
   await waitForVaultTreeEntry(mdPath);
+  fileTreeSelection.setSelectedFilePath(mdPath);
   await revealFileInTreeWhenReady(mdPath);
   try {
-    await revealInFileManager(exportDir);
+    await revealInFileManager(mdPath);
   } catch (err) {
-    console.error("[Chestnut] reveal exported markdown folder in file manager failed:", err);
+    console.error("[Chestnut] reveal exported markdown in file manager failed:", err);
   }
-  useAppStore.getState().setStatusText(getT()("status.exportMarkdownSuccess", { path: exportDir }));
+  useAppStore.getState().setStatusText(getT()("status.exportMarkdownSuccess", { path: mdPath }));
 }

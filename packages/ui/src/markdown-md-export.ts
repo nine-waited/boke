@@ -1,4 +1,5 @@
 import {
+  fileBaseName,
   formatMarkdownImageRef,
   joinPath,
   markdownExportDirPath,
@@ -7,6 +8,7 @@ import {
   transformMarkdownImageRefs,
 } from "@chestnut/core";
 import { isTauri } from "@chestnut/storage-adapters";
+import { useExportProgressStore } from "./export-progress.js";
 import { vaultService } from "./store.js";
 
 function vaultRootPath(): string | null {
@@ -43,39 +45,60 @@ function parseMarkdownImageParts(full: string): { alt: string; title?: string } 
 export async function exportMarkdownBundle(relativePath: string): Promise<string> {
   if (!isTauri()) throw new Error("Markdown export requires desktop app");
 
-  await vaultService.ensureExportTargetDir();
-  const content = await vaultService.read(relativePath);
   const exportMdPath = markdownExportFilePath(relativePath);
   const exportDir = markdownExportDirPath(relativePath);
-  const vaultRoot = vaultRootPath();
+  const title = fileBaseName(relativePath);
+  const progress = useExportProgressStore.getState();
 
-  const vaultPathToFileName = new Map<string, string>();
-  const usedNames = new Set<string>();
-
-  const rewritten = transformMarkdownImageRefs(content, (ref, full) => {
-    const vaultPath = resolveMarkdownImageRefToVaultPath(ref, relativePath, vaultRoot);
-    if (!vaultPath) return undefined;
-
-    let fileName = vaultPathToFileName.get(vaultPath);
-    if (!fileName) {
-      const base = vaultPath.split("/").pop() ?? "image.png";
-      fileName = uniqueExportFileName(base, usedNames);
-      vaultPathToFileName.set(vaultPath, fileName);
-    }
-
-    const { alt, title } = parseMarkdownImageParts(full);
-    return formatMarkdownImageRef(alt, fileName, title);
+  progress.start({
+    fileName: `${title}.md`,
+    titleKey: "exportMarkdown.title",
+    phasePrefix: "exportMarkdown",
   });
 
-  await vaultService.write(exportMdPath, rewritten, true);
+  try {
+    progress.setProgress(8, "prepare");
+    await vaultService.ensureExportTargetDir();
+    const content = await vaultService.read(relativePath);
+    const vaultRoot = vaultRootPath();
 
-  await Promise.all(
-    [...vaultPathToFileName.entries()].map(async ([vaultPath, fileName]) => {
+    progress.setProgress(28, "render");
+    const vaultPathToFileName = new Map<string, string>();
+    const usedNames = new Set<string>();
+
+    const rewritten = transformMarkdownImageRefs(content, (ref, full) => {
+      const vaultPath = resolveMarkdownImageRefToVaultPath(ref, relativePath, vaultRoot);
+      if (!vaultPath) return undefined;
+
+      let fileName = vaultPathToFileName.get(vaultPath);
+      if (!fileName) {
+        const base = vaultPath.split("/").pop() ?? "image.png";
+        fileName = uniqueExportFileName(base, usedNames);
+        vaultPathToFileName.set(vaultPath, fileName);
+      }
+
+      const { alt, title: imageTitle } = parseMarkdownImageParts(full);
+      return formatMarkdownImageRef(alt, fileName, imageTitle);
+    });
+
+    progress.setProgress(42, "images");
+    const imageEntries = [...vaultPathToFileName.entries()];
+    for (let index = 0; index < imageEntries.length; index++) {
+      const [vaultPath, fileName] = imageEntries[index]!;
       const destPath = joinPath(exportDir, fileName);
       const bytes = await vaultService.readBinary(vaultPath);
       await vaultService.writeBinary(destPath, bytes);
-    }),
-  );
+      const pct = 42 + Math.round(((index + 1) / Math.max(imageEntries.length, 1)) * 38);
+      progress.setProgress(pct, "images");
+    }
 
-  return exportMdPath;
+    progress.setProgress(88, "save");
+    await vaultService.write(exportMdPath, rewritten, true);
+
+    await progress.finishSuccess();
+    return exportMdPath;
+  } catch (err) {
+    progress.fail();
+    throw err;
+  }
 }
