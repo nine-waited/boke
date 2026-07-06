@@ -2,7 +2,7 @@ import { exportTargetDirPath } from "@chestnut/core";
 import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
-import { resolveNewItemParentDir } from "./file-tree-selection.js";
+import { resolveNewItemParentDir, fileTreeSelection } from "./file-tree-selection.js";
 import { isTauri, openVaultFolderInExplorer, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { formatNativePath } from "./vault-path-utils.js";
 import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
@@ -20,7 +20,9 @@ export async function createAndOpenNote(dir?: string): Promise<string> {
   const locale = useAppStore.getState().locale;
   const path = await vaultService.createNote(resolveCreateDir(dir), getDefaultTitle(locale, "note"));
   refreshTree();
+  fileTreeSelection.setSelectedFilePath(path);
   workspaceStore.openFile(path);
+  await revealFileInTreeWhenReady(path);
   return path;
 }
 
@@ -28,7 +30,9 @@ export async function createAndOpenDrawing(dir?: string): Promise<string> {
   const locale = useAppStore.getState().locale;
   const path = await vaultService.createExcalidraw(resolveCreateDir(dir), getDefaultTitle(locale, "drawing"));
   refreshTree();
+  fileTreeSelection.setSelectedFilePath(path);
   workspaceStore.openExcalidraw(path);
+  await revealFileInTreeWhenReady(path);
   return path;
 }
 
