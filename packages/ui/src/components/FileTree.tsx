@@ -1074,7 +1074,6 @@ export function FileTree() {
         <ContextMenuFrame
           x={contextMenu.x}
           y={contextMenu.y}
-          onMouseDown={(e) => e.stopPropagation()}
         >
           <FileTreeContextMenu
             target={contextMenu.target}

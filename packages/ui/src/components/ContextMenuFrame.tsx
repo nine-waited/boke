@@ -42,9 +42,19 @@ export function ContextMenuFrame({
         left: position?.x ?? x,
         visibility: position ? "visible" : "hidden",
       }}
-      onMouseDown={onMouseDown}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
+      onMouseDown={(event) => {
+        event.stopPropagation();
+        onMouseDown?.(event);
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.(event);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onContextMenu?.(event);
+      }}
     >
       {children}
     </div>,

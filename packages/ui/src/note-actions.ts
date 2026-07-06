@@ -3,8 +3,7 @@ import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
 import { resolveNewItemParentDir, fileTreeSelection } from "./file-tree-selection.js";
-import { isTauri, openVaultFolderInExplorer, TauriFsAdapter } from "@chestnut/storage-adapters";
-import { formatNativePath } from "./vault-path-utils.js";
+import { isTauri, revealVaultEntry, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
 import { revealFileInTreeWhenReady } from "./file-tree-expand-context.js";
 
@@ -75,12 +74,19 @@ export async function confirmAndDeleteVaultPath(
   return true;
 }
 
-export async function revealInFileManager(relativePath = ""): Promise<void> {
-  if (!isTauri() || !relativePath) return;
+export async function revealInFileManager(relativePath?: string): Promise<void> {
+  if (!isTauri()) return;
   const adapter = vaultService.getAdapter();
   if (!adapter || adapter.kind !== "tauri") return;
-  const abs = formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(relativePath));
-  await openVaultFolderInExplorer(abs);
+  try {
+    await revealVaultEntry(
+      (adapter as TauriFsAdapter).getRootPath(),
+      relativePath ?? null,
+    );
+  } catch (err) {
+    console.error("[Chestnut] reveal in file manager failed:", err);
+    useAppStore.getState().setStatusText(getT()("status.revealInFileManagerFailed"));
+  }
 }
 
 async function waitForVaultTreeEntry(relativePath: string): Promise<void> {

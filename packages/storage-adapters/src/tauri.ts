@@ -115,3 +115,13 @@ export function isTauri(): boolean {
 export async function openVaultFolderInExplorer(path: string): Promise<void> {
   await invoke("open_vault_folder", { path });
 }
+
+export async function revealVaultEntry(
+  vaultRoot: string,
+  entryPath?: string | null,
+): Promise<void> {
+  await invoke("reveal_vault_entry", {
+    vaultRoot,
+    entryPath: entryPath ?? null,
+  });
+}

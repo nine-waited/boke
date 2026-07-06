@@ -179,21 +179,72 @@ fn vault_list(root: String, dir: String) -> Result<Vec<VaultEntry>, String> {
     Ok(entries)
 }
 
-#[tauri::command]
-fn open_vault_folder(path: String) -> Result<(), String> {
-    let path = PathBuf::from(path);
+#[cfg(target_os = "windows")]
+fn strip_verbatim_prefix(path: PathBuf) -> PathBuf {
+    let raw = path.to_string_lossy();
+    if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{}", rest));
+    }
+    if let Some(rest) = raw.strip_prefix(r"\\?\") {
+        return PathBuf::from(rest);
+    }
+    path
+}
+
+fn open_path_in_explorer(path: PathBuf) -> Result<(), String> {
     if !path.exists() {
         return Err(format!("path not found: {}", path.display()));
     }
-    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    let path = strip_verbatim_prefix(path.canonicalize().map_err(|e| e.to_string())?);
 
-    if path.is_file() {
-        opener::reveal(&path).map_err(|e| e.to_string())?;
-    } else {
-        opener::open(&path).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "windows"))]
+    {
+        if path.is_file() {
+            opener::reveal(&path).map_err(|e| e.to_string())?;
+        } else {
+            opener::open(&path).map_err(|e| e.to_string())?;
+        }
+        return Ok(());
     }
 
+    #[cfg(target_os = "windows")]
+    open_in_windows_explorer(&path)
+}
+
+#[cfg(target_os = "windows")]
+fn open_in_windows_explorer(path: &Path) -> Result<(), String> {
+    use std::process::Command;
+
+    // Folder open uses `explorer <path>` and works reliably. File `/select,` parsing
+    // is brittle on Windows, so reveal files by opening their parent directory instead.
+    let target = if path.is_file() {
+        path.parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or(path)
+    } else {
+        path
+    };
+
+    Command::new("explorer")
+        .arg(target)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+
     Ok(())
+}
+
+#[tauri::command]
+fn open_vault_folder(path: String) -> Result<(), String> {
+    open_path_in_explorer(PathBuf::from(path))
+}
+
+#[tauri::command]
+fn reveal_vault_entry(vault_root: String, entry_path: Option<String>) -> Result<(), String> {
+    let path = match entry_path.filter(|entry| !entry.is_empty()) {
+        Some(rel) => resolve(&vault_root, &rel)?,
+        None => PathBuf::from(vault_root),
+    };
+    open_path_in_explorer(path)
 }
 
 #[tauri::command]
@@ -220,6 +271,7 @@ pub fn run() {
             default_vault_path,
             pick_vault_folder,
             open_vault_folder,
+            reveal_vault_entry,
             vault_read_text,
             vault_read_binary,
             vault_write_text,
