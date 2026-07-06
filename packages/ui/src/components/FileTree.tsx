@@ -336,18 +336,15 @@ function FileTreeFolderRow({
 
   const canRename = canRenameFolder(folderPath);
 
-  const handleSingleClick = useCallback(() => {
+  const handleClick = useCallback(() => {
     if (ctx?.consumeClickAfterDrag()) return;
     ctx?.selectFolder(folderPath);
   }, [ctx, folderPath]);
-
-  const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleSingleClick);
 
   const handleDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
     if (!canRename) return;
     e.preventDefault();
     e.stopPropagation();
-    cancelPendingClick();
     if (ctx?.consumeClickAfterDrag()) return;
     ctx?.startRename(folderPath);
   };
@@ -387,7 +384,7 @@ function FileTreeFolderRow({
         onPointerDown: draggable
           ? (event) => ctx?.handlePointerDown(event, folderPath, "directory")
           : undefined,
-        onClick: () => scheduleSingleClick(),
+        onClick: handleClick,
         onDoubleClick: handleDoubleClick,
         onContextMenu: (e) => {
           e.preventDefault();
@@ -500,13 +497,19 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
   const parentDir = entry.path.includes("/") ? entry.path.slice(0, entry.path.lastIndexOf("/")) : "";
   const canRename = isRenamableFile(entry.path);
 
-  const handleSingleClick = useCallback(() => {
+  const handleDeferredOpen = useCallback(() => {
+    if (ctx?.consumeClickAfterDrag()) return;
+    openFile();
+  }, [ctx, openFile]);
+
+  const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleDeferredOpen);
+
+  const handleClick = useCallback(() => {
     if (ctx?.consumeClickAfterDrag()) return;
     ctx?.selectFile(entry.path);
-    openFile();
-  }, [ctx, entry.path, openFile]);
-
-  const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleSingleClick);
+    if (canRename) scheduleSingleClick();
+    else openFile();
+  }, [ctx, entry.path, canRename, scheduleSingleClick, openFile]);
 
   const handleDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
     if (!canRename) return;
@@ -552,7 +555,7 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
         onPointerDown: draggable
           ? (event) => ctx?.handlePointerDown(event, entry.path, "file")
           : undefined,
-        onClick: () => scheduleSingleClick(),
+        onClick: handleClick,
         onDoubleClick: handleDoubleClick,
         onContextMenu: (e) => {
           e.preventDefault();
