@@ -641,5 +641,7 @@ export {
   isExportTargetFolder,
   isInExportTargetFolder,
   pdfPathForMarkdown,
+  markdownExportDirPath,
+  markdownExportFilePath,
   sortFileTreeEntries,
 } from "./export-target.js";

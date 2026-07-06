@@ -1,5 +1,5 @@
-import { absolutePathToVaultRelative, formatImageMarkdown, normalizeMarkdownAssetRef, normalizePath } from "@chestnut/core";
-import { trackImageDisplayUrl } from "./image-open.js";
+import { absolutePathToVaultRelative, formatImageMarkdown, normalizeMarkdownAssetRef } from "@chestnut/core";
+import { resolveImageVaultPath, trackImageDisplayUrl } from "./image-open.js";
 import { useAppStore, vaultService } from "./store.js";
 
 export { formatImageMarkdown };
@@ -16,7 +16,7 @@ export function getClipboardImageFile(data: DataTransfer | null): File | null {
   return null;
 }
 
-export async function resolveImageSrcForDisplay(src: string): Promise<string> {
+export async function resolveImageSrcForDisplay(src: string, notePath?: string): Promise<string> {
   if (!src || src.startsWith("blob:") || src.startsWith("data:") || /^https?:\/\//i.test(src)) {
     return src;
   }
@@ -30,23 +30,27 @@ export async function resolveImageSrcForDisplay(src: string): Promise<string> {
       ? (adapter as { getRootPath(): string }).getRootPath().replace(/\\/g, "/").replace(/\/$/, "")
       : null;
 
-  if (root) {
-    const rel = absolutePathToVaultRelative(normSrc, root);
-    if (rel) {
-      const url = await vaultService.getAssetUrl(rel);
-      trackImageDisplayUrl(url, rel);
-      return url;
-    }
-  }
-
-  if (!/^[a-zA-Z]:\//.test(normSrc) && !normSrc.startsWith("/")) {
+  const vaultPath = resolveImageVaultPath(normSrc, notePath, root);
+  if (vaultPath) {
     try {
-      const rel = normalizePath(normSrc);
-      const url = await vaultService.getAssetUrl(rel);
-      trackImageDisplayUrl(url, rel);
+      const url = await vaultService.getAssetUrl(vaultPath);
+      trackImageDisplayUrl(url, vaultPath);
       return url;
     } catch {
       return src;
+    }
+  }
+
+  if (root) {
+    const rel = absolutePathToVaultRelative(normSrc, root);
+    if (rel) {
+      try {
+        const url = await vaultService.getAssetUrl(rel);
+        trackImageDisplayUrl(url, rel);
+        return url;
+      } catch {
+        return src;
+      }
     }
   }
 

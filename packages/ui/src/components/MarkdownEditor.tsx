@@ -192,7 +192,7 @@ function MilkdownCrepeEditor({
           onUpload: uploadImage,
           inlineOnUpload: uploadImage,
           blockOnUpload: uploadImage,
-          proxyDomURL: (url) => resolveImageSrcForDisplay(url),
+          proxyDomURL: (url) => resolveImageSrcForDisplay(url, notePathRef.current),
           blockCaptionIcon: "",
           blockCaptionPlaceholderText: t("note.imageCaptionPlaceholder"),
         },

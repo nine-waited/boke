@@ -47,6 +47,13 @@ describe("resolveNoteImageVaultPath", () => {
   it("resolves bare filenames relative to the note directory", () => {
     expect(resolveNoteImageVaultPath("image.png", notePath)).toBe("notes/sub/image.png");
   });
+
+  it("resolves ./ relative paths against the note directory", () => {
+    expect(resolveNoteImageVaultPath("./image.png", notePath)).toBe("notes/sub/image.png");
+    expect(resolveNoteImageVaultPath("./image.png", "target/MyNote/MyNote.md")).toBe(
+      "target/MyNote/image.png",
+    );
+  });
 });
 
 describe("extractMarkdownImageRefs", () => {

@@ -98,7 +98,7 @@ export async function hydrateEmbedImages(container: HTMLElement, notePath?: stri
     }
     try {
       const vaultPath = resolveImageVaultPath(src, notePath, vaultRoot) ?? src.replace(/\\/g, "/");
-      const url = await resolveImageSrcForDisplay(vaultPath);
+      const url = await resolveImageSrcForDisplay(vaultPath, notePath);
       img.dataset.vaultPath = vaultPath;
       img.src = url;
     } catch {

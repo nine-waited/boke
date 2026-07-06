@@ -1,4 +1,4 @@
-import { exportTargetDirPath } from "@chestnut/core";
+import { exportTargetDirPath, markdownExportDirPath } from "@chestnut/core";
 import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
@@ -6,6 +6,7 @@ import { resolveNewItemParentDir, fileTreeSelection } from "./file-tree-selectio
 import { fileTreeRename } from "./file-tree-rename.js";
 import { isTauri, revealVaultEntry, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
+import { exportMarkdownBundle } from "./markdown-md-export.js";
 import { revealFileInTree, revealFileInTreeWhenReady } from "./file-tree-expand-context.js";
 
 function refreshTree(): void {
@@ -134,4 +135,19 @@ export async function exportNoteToPdf(relativePath: string): Promise<void> {
     console.error("[Chestnut] reveal exported pdf in file manager failed:", err);
   }
   useAppStore.getState().setStatusText(getT()("status.exportPdfSuccess", { path: pdfPath }));
+}
+
+export async function exportNoteToMarkdown(relativePath: string): Promise<void> {
+  if (!isTauri()) return;
+  const mdPath = await exportMarkdownBundle(relativePath);
+  const exportDir = markdownExportDirPath(relativePath);
+  useAppStore.getState().refreshTree();
+  await waitForVaultTreeEntry(mdPath);
+  await revealFileInTreeWhenReady(mdPath);
+  try {
+    await revealInFileManager(exportDir);
+  } catch (err) {
+    console.error("[Chestnut] reveal exported markdown folder in file manager failed:", err);
+  }
+  useAppStore.getState().setStatusText(getT()("status.exportMarkdownSuccess", { path: exportDir }));
 }

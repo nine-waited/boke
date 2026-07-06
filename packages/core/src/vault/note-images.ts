@@ -141,6 +141,24 @@ export function formatImageMarkdown(imagePath: string, alt = ""): string {
 
 const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\s*\)/g;
 
+/** Replace markdown image refs; return `undefined` from `transform` to keep the original syntax. */
+export function transformMarkdownImageRefs(
+  content: string,
+  transform: (ref: string, full: string) => string | undefined,
+): string {
+  return content.replace(MARKDOWN_IMAGE_RE, (full, angleRef, plainRef) => {
+    const ref = (angleRef ?? plainRef ?? "").trim();
+    if (!ref) return full;
+    return transform(ref, full) ?? full;
+  });
+}
+
+export function formatMarkdownImageRef(alt: string, dest: string, title?: string): string {
+  const destFormatted = /[\s<>()]/.test(dest) ? `<${dest}>` : dest;
+  const titlePart = title ? ` "${title}"` : "";
+  return `![${alt}](${destFormatted}${titlePart})`;
+}
+
 /** Extract raw image URL/path strings from markdown image syntax. */
 export function extractMarkdownImageRefs(content: string): string[] {
   const refs: string[] = [];
@@ -151,7 +169,7 @@ export function extractMarkdownImageRefs(content: string): string[] {
   return refs;
 }
 
-function resolveMarkdownImageRefToVaultPath(
+export function resolveMarkdownImageRefToVaultPath(
   ref: string,
   notePath: string,
   vaultRoot?: string | null,

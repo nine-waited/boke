@@ -28,6 +28,23 @@ export function pdfPathForMarkdown(mdPath: string): string {
   return joinPath(EXPORT_TARGET_DIR, pdfName);
 }
 
+function markdownExportLeafName(mdPath: string): string {
+  const normalized = normalizePath(mdPath);
+  const leaf = normalized.split("/").pop() ?? normalized;
+  return isMarkdown(leaf) ? leaf.replace(/\.md$/i, "") : leaf.replace(/\.[^./\\]+$/, "");
+}
+
+/** Vault-relative export folder under `target/`, e.g. `notes/foo.md` → `target/foo`. */
+export function markdownExportDirPath(mdPath: string): string {
+  return joinPath(EXPORT_TARGET_DIR, markdownExportLeafName(mdPath));
+}
+
+/** Vault-relative exported markdown path, e.g. `notes/foo.md` → `target/foo/foo.md`. */
+export function markdownExportFilePath(mdPath: string): string {
+  const leafName = markdownExportLeafName(mdPath);
+  return joinPath(markdownExportDirPath(mdPath), `${leafName}.md`);
+}
+
 function compareFileTreeEntries(a: VaultEntry, b: VaultEntry): number {
   if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1;
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });

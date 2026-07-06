@@ -21,6 +21,7 @@ import {
   createFolder,
   confirmAndDeleteVaultPath,
   exportNoteToPdf,
+  exportNoteToMarkdown,
   revealInFileManager,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
@@ -700,6 +701,38 @@ function FileTreeContextMenuExportPdfItem({
   );
 }
 
+function FileTreeContextMenuExportMarkdownItem({
+  path,
+  onRun,
+}: {
+  path: string;
+  onRun: (action: () => void | Promise<unknown>) => void;
+}) {
+  const t = useT();
+  const setStatusText = useAppStore((s) => s.setStatusText);
+  const desktopOnly = !isTauri();
+
+  return (
+    <button
+      type="button"
+      className={`boke-context-menu-item${desktopOnly ? " boke-context-menu-item--disabled" : ""}`}
+      onClick={() => {
+        if (desktopOnly) return;
+        onRun(async () => {
+          try {
+            await exportNoteToMarkdown(path);
+          } catch (err) {
+            console.error("[Chestnut] export markdown failed:", err);
+            setStatusText(t("status.exportMarkdownFailed"));
+          }
+        });
+      }}
+    >
+      {t("fileTree.exportMarkdown")}
+    </button>
+  );
+}
+
 function FileTreeContextMenu({
   target,
   onClose,
@@ -738,7 +771,10 @@ function FileTreeContextMenu({
         )}
         <FileTreeContextMenuRevealItem path={target.path} onRun={run} />
         {isMarkdown(target.path) && (
-          <FileTreeContextMenuExportPdfItem path={target.path} onRun={run} />
+          <>
+            <FileTreeContextMenuExportMarkdownItem path={target.path} onRun={run} />
+            <FileTreeContextMenuExportPdfItem path={target.path} onRun={run} />
+          </>
         )}
         <button
           type="button"
