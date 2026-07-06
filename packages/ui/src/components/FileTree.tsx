@@ -25,6 +25,7 @@ import {
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeCollapseGeneration, useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
+import { fileTreeSelection } from "../file-tree-selection.js";
 import {
   canDragFileTreeEntry,
   canDropFileTreeEntry,
@@ -60,12 +61,16 @@ type ContextTarget =
 
 interface FileTreeContextValue {
   activePath: string | null;
+  selectedFolderPath: string | null;
+  selectedFilePath: string | null;
   contextMenuPath: string | null;
   renamingPath: string | null;
   dragging: FileTreeDragPayload | null;
   dropTarget: string | null;
   expandFolderRequest: string | null;
   consumeClickAfterDrag: () => boolean;
+  selectFolder: (path: string | null) => void;
+  selectFile: (path: string | null) => void;
   startRename: (path: string) => void;
   openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
   commitRename: (path: string, title: string) => Promise<void>;
@@ -188,6 +193,38 @@ function TreeChevronIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
+function TreeChevronToggle({
+  expanded,
+  onToggle,
+  expandLabel,
+  collapseLabel,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  expandLabel: string;
+  collapseLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="boke-file-tree-chevron-toggle"
+      aria-label={expanded ? collapseLabel : expandLabel}
+      aria-expanded={expanded}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
+      <TreeChevronIcon expanded={expanded} />
+    </button>
+  );
+}
+
 function TreeChevronSpacer() {
   return <span className="boke-file-tree-chevron-spacer" aria-hidden="true" />;
 }
@@ -243,6 +280,7 @@ function FileTreeFolderRow({
   const isPicFolder = isNotePicFolder(folderPath);
   const isExportFolder = isExportTargetFolder(folderPath);
   const isContextTarget = ctx?.contextMenuPath === folderPath;
+  const isActive = ctx?.selectedFolderPath === folderPath && !isContextTarget;
   const isRenaming = ctx?.renamingPath === folderPath;
   const draggable = !isRenaming && !isPicFolder && !isExportFolder && canDragFileTreeEntry(folderPath, "directory");
   const [draft, setDraft] = useState(folderName);
@@ -300,8 +338,8 @@ function FileTreeFolderRow({
 
   const handleSingleClick = useCallback(() => {
     if (ctx?.consumeClickAfterDrag()) return;
-    onToggle();
-  }, [ctx, onToggle]);
+    ctx?.selectFolder(folderPath);
+  }, [ctx, folderPath]);
 
   const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleSingleClick);
 
@@ -339,7 +377,7 @@ function FileTreeFolderRow({
       ref={rowRef}
       depth={depth}
       className={fileTreeItemClassName(
-        `boke-file-tree-dir${isContextTarget ? " context-target" : ""}${draggable ? " boke-file-tree-item--draggable" : ""}`,
+        `boke-file-tree-dir${isActive ? " active" : ""}${isContextTarget ? " context-target" : ""}${draggable ? " boke-file-tree-item--draggable" : ""}`,
         folderPath,
         "directory",
         ctx,
@@ -358,7 +396,12 @@ function FileTreeFolderRow({
         },
       }}
     >
-      <TreeChevronIcon expanded={expanded} />
+      <TreeChevronToggle
+        expanded={expanded}
+        onToggle={onToggle}
+        expandLabel={t("fileTree.expandFolder")}
+        collapseLabel={t("fileTree.collapseFolder")}
+      />
       <span className="boke-file-tree-icon boke-file-tree-icon--folder" aria-hidden="true">
         <FolderGrayIcon />
       </span>
@@ -384,8 +427,11 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
   const t = useT();
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const activePath = ctx?.activePath ?? null;
+  const selectedFolderPath = ctx?.selectedFolderPath ?? null;
+  const selectedFilePath = ctx?.selectedFilePath ?? null;
   const isContextTarget = ctx?.contextMenuPath === entry.path;
-  const isActive = activePath === entry.path && !isContextTarget;
+  const highlightedPath = selectedFolderPath ? null : (selectedFilePath ?? activePath);
+  const isActive = highlightedPath === entry.path && !isContextTarget;
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -456,8 +502,9 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
   const handleSingleClick = useCallback(() => {
     if (ctx?.consumeClickAfterDrag()) return;
+    ctx?.selectFile(entry.path);
     openFile();
-  }, [ctx, openFile]);
+  }, [ctx, entry.path, openFile]);
 
   const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleSingleClick);
 
@@ -776,6 +823,14 @@ export function FileTree() {
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getActivePath(),
   );
+  const selectedFolderPath = useSyncExternalStore(
+    (cb) => fileTreeSelection.subscribe(cb),
+    () => fileTreeSelection.getSelectedFolderPath(),
+  );
+  const selectedFilePath = useSyncExternalStore(
+    (cb) => fileTreeSelection.subscribe(cb),
+    () => fileTreeSelection.getSelectedFilePath(),
+  );
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -852,6 +907,11 @@ export function FileTree() {
   }, []);
 
   const openContextMenu = useCallback((event: MouseEvent, target: ContextTarget) => {
+    if (target.kind === "folder") {
+      fileTreeSelection.setSelectedFolderPath(target.path);
+    } else if (target.kind === "file") {
+      fileTreeSelection.setSelectedFilePath(target.path);
+    }
     setContextMenu({ x: event.clientX, y: event.clientY, target });
   }, []);
 
@@ -976,12 +1036,16 @@ export function FileTree() {
 
   const ctxValue: FileTreeContextValue = {
     activePath,
+    selectedFolderPath,
+    selectedFilePath,
     contextMenuPath,
     renamingPath,
     dragging,
     dropTarget,
     expandFolderRequest,
     consumeClickAfterDrag,
+    selectFolder: (path) => fileTreeSelection.setSelectedFolderPath(path),
+    selectFile: (path) => fileTreeSelection.setSelectedFilePath(path),
     startRename,
     openContextMenu,
     commitRename,

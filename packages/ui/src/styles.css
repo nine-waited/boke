@@ -899,7 +899,7 @@ body.boke-sidebar-resizing * {
   min-height: 28px;
   padding: 4px 10px 4px 6px;
   border-radius: 4px;
-  cursor: pointer;
+  cursor: default;
   font-size: 13px;
   line-height: 20px;
   color: var(--boke-text);
@@ -974,6 +974,20 @@ body.boke-sidebar-resizing * {
   height: 13px;
 }
 
+.boke-file-tree-chevron-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+
 .boke-file-tree-chevron,
 .boke-file-tree-chevron-spacer {
   display: inline-flex;
@@ -995,9 +1009,15 @@ body.boke-sidebar-resizing * {
   display: block;
 }
 
-.boke-file-tree-dir:hover .boke-file-tree-chevron {
+.boke-file-tree-dir:hover .boke-file-tree-chevron,
+.boke-file-tree-dir:hover .boke-file-tree-chevron-toggle {
   color: var(--boke-text);
   opacity: 0.9;
+}
+
+.boke-file-tree-dir:hover .boke-file-tree-chevron-toggle .boke-file-tree-chevron {
+  color: inherit;
+  opacity: inherit;
 }
 
 .boke-file-tree-chevron.is-expanded {
@@ -1070,12 +1090,7 @@ body.boke-sidebar-resizing * {
 }
 
 .boke-file-tree-item--draggable {
-  cursor: grab;
   touch-action: none;
-}
-
-.boke-file-tree-item--draggable:active {
-  cursor: grabbing;
 }
 
 body.boke-file-tree-dragging {
