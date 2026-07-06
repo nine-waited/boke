@@ -73,8 +73,37 @@ interface FileTreeContextValue {
 
 const FileTreeContext = createContext<FileTreeContextValue | null>(null);
 
+const FILE_TREE_SINGLE_CLICK_MS = 280;
+
+function useDeferredSingleClick(onSingle: () => void) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelPendingClick = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const scheduleSingleClick = useCallback(() => {
+    cancelPendingClick();
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      onSingle();
+    }, FILE_TREE_SINGLE_CLICK_MS);
+  }, [cancelPendingClick, onSingle]);
+
+  useEffect(() => () => cancelPendingClick(), [cancelPendingClick]);
+
+  return { scheduleSingleClick, cancelPendingClick };
+}
+
 function isRenamableFile(path: string): boolean {
   return isMarkdown(path) || isExcalidraw(path);
+}
+
+function canRenameFolder(folderPath: string): boolean {
+  return !isNotePicFolder(folderPath) && !isInExportTargetFolder(folderPath);
 }
 
 function fileTreeItemClassName(
@@ -266,6 +295,24 @@ function FileTreeFolderRow({
     }
   };
 
+  const canRename = canRenameFolder(folderPath);
+
+  const handleSingleClick = useCallback(() => {
+    if (ctx?.consumeClickAfterDrag()) return;
+    onToggle();
+  }, [ctx, onToggle]);
+
+  const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleSingleClick);
+
+  const handleDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (!canRename) return;
+    e.preventDefault();
+    e.stopPropagation();
+    cancelPendingClick();
+    if (ctx?.consumeClickAfterDrag()) return;
+    ctx?.startRename(folderPath);
+  };
+
   if (isRenaming) {
     return (
       <TreeRow depth={depth} className="boke-file-tree-dir boke-file-tree-item--renaming">
@@ -301,10 +348,8 @@ function FileTreeFolderRow({
         onPointerDown: draggable
           ? (event) => ctx?.handlePointerDown(event, folderPath, "directory")
           : undefined,
-        onClick: () => {
-          if (ctx?.consumeClickAfterDrag()) return;
-          onToggle();
-        },
+        onClick: () => scheduleSingleClick(),
+        onDoubleClick: handleDoubleClick,
         onContextMenu: (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -406,6 +451,23 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
   const draggable = !isRenaming && canDragFileTreeEntry(entry.path, "file");
   const parentDir = entry.path.includes("/") ? entry.path.slice(0, entry.path.lastIndexOf("/")) : "";
+  const canRename = isRenamableFile(entry.path);
+
+  const handleSingleClick = useCallback(() => {
+    if (ctx?.consumeClickAfterDrag()) return;
+    openFile();
+  }, [ctx, openFile]);
+
+  const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleSingleClick);
+
+  const handleDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (!canRename) return;
+    e.preventDefault();
+    e.stopPropagation();
+    cancelPendingClick();
+    if (ctx?.consumeClickAfterDrag()) return;
+    ctx?.startRename(entry.path);
+  };
 
   if (isRenaming) {
     return (
@@ -442,10 +504,8 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
         onPointerDown: draggable
           ? (event) => ctx?.handlePointerDown(event, entry.path, "file")
           : undefined,
-        onClick: () => {
-          if (ctx?.consumeClickAfterDrag()) return;
-          openFile();
-        },
+        onClick: () => scheduleSingleClick(),
+        onDoubleClick: handleDoubleClick,
         onContextMenu: (e) => {
           e.preventDefault();
           e.stopPropagation();

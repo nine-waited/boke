@@ -142,7 +142,7 @@ Copy-Item src-tauri/icons/128x128.png public/favicon.png -Force
 **外观与设置**
 
 - 浅色 / 深色主题（Markdown + Excalidraw）；偏好持久化
-- 字体：微软雅黑、内置手写体（默认小赖体、悠哉体）；OFL 许可
+- 字体：微软雅黑（默认）、小赖体、悠哉体（内置手写体）；OFL 许可
 
 **导航**
 

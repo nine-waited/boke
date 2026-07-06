@@ -142,7 +142,7 @@ See [docs/plugin-guide.md](docs/plugin-guide.md). Plugins load from `.chestnut/p
 **Appearance and settings**
 
 - Light / dark theme (Markdown + Excalidraw); preference persisted
-- Font picker: Microsoft YaHei, bundled handwriting fonts (Xiaolai default, Yozai); OFL-licensed
+- Font picker: Microsoft YaHei (default), Xiaolai, Yozai handwriting fonts; OFL-licensed
 
 **Navigation**
 

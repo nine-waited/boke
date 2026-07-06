@@ -1,8 +1,8 @@
 export type UiFont = "microsoft-yahei" | "yozai" | "xiaolai";
 
 export const UI_FONTS: Array<{ value: UiFont; labelKey: string }> = [
-  { value: "xiaolai", labelKey: "settings.fontXiaolai" },
   { value: "microsoft-yahei", labelKey: "settings.fontMicrosoftYaHei" },
+  { value: "xiaolai", labelKey: "settings.fontXiaolai" },
   { value: "yozai", labelKey: "settings.fontYozai" },
 ];
 
@@ -13,7 +13,7 @@ export const UI_FONT_STACKS: Record<UiFont, string> = {
   xiaolai: '"Xiaolai SC", "小赖", "Microsoft YaHei", "微软雅黑", sans-serif',
 };
 
-export const DEFAULT_UI_FONT: UiFont = "xiaolai";
+export const DEFAULT_UI_FONT: UiFont = "microsoft-yahei";
 
 const FONT_FACE_LOADERS: Partial<Record<UiFont, () => Promise<unknown>>> = {
   yozai: () => import("@chinese-fonts/yozai/dist/Yozai-Regular/result.css"),

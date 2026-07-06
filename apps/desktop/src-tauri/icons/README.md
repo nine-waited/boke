@@ -1,10 +1,12 @@
-Run after installing dependencies (or when the app icon artwork changes):
+Source artwork for **OS icons** (window / taskbar / exe / installer): `public/chestnut-transparent.png`.
+
+To refresh after changing that file:
 
 ```bash
 cd apps/desktop
-pnpm tauri icon public/app-icon-source.png
-Copy-Item src-tauri/icons/128x128.png public/favicon.png -Force
+pnpm logo:os
 ```
 
-Source artwork: `public/app-icon-source.png` (1024×1024, cropped chestnut on cream background).
-In-app toolbar keeps the **Chestnut** text brand; this icon is for window/taskbar/installer only.
+(`logo:os` pads the cutout to a square `chestnut-os-icon.png`, then runs `tauri icon`.)
+
+For re-processing from a cream-background photo first, use `pnpm logo:process`. In-app toolbar keeps the **Chestnut** text brand; do not use these files for in-app UI.
