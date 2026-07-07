@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import {
   CollapseAllFoldersIcon,
   ExcalidrawGrayIcon,
+  EyeIcon,
+  EyeOffIcon,
   FolderPlusIcon,
   LocateActiveFileIcon,
   NoteEditIcon,
@@ -10,7 +12,7 @@ import {
 import { useFileTreeExpand } from "../file-tree-expand-context.js";
 import { useT } from "../i18n/index.js";
 import { createAndOpenDrawing, createAndOpenNote, createFolder } from "../note-actions.js";
-import { workspaceStore } from "../store.js";
+import { useAppStore, workspaceStore } from "../store.js";
 
 function SidebarNavButton({
   label,
@@ -18,12 +20,14 @@ function SidebarNavButton({
   children,
   className = "",
   disabled = false,
+  pressed = false,
 }: {
   label: string;
   onClick: () => void;
   children: ReactNode;
   className?: string;
   disabled?: boolean;
+  pressed?: boolean;
 }) {
   return (
     <button
@@ -32,6 +36,7 @@ function SidebarNavButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
+      aria-pressed={pressed}
       data-tooltip={label}
     >
       {children}
@@ -42,6 +47,8 @@ function SidebarNavButton({
 export function SidebarNav() {
   const t = useT();
   const { collapseAll, revealActiveFile } = useFileTreeExpand();
+  const showNotePicFolders = useAppStore((s) => s.showNotePicFolders);
+  const toggleShowNotePicFolders = useAppStore((s) => s.toggleShowNotePicFolders);
   const activePath = useSyncExternalStore(
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getActivePath(),
@@ -61,6 +68,12 @@ export function SidebarNav() {
       </SidebarNavButton>
       <SidebarNavButton label={t("sidebar.newFolder")} onClick={() => void createFolder()}>
         <FolderPlusIcon />
+      </SidebarNavButton>
+      <SidebarNavButton
+        label={showNotePicFolders ? t("fileTree.hidePicFolders") : t("fileTree.showPicFolders")}
+        onClick={toggleShowNotePicFolders}
+      >
+        {showNotePicFolders ? <EyeIcon /> : <EyeOffIcon />}
       </SidebarNavButton>
       <SidebarNavButton label={t("fileTree.collapseAll")} onClick={collapseAll}>
         <CollapseAllFoldersIcon />

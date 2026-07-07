@@ -25,6 +25,8 @@ import {
 } from "./keyboard-shortcuts.js";
 import { applyDocumentLang, detectLocale, type Locale } from "./i18n/messages.js";
 import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "./sidebar-layout.js";
+import { fileTreeSelection } from "./file-tree-selection.js";
+import { isNotePicFolder } from "@chestnut/core";
 import { DEFAULT_UI_FONT, applyUiFont, resolveUiFont, type UiFont } from "./ui-font.js";
 import { DEFAULT_APP_THEME, applyAppTheme, resolveAppTheme, type AppTheme } from "./ui-theme.js";
 
@@ -47,6 +49,7 @@ export interface AppState {
   statusText: string;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  showNotePicFolders: boolean;
 }
 
 export interface AppActions {
@@ -70,6 +73,8 @@ export interface AppActions {
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
+  setShowNotePicFolders: (show: boolean) => void;
+  toggleShowNotePicFolders: () => void;
 }
 
 const SETTINGS_KEY = "chestnut-app-settings";
@@ -87,6 +92,7 @@ interface PersistedSettings {
   deleteImageFilesOnRemove?: boolean;
   sidebarWidth?: number;
   sidebarCollapsed?: boolean;
+  showNotePicFolders?: boolean;
 }
 
 function loadSettings(): PersistedSettings {
@@ -114,6 +120,7 @@ function saveSettings(state: AppState): void {
       deleteImageFilesOnRemove: state.deleteImageFilesOnRemove,
       sidebarWidth: state.sidebarWidth,
       sidebarCollapsed: state.sidebarCollapsed,
+      showNotePicFolders: state.showNotePicFolders,
     }),
   );
 }
@@ -247,6 +254,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   statusText: "",
   sidebarWidth: clampSidebarWidth(saved.sidebarWidth ?? SIDEBAR_WIDTH_DEFAULT),
   sidebarCollapsed: saved.sidebarCollapsed ?? false,
+  showNotePicFolders: saved.showNotePicFolders ?? true,
 
   mountVault: async (adapter) => {
     await vaultService.mount(adapter);
@@ -376,6 +384,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   toggleSidebarCollapsed: () => {
     set({ sidebarCollapsed: !get().sidebarCollapsed });
     saveSettings(get());
+  },
+  setShowNotePicFolders: (show) => {
+    if (get().showNotePicFolders === show) return;
+    set({ showNotePicFolders: show });
+    if (!show) {
+      const selectedFolder = fileTreeSelection.getSelectedFolderPath();
+      if (selectedFolder && isNotePicFolder(selectedFolder)) {
+        fileTreeSelection.clearSelectedFolder();
+      }
+    }
+    saveSettings(get());
+  },
+  toggleShowNotePicFolders: () => {
+    get().setShowNotePicFolders(!get().showNotePicFolders);
   },
 }));
 

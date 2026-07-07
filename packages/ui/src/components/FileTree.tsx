@@ -14,7 +14,7 @@ import {
   type Ref,
 } from "react";
 import type { VaultEntry } from "@chestnut/core";
-import { fileBaseName, isExcalidraw, isExportTargetFolder, isHiddenPath, isImage, isInExportTargetFolder, isInNotePicFolder, isMarkdown, isNotePicFolder, isPdf, sanitizeFolderName, sanitizeNoteTitle, sortFileTreeEntries } from "@chestnut/core";
+import { fileBaseName, isExcalidraw, isExportTargetFolder, isImage, isInExportTargetFolder, isInNotePicFolder, isMarkdown, isNotePicFolder, isPdf, sanitizeFolderName, sanitizeNoteTitle, sortFileTreeEntries } from "@chestnut/core";
 import {
   createAndOpenDrawing,
   createAndOpenNote,
@@ -29,6 +29,7 @@ import { useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expan
 import { fileTreeSelection } from "../file-tree-selection.js";
 import { fileTreeExpanded } from "../file-tree-expanded.js";
 import { fileTreeRename } from "../file-tree-rename.js";
+import { isFileTreeEntryVisible } from "../file-tree-visibility.js";
 import {
   canDragFileTreeEntry,
   canDropFileTreeEntry,
@@ -582,6 +583,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   );
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const treeVersion = useAppStore((s) => s.treeVersion);
+  const showNotePicFolders = useAppStore((s) => s.showNotePicFolders);
   const folderName = dir.split("/").pop() || dir;
 
   useEffect(() => {
@@ -602,10 +604,10 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
 
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {
-      const visible = list.filter((e) => !isHiddenPath(e.path));
+      const visible = list.filter((e) => isFileTreeEntryVisible(e, showNotePicFolders));
       setEntries(sortFileTreeEntries(visible, dir));
     });
-  }, [dir, treeVersion]);
+  }, [dir, treeVersion, showNotePicFolders]);
 
   if (!expanded && dir) {
     return (
