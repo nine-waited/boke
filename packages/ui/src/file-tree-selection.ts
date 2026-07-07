@@ -1,4 +1,5 @@
 import { workspaceStore } from "./store.js";
+import { remapVaultPathUnderPrefixNullable } from "./vault-path-remap.js";
 
 type Listener = () => void;
 
@@ -48,6 +49,33 @@ class FileTreeSelectionStore {
 
   clearSelectedFolder(): void {
     this.setSelectedFolderPath(null);
+  }
+
+  /** Keep selection in sync when a vault path is renamed or moved. */
+  remapVaultPath(oldPath: string, newPath: string): void {
+    let nextFolder = this.selectedFolderPath;
+    let nextFile = this.selectedFilePath;
+    if (nextFile === oldPath) nextFile = newPath;
+    if (nextFolder === oldPath) nextFolder = newPath;
+    this.applySelection(nextFolder, nextFile);
+  }
+
+  /** Keep selection in sync when a folder (and its descendants) is renamed or moved. */
+  remapVaultPathPrefix(oldPrefix: string, newPrefix: string): void {
+    const nextFolder = remapVaultPathUnderPrefixNullable(
+      this.selectedFolderPath,
+      oldPrefix,
+      newPrefix,
+    );
+    const nextFile = remapVaultPathUnderPrefixNullable(this.selectedFilePath, oldPrefix, newPrefix);
+    this.applySelection(nextFolder, nextFile);
+  }
+
+  private applySelection(folder: string | null, file: string | null): void {
+    if (folder === this.selectedFolderPath && file === this.selectedFilePath) return;
+    this.selectedFolderPath = folder;
+    this.selectedFilePath = file;
+    this.notify();
   }
 }
 

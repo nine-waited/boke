@@ -1,3 +1,4 @@
+import { compareNamesWithNumericSuffix, stripFileExtension } from "./name-sort.js";
 import { isMarkdown, joinPath, normalizePath } from "./types.js";
 import type { VaultEntry } from "./types.js";
 
@@ -47,7 +48,9 @@ export function markdownExportFilePath(mdPath: string): string {
 
 function compareFileTreeEntries(a: VaultEntry, b: VaultEntry): number {
   if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1;
-  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  const nameA = a.kind === "file" ? stripFileExtension(a.name) : a.name;
+  const nameB = b.kind === "file" ? stripFileExtension(b.name) : b.name;
+  return compareNamesWithNumericSuffix(nameA, nameB);
 }
 
 /** Keep the export `target` folder last at vault root so it stays out of the way. */

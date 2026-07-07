@@ -25,8 +25,9 @@ import {
   revealInFileManager,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
-import { useFileTreeCollapseGeneration, useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
+import { useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
 import { fileTreeSelection } from "../file-tree-selection.js";
+import { fileTreeExpanded } from "../file-tree-expanded.js";
 import { fileTreeRename } from "../file-tree-rename.js";
 import {
   canDragFileTreeEntry,
@@ -575,21 +576,18 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
 function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   const [entries, setEntries] = useState<VaultEntry[]>([]);
-  const [expanded, setExpanded] = useState(!dir);
-  const collapseGeneration = useFileTreeCollapseGeneration();
+  const expanded = useSyncExternalStore(
+    (cb) => fileTreeExpanded.subscribe(cb),
+    () => (dir ? fileTreeExpanded.isExpanded(dir) : true),
+  );
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const treeVersion = useAppStore((s) => s.treeVersion);
   const folderName = dir.split("/").pop() || dir;
 
   useEffect(() => {
-    if (!dir || collapseGeneration === 0) return;
-    setExpanded(false);
-  }, [collapseGeneration, dir]);
-
-  useEffect(() => {
     if (!revealTargetPath || revealGeneration === 0) return;
     if (isPathInsideDir(dir, revealTargetPath)) {
-      setExpanded(true);
+      fileTreeExpanded.setExpanded(dir, true);
     }
   }, [revealGeneration, revealTargetPath, dir]);
 
@@ -598,7 +596,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
     if (!treeCtx?.expandFolderRequest || !dir) return;
     const request = treeCtx.expandFolderRequest;
     if (request === dir || request.startsWith(`${dir}/`)) {
-      setExpanded(true);
+      fileTreeExpanded.setExpanded(dir, true);
     }
   }, [treeCtx?.expandFolderRequest, dir]);
 
@@ -616,7 +614,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
         folderPath={dir}
         folderName={folderName}
         expanded={false}
-        onToggle={() => setExpanded(true)}
+        onToggle={() => fileTreeExpanded.setExpanded(dir, true)}
       />
     );
   }
@@ -629,7 +627,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
           folderPath={dir}
           folderName={folderName}
           expanded={expanded}
-          onToggle={() => setExpanded(false)}
+          onToggle={() => fileTreeExpanded.setExpanded(dir, false)}
         />
       )}
       {expanded &&
@@ -978,8 +976,11 @@ export function FileTree() {
         if (newPath !== path) {
           if (isFolder) {
             workspaceStore.renamePathPrefix(path, newPath);
+            fileTreeSelection.remapVaultPathPrefix(path, newPath);
+            fileTreeExpanded.remapVaultPathPrefix(path, newPath);
           } else {
             workspaceStore.renamePath(path, newPath);
+            fileTreeSelection.remapVaultPath(path, newPath);
           }
           refreshTree();
         }
@@ -999,8 +1000,11 @@ export function FileTree() {
         const newPath = await vaultService.moveEntry(payload.path, payload.kind, targetDir);
         if (payload.kind === "directory") {
           workspaceStore.renamePathPrefix(payload.path, newPath);
+          fileTreeSelection.remapVaultPathPrefix(payload.path, newPath);
+          fileTreeExpanded.remapVaultPathPrefix(payload.path, newPath);
         } else {
           workspaceStore.renamePath(payload.path, newPath);
+          fileTreeSelection.remapVaultPath(payload.path, newPath);
         }
         refreshTree();
         await revealFileInTreeWhenReady(newPath);

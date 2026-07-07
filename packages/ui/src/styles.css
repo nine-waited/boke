@@ -15,6 +15,8 @@
   --boke-tag: #7c3aed;
   --boke-font: "Microsoft YaHei", "微软雅黑", sans-serif;
   --boke-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
+  --boke-code-font: "Microsoft YaHei", "微软雅黑", sans-serif;
+  --boke-code-block-text: #687078;
   --boke-radius: 8px;
   --boke-sidebar-width: 260px;
   --boke-status-height: 28px;
@@ -39,6 +41,7 @@
   --boke-error: #f38ba8;
   --boke-link: #89dceb;
   --boke-tag: #cba6f7;
+  --boke-code-block-text: #b5bcc9;
 }
 
 [data-theme="dark"] .boke-milkdown-wrap .milkdown {
@@ -1516,6 +1519,16 @@ body.boke-file-tree-dragging .boke-file-tree-item {
   padding: 16px;
   border-radius: var(--boke-radius);
   overflow: auto;
+  font-family: var(--boke-code-font);
+  color: var(--boke-code-block-text);
+}
+
+.boke-markdown-preview pre code {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 .boke-markdown-preview .wikilink {
@@ -2084,7 +2097,7 @@ body.boke-file-tree-dragging .boke-file-tree-item {
   min-height: 100%;
   --crepe-font-default: var(--boke-font);
   --crepe-font-title: var(--boke-font);
-  --crepe-font-code: var(--boke-mono);
+  --crepe-font-code: var(--boke-code-font);
 }
 
 .boke-note-pane {
@@ -2327,4 +2340,6 @@ body.boke-file-tree-dragging .boke-file-tree-item {
   border-radius: var(--boke-radius);
   overflow: auto;
   font-size: 12px;
+  font-family: var(--boke-code-font);
+  color: var(--boke-code-block-text);
 }

@@ -16,3 +16,20 @@
 .milkdown .milkdown-block-handle {
   display: none !important;
 }
+
+/* 代码块：微软雅黑 + 非语法高亮时为深灰 */
+.boke-milkdown-wrap .milkdown .milkdown-code-block .cm-editor,
+.boke-milkdown-wrap .milkdown .milkdown-code-block .cm-scroller,
+.boke-milkdown-wrap .milkdown .milkdown-code-block .cm-content,
+.boke-milkdown-wrap .milkdown .milkdown-code-block .cm-line,
+.boke-milkdown-wrap .milkdown .milkdown-code-block .milkdown-code-block-placeholder,
+.boke-milkdown-wrap .milkdown .milkdown-code-block .milkdown-code-block-placeholder code {
+  font-family: var(--boke-code-font);
+  color: var(--boke-code-block-text);
+}
+
+.boke-milkdown-wrap .milkdown .ProseMirror pre,
+.boke-milkdown-wrap .milkdown .ProseMirror pre code {
+  font-family: var(--boke-code-font);
+  color: var(--boke-code-block-text);
+}

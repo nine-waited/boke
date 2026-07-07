@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { fileTreeExpanded } from "./file-tree-expanded.js";
 import { workspaceStore } from "./store.js";
 
 interface FileTreeExpandContextValue {
-  collapseGeneration: number;
   collapseAll: () => void;
   revealGeneration: number;
   revealTargetPath: string | null;
@@ -30,12 +30,11 @@ export async function revealFileInTreeWhenReady(path: string): Promise<void> {
 }
 
 export function FileTreeExpandProvider({ children }: { children: ReactNode }) {
-  const [collapseGeneration, setCollapseGeneration] = useState(0);
   const [revealGeneration, setRevealGeneration] = useState(0);
   const [revealTargetPath, setRevealTargetPath] = useState<string | null>(null);
 
   const collapseAll = useCallback(() => {
-    setCollapseGeneration((generation) => generation + 1);
+    fileTreeExpanded.collapseAll();
   }, []);
 
   const revealFile = useCallback((path: string) => {
@@ -59,7 +58,6 @@ export function FileTreeExpandProvider({ children }: { children: ReactNode }) {
   return (
     <FileTreeExpandContext.Provider
       value={{
-        collapseGeneration,
         collapseAll,
         revealGeneration,
         revealTargetPath,
@@ -77,10 +75,6 @@ export function useFileTreeExpand(): FileTreeExpandContextValue {
     throw new Error("useFileTreeExpand must be used within FileTreeExpandProvider");
   }
   return ctx;
-}
-
-export function useFileTreeCollapseGeneration(): number {
-  return useFileTreeExpand().collapseGeneration;
 }
 
 export function useFileTreeReveal(): Pick<FileTreeExpandContextValue, "revealGeneration" | "revealTargetPath"> {
