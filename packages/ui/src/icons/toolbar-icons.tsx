@@ -93,7 +93,7 @@ export function ImportIcon() {
   return (
     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
       <path
-        d="M12 3v12"
+        d="M12 4.5v8"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.75"
@@ -101,7 +101,7 @@ export function ImportIcon() {
         strokeLinejoin="round"
       />
       <path
-        d="m7 10 5 5 5-5"
+        d="m9 12.5 3 3 3-3"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.75"
@@ -109,7 +109,7 @@ export function ImportIcon() {
         strokeLinejoin="round"
       />
       <path
-        d="M5 21h14"
+        d="M5 13l3.5-5h7L19 13v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5z"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.75"
