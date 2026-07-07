@@ -144,8 +144,7 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
     for (const file of files) {
       if (!file.type.startsWith("image/")) continue;
       const imagePath = await savePastedNoteImage(path, file);
-      const name = file.name.replace(/\.[^.]+$/, "");
-      next = `${next}\n${formatImageMarkdown(imagePath, name)}\n`;
+      next = `${next}\n${formatImageMarkdown(imagePath, "")}\n`;
     }
     if (next !== contentRef.current) {
       onChange(next);

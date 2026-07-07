@@ -5,6 +5,8 @@ import { closeNoteImageLightbox, isNoteImageLightboxOpen, openNoteImageLightbox 
 import { useAppStore } from "./store.js";
 
 export interface NoteImageSelectOptions {
+  getImageCaption: (img: HTMLImageElement) => string;
+  onCopy: (img: HTMLImageElement) => void | Promise<void>;
   onDelete: (img: HTMLImageElement) => void | Promise<void>;
   onInsertLineBelow: (img: HTMLImageElement) => void;
   onUpdateCaption: (img: HTMLImageElement, caption: string) => void | Promise<void>;
@@ -80,13 +82,14 @@ export function attachNoteImageSelectHandlers(
     const img = selected;
     const caption = captionInput.value.trim();
     closeCaptionInput();
+    captionInput.value = "";
     await options.onUpdateCaption(img, caption);
     clearSelection();
   };
 
   const openCaptionInput = (img: HTMLImageElement) => {
     if (!toolbar || !captionInput) return;
-    captionDraft = img.getAttribute("alt")?.trim() ?? "";
+    captionDraft = options.getImageCaption(img);
     captionInput.value = captionDraft;
     toolbar.classList.add("boke-note-image-toolbar--caption-open");
     captionInput.classList.add("boke-note-image-toolbar__caption-input--open");
@@ -237,6 +240,11 @@ export function attachNoteImageSelectHandlers(
       clearSelection();
       return;
     }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      void options.onCopy(selected);
+      return;
+    }
     if (event.key !== "Delete" && event.key !== "Backspace") return;
     event.preventDefault();
     void requestDelete();
@@ -248,7 +256,7 @@ export function attachNoteImageSelectHandlers(
 
   container.addEventListener("pointerdown", onPointerDown, true);
   container.addEventListener("dblclick", onDoubleClick, true);
-  document.addEventListener("keydown", onKeyDown);
+  document.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", onScroll);
 
@@ -257,7 +265,7 @@ export function attachNoteImageSelectHandlers(
     clearSelection();
     container.removeEventListener("pointerdown", onPointerDown, true);
     container.removeEventListener("dblclick", onDoubleClick, true);
-    document.removeEventListener("keydown", onKeyDown);
+    document.removeEventListener("keydown", onKeyDown, true);
     window.removeEventListener("scroll", onScroll, true);
     window.removeEventListener("resize", onScroll);
   };

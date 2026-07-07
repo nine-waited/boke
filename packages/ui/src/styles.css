@@ -1617,6 +1617,15 @@ body.boke-file-tree-dragging .boke-file-tree-item {
   display: none !important;
 }
 
+.boke-live-pane .milkdown-image-block > .boke-image-caption-fallback {
+  display: block;
+  width: 100%;
+  margin: 4px auto;
+  text-align: center;
+  pointer-events: none;
+  cursor: default;
+}
+
 .boke-note-image-toolbar {
   position: absolute;
   z-index: 20;

@@ -1,7 +1,9 @@
 import type { Ctx } from "@milkdown/ctx";
 import { editorViewCtx } from "@milkdown/kit/core";
-import { TextSelection } from "@milkdown/kit/prose/state";
+import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceRange } from "@milkdown/utils";
+import { findImageNodeAtDom } from "./note-image-caption.js";
 import { markdownToPlainText } from "./markdown-strip-inline.js";
 import { readSystemClipboardText } from "./system-clipboard.js";
 export interface EditorSelectionRange {
@@ -67,6 +69,24 @@ export function getSourceSelectionPlainText(from: number, to: number, doc: strin
   if (from === to) return null;
   return markdownToPlainText(doc.slice(from, to));
 }
+
+export function selectImageNodeAtDom(view: EditorView, img: HTMLImageElement): boolean {
+  const found = findImageNodeAtDom(view, img);
+  if (!found) return false;
+  view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, found.pos)));
+  view.focus();
+  return true;
+}
+
+/** Markdown for a single image node (block or inline). */
+export function getImageMarkdownFromDom(ctx: Ctx, img: HTMLImageElement): string | null {
+  const view = ctx.get(editorViewCtx);
+  const found = findImageNodeAtDom(view, img);
+  if (!found) return null;
+  const markdown = getMarkdown({ from: found.pos, to: found.pos + found.nodeSize })(ctx);
+  return markdown?.trim() ? markdown.trim() : null;
+}
+
 export function hasClipboardText(text: string | null): text is string {
   return text !== null && text.length > 0;
 }

@@ -9,13 +9,25 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
 import { attachNoteImageSelectHandlers } from "../note-image-select.js";
 import { deleteNoteImageFileOnRemove, getImageVaultPathFromView } from "../note-image-delete.js";
+import {
+  findImageNodeAtDom,
+  hasImageWithSrc,
+  normalizeInsertedImageCaption,
+  readImageCaptionFromView,
+  updateImageCaptionInView,
+} from "../note-image-caption.js";
 import { getT } from "../i18n/index.js";
 import {
   attachMarkdownEditorContextMenu,
   type EditorContextMenuPoint,
 } from "../markdown-editor-context-menu.js";
 import type { EditorSelectionRange } from "../markdown-editor-clipboard.js";
-import { readClipboardForPaste } from "../markdown-editor-clipboard.js";
+import {
+  getImageMarkdownFromDom,
+  readClipboardForPaste,
+  selectImageNodeAtDom,
+} from "../markdown-editor-clipboard.js";
+import { writeSystemClipboardText } from "../system-clipboard.js";
 import { attachLiveEditorShortcutKeymap } from "../markdown-editor-keymap.js";
 import { attachLiveEditorScrollLock } from "../markdown-editor-live-view.js";
 import { MarkdownEditorContextMenu } from "./MarkdownEditorContextMenu.js";
@@ -60,25 +72,6 @@ function deleteImageAtDom(view: EditorView, img: HTMLImageElement): boolean {
   return deleted;
 }
 
-function findImageNodeAtDom(
-  view: EditorView,
-  img: HTMLImageElement,
-): { pos: number; nodeSize: number } | null {
-  let found: { pos: number; nodeSize: number } | null = null;
-  view.state.doc.descendants((node, pos) => {
-    if (found) return false;
-    const name = node.type.name.toLowerCase();
-    if (!name.includes("image")) return;
-    const domNode = view.nodeDOM(pos);
-    if (domNode === img || (domNode instanceof HTMLElement && domNode.contains(img))) {
-      found = { pos, nodeSize: node.nodeSize };
-      return false;
-    }
-    return undefined;
-  });
-  return found;
-}
-
 function insertLineBelowImageAtDom(view: EditorView, img: HTMLImageElement): boolean {
   const imageNode = findImageNodeAtDom(view, img);
   if (!imageNode) return false;
@@ -104,21 +97,35 @@ function insertLineBelowImageAtDom(view: EditorView, img: HTMLImageElement): boo
   return true;
 }
 
-function updateImageCaptionAtDom(view: EditorView, img: HTMLImageElement, caption: string): boolean {
-  const imageNode = findImageNodeAtDom(view, img);
-  if (!imageNode) return false;
-
-  const node = view.state.doc.nodeAt(imageNode.pos);
-  if (!node) return false;
-
-  const attr = node.type.name === "image-block" ? "caption" : "alt";
-  view.dispatch(view.state.tr.setNodeAttribute(imageNode.pos, attr, caption));
-  return true;
+function emitEditorMarkdown(ctx: Ctx, lastEmitted: { current: string }, onChange: (markdown: string) => void, skipExternalSync: { current: boolean }) {
+  const markdown = getMarkdown()(ctx);
+  if (markdown === lastEmitted.current) return;
+  lastEmitted.current = markdown;
+  skipExternalSync.current = true;
+  onChange(markdown);
 }
 
-function refreshEditorMarkdown(ctx: Ctx) {
-  const markdown = getMarkdown()(ctx);
-  replaceAll(markdown, true)(ctx);
+function scheduleInsertedImageEmptyCaption(
+  crepe: Crepe,
+  srcPath: string,
+  lastEmitted: { current: string },
+  skipExternalSync: { current: boolean },
+  onChange: (markdown: string) => void,
+): void {
+  let attempts = 0;
+  const finalize = () => {
+    crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      if (!hasImageWithSrc(view, srcPath) && attempts < 12) {
+        attempts += 1;
+        requestAnimationFrame(finalize);
+        return;
+      }
+      normalizeInsertedImageCaption(view, srcPath);
+      emitEditorMarkdown(ctx, lastEmitted, onChange, skipExternalSync);
+    });
+  };
+  requestAnimationFrame(finalize);
 }
 
 function findHeadingPos(view: EditorView, markdown: string, docLine: number): number | null {
@@ -173,10 +180,22 @@ function MilkdownCrepeEditor({
 
   const { loading } = useEditor((root) => {
     editorRootRef.current = root;
-    const uploadImage = async (file: File) => savePastedNoteImage(notePathRef.current, file);
+    let crepe!: Crepe;
+
+    const uploadImage = async (file: File) => {
+      const path = await savePastedNoteImage(notePathRef.current, file);
+      scheduleInsertedImageEmptyCaption(
+        crepe,
+        path,
+        lastEmitted,
+        skipExternalSync,
+        onChangeRef.current,
+      );
+      return path;
+    };
 
     const t = getT();
-    const crepe = new Crepe({
+    crepe = new Crepe({
       root,
       defaultValue: content,
       features: {
@@ -254,6 +273,14 @@ function MilkdownCrepeEditor({
       boundEditor = editorEl;
       const cleanups = [
         attachNoteImageSelectHandlers(editorEl, {
+          getImageCaption: (img) => {
+            let caption = "";
+            crepe.editor.action((ctx) => {
+              const view = ctx.get(editorViewCtx);
+              caption = readImageCaptionFromView(view, img);
+            });
+            return caption;
+          },
           onDelete: async (img) => {
             await crepe.editor.action((ctx) => {
               const view = ctx.get(editorViewCtx);
@@ -270,11 +297,24 @@ function MilkdownCrepeEditor({
               insertLineBelowImageAtDom(view, img);
             });
           },
+          onCopy: async (img) => {
+            await crepe.editor.action((ctx) => {
+              const view = ctx.get(editorViewCtx);
+              selectImageNodeAtDom(view, img);
+            });
+            let markdown: string | null = null;
+            await crepe.editor.action((ctx) => {
+              markdown = getImageMarkdownFromDom(ctx, img);
+            });
+            if (markdown) {
+              await writeSystemClipboardText(markdown);
+            }
+          },
           onUpdateCaption: async (img, caption) => {
             await crepe.editor.action((ctx) => {
               const view = ctx.get(editorViewCtx);
-              if (!updateImageCaptionAtDom(view, img, caption)) return;
-              refreshEditorMarkdown(ctx);
+              if (!updateImageCaptionInView(ctx, view, img, caption)) return;
+              emitEditorMarkdown(ctx, lastEmitted, onChangeRef.current, skipExternalSync);
             });
           },
         }),
