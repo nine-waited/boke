@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useCallback, useEffect, useRef, forwardRef, useImperativeHandle, useState } from "react";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -7,9 +7,14 @@ import { searchKeymap } from "@codemirror/search";
 import { Decoration, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 import { formatImageMarkdown, getClipboardImageFile, savePastedNoteImage } from "../note-images.js";
+import { getSourceSelectionPlainText } from "../markdown-editor-clipboard.js";
+import { buildSourceEditorShortcutKeymap } from "../markdown-editor-keymap.js";
 import { buildSourceEditorTheme } from "../source-editor-theme.js";
+import { CopyIcon } from "../markdown-editor-block-icons.js";
+import { writeSystemClipboardText } from "../system-clipboard.js";
+import { useT } from "../i18n/index.js";
 import { useAppStore } from "../store.js";
-
+import { ContextMenuFrame } from "./ContextMenuFrame.js";
 const wikilinkPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
@@ -68,10 +73,16 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const notePathRef = useRef(notePath);
+  const contentRef = useRef(content);
+  const openContextMenuRef = useRef<(x: number, y: number) => void>(() => {});
   const appTheme = useAppStore((s) => s.theme);
+  const t = useT();
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  openContextMenuRef.current = (x, y) => setContextMenu({ x, y });
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
   notePathRef.current = notePath;
+  contentRef.current = content;
 
   useImperativeHandle(ref, () => ({
     goToDocLine(docLine: number) {
@@ -109,6 +120,7 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
         markdown({ base: markdownLanguage }),
         wikilinkPlugin,
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        buildSourceEditorShortcutKeymap(() => contentRef.current),
         saveKeymap,
         themeCompartmentRef.current.of(buildSourceEditorTheme(useAppStore.getState().theme)),
         EditorView.updateListener.of((update) => {
@@ -117,6 +129,13 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
           }
         }),
         EditorView.domEventHandlers({
+          contextmenu(event, view) {
+            const { from, to } = view.state.selection.main;
+            if (from === to) return false;
+            event.preventDefault();
+            openContextMenuRef.current(event.clientX, event.clientY);
+            return true;
+          },
           paste(event, view) {
             const file = getClipboardImageFile(event.clipboardData);
             const mdPath = notePathRef.current;
@@ -167,6 +186,48 @@ export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, Markd
     }
   }, [content]);
 
-  return <div ref={containerRef} className="boke-source-editor" />;
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [contextMenu]);
+
+  return (
+    <>
+      <div ref={containerRef} className="boke-source-editor" />
+      {contextMenu && (
+        <ContextMenuFrame
+          x={contextMenu.x}
+          y={contextMenu.y}
+          className="boke-context-menu boke-md-editor-context-menu"
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <button
+            type="button"
+            className="boke-md-editor-context-menu-item"
+            onClick={() => {
+              const view = viewRef.current;
+              if (!view) return;
+              const { from, to } = view.state.selection.main;
+              const text = getSourceSelectionPlainText(from, to, view.state.doc.toString());
+              if (text) void writeSystemClipboardText(text);
+              setContextMenu(null);
+            }}
+          >
+            <span className="boke-md-editor-context-menu-item__icon">
+              <CopyIcon />
+            </span>
+            <span className="boke-md-editor-context-menu-item__label">{t("note.editorContextMenuCopyPlain")}</span>
+          </button>
+        </ContextMenuFrame>
+      )}
+    </>
+  );
   },
 );

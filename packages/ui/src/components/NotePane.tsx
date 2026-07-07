@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeLeafMode, noteBaseName, sanitizeNoteTitle, type LeafMode } from "@chestnut/core";
+import { EditorZoomHost } from "./EditorZoomHost.js";
 import { MarkdownEditor, type MarkdownEditorHandle } from "./MarkdownEditor.js";
 import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./MarkdownSourceEditor.js";
 import { OutlinePanel } from "./OutlinePanel.js";
@@ -170,30 +171,32 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
     <div className="boke-note-layout" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <div className="boke-note-main">
         <NoteTitleBar path={path} leafId={leafId} mode={mode} flushContent={flushContent} />
-        <div ref={notePaneRef} className={`boke-note-pane boke-note-pane--${viewMode}`}>
-          {viewMode === "live" ? (
-            <MarkdownEditor
-              ref={liveRef}
-              key={`${path}:live`}
-              presentation="live"
-              notePath={path}
-              content={content}
-              onChange={onChange}
-              onSave={onSave}
-            />
-          ) : (
-            <div className="boke-source-pane">
-              <MarkdownSourceEditor
-                ref={sourceRef}
-                key={`${path}:source`}
+        <EditorZoomHost>
+          <div ref={notePaneRef} className={`boke-note-pane boke-note-pane--${viewMode}`}>
+            {viewMode === "live" ? (
+              <MarkdownEditor
+                ref={liveRef}
+                key={`${path}:live`}
+                presentation="live"
                 notePath={path}
                 content={content}
                 onChange={onChange}
                 onSave={onSave}
               />
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="boke-source-pane">
+                <MarkdownSourceEditor
+                  ref={sourceRef}
+                  key={`${path}:source`}
+                  notePath={path}
+                  content={content}
+                  onChange={onChange}
+                  onSave={onSave}
+                />
+              </div>
+            )}
+          </div>
+        </EditorZoomHost>
       </div>
       <OutlinePanel path={path} content={content} onHeadingClick={handleHeadingClick} />
     </div>

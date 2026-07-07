@@ -1,8 +1,9 @@
 import type { Ctx } from "@milkdown/ctx";
 import { editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import { getMarkdown, replaceRange } from "@milkdown/utils";import { readSystemClipboardText } from "./system-clipboard.js";
-
+import { getMarkdown, replaceRange } from "@milkdown/utils";
+import { markdownToPlainText } from "./markdown-strip-inline.js";
+import { readSystemClipboardText } from "./system-clipboard.js";
 export interface EditorSelectionRange {
   from: number;
   to: number;
@@ -50,6 +51,22 @@ export function getEditorSelectionMarkdown(ctx: Ctx, range: EditorSelectionRange
   return markdown || null;
 }
 
+/** Plain text for the selection: no bold, headings, list markers, etc. */
+export function getEditorSelectionPlainText(ctx: Ctx, range: EditorSelectionRange): string | null {
+  if (!hasEditorTextSelection(range)) return null;
+  restoreEditorSelection(ctx, range);
+  const view = ctx.get(editorViewCtx);
+  const { from, to } = view.state.selection;
+  const text = view.state.doc.textBetween(from, to, "\n\n", "\n").trimEnd();
+  if (text) return text;
+  const markdown = getMarkdown({ from, to })(ctx);
+  return markdown ? markdownToPlainText(markdown) : null;
+}
+
+export function getSourceSelectionPlainText(from: number, to: number, doc: string): string | null {
+  if (from === to) return null;
+  return markdownToPlainText(doc.slice(from, to));
+}
 export function hasClipboardText(text: string | null): text is string {
   return text !== null && text.length > 0;
 }

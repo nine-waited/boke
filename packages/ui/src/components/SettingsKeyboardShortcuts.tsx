@@ -1,22 +1,28 @@
 import { useState } from "react";
 import {
   DEFAULT_SHORTCUTS,
-  SHORTCUT_IDS,
+  APP_SHORTCUT_IDS,
   normalizeShortcut,
-  type ShortcutId,
+  type AppShortcutId,
 } from "../keyboard-shortcuts.js";
 import { getShortcutLabel, useT } from "../i18n/index.js";
 import { useAppStore } from "../store.js";
+import { SettingsEditorKeyboardShortcuts } from "./SettingsEditorKeyboardShortcuts.js";
 
 export function SettingsKeyboardShortcuts() {
   const t = useT();
   const locale = useAppStore((s) => s.locale);
   const keyboardShortcuts = useAppStore((s) => s.keyboardShortcuts);
   const setKeyboardShortcut = useAppStore((s) => s.setKeyboardShortcut);
-  const resetKeyboardShortcuts = useAppStore((s) => s.resetKeyboardShortcuts);
-  const [drafts, setDrafts] = useState(keyboardShortcuts);
+  const resetAppKeyboardShortcuts = useAppStore((s) => s.resetAppKeyboardShortcuts);
+  const [drafts, setDrafts] = useState(() =>
+    Object.fromEntries(APP_SHORTCUT_IDS.map((id) => [id, keyboardShortcuts[id]])) as Record<
+      AppShortcutId,
+      string
+    >,
+  );
 
-  const commit = (id: ShortcutId, value: string) => {
+  const commit = (id: AppShortcutId, value: string) => {
     const normalized = normalizeShortcut(value);
     setDrafts((prev) => ({ ...prev, [id]: normalized }));
     setKeyboardShortcut(id, normalized);
@@ -24,7 +30,7 @@ export function SettingsKeyboardShortcuts() {
 
   return (
     <div className="boke-settings-shortcuts">
-      {SHORTCUT_IDS.map((id) => (
+      {APP_SHORTCUT_IDS.map((id) => (
         <div key={id} className="boke-settings-shortcut-row">
           <label htmlFor={`shortcut-${id}`}>{getShortcutLabel(id, locale)}</label>
           <input
@@ -50,12 +56,19 @@ export function SettingsKeyboardShortcuts() {
         type="button"
         className="boke-settings-shortcuts-reset"
         onClick={() => {
-          resetKeyboardShortcuts();
-          setDrafts({ ...DEFAULT_SHORTCUTS });
+          resetAppKeyboardShortcuts();
+          setDrafts(
+            Object.fromEntries(APP_SHORTCUT_IDS.map((id) => [id, DEFAULT_SHORTCUTS[id]])) as Record<
+              AppShortcutId,
+              string
+            >,
+          );
         }}
       >
         {t("settings.shortcutsReset")}
       </button>
+
+      <SettingsEditorKeyboardShortcuts />
     </div>
   );
 }

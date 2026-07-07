@@ -16,6 +16,10 @@ import { ensureDefaultReadme, getDefaultReadmePathForLocale, resolveWelcomeReadm
 import {
   DEFAULT_SHORTCUTS,
   loadKeyboardShortcuts,
+  loadAppKeyboardShortcuts,
+  loadConfigurableEditorKeyboardShortcuts,
+  applyFixedEditorShortcuts,
+  isFixedEditorShortcut,
   type KeyboardShortcuts,
   type ShortcutId,
 } from "./keyboard-shortcuts.js";
@@ -35,6 +39,7 @@ export interface AppState {
   remoteConfig: RemoteConfig | null;
   localVaultPath: string | null;
   keyboardShortcuts: KeyboardShortcuts;
+  editorZoom: number;
   locale: Locale;
   uiFont: UiFont;
   theme: AppTheme;
@@ -54,6 +59,9 @@ export interface AppActions {
   setRemoteConfig: (config: RemoteConfig | null) => void;
   setKeyboardShortcut: (id: ShortcutId, shortcut: string) => void;
   resetKeyboardShortcuts: () => void;
+  resetAppKeyboardShortcuts: () => void;
+  resetEditorKeyboardShortcuts: () => void;
+  setEditorZoom: (zoom: number) => void;
   setLocale: (locale: Locale) => void;
   setUiFont: (font: UiFont) => void;
   setTheme: (theme: AppTheme) => void;
@@ -72,6 +80,7 @@ interface PersistedSettings {
   remoteConfig?: RemoteConfig | null;
   localVaultPath?: string | null;
   keyboardShortcuts?: Partial<KeyboardShortcuts>;
+  editorZoom?: number;
   locale?: Locale;
   uiFont?: UiFont;
   theme?: AppTheme;
@@ -98,6 +107,7 @@ function saveSettings(state: AppState): void {
       remoteConfig: state.remoteConfig,
       localVaultPath: state.localVaultPath,
       keyboardShortcuts: state.keyboardShortcuts,
+      editorZoom: state.editorZoom,
       locale: state.locale,
       uiFont: state.uiFont,
       theme: state.theme,
@@ -229,6 +239,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   remoteConfig: saved.remoteConfig ?? null,
   localVaultPath: saved.localVaultPath ?? null,
   keyboardShortcuts: loadKeyboardShortcuts(saved.keyboardShortcuts),
+  editorZoom: saved.editorZoom ?? 100,
   locale: saved.locale ?? detectLocale(),
   uiFont: resolveUiFont(saved.uiFont),
   theme: resolveAppTheme(saved.theme),
@@ -302,11 +313,35 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     saveSettings(get());
   },
   setKeyboardShortcut: (id, shortcut) => {
-    set({ keyboardShortcuts: { ...get().keyboardShortcuts, [id]: shortcut } });
+    if (isFixedEditorShortcut(id)) return;
+    set({
+      keyboardShortcuts: applyFixedEditorShortcuts({
+        ...get().keyboardShortcuts,
+        [id]: shortcut,
+      }),
+    });
     saveSettings(get());
   },
   resetKeyboardShortcuts: () => {
     set({ keyboardShortcuts: { ...DEFAULT_SHORTCUTS } });
+    saveSettings(get());
+  },
+  resetAppKeyboardShortcuts: () => {
+    set({ keyboardShortcuts: { ...get().keyboardShortcuts, ...loadAppKeyboardShortcuts(DEFAULT_SHORTCUTS) } });
+    saveSettings(get());
+  },
+  resetEditorKeyboardShortcuts: () => {
+    set({
+      keyboardShortcuts: applyFixedEditorShortcuts({
+        ...get().keyboardShortcuts,
+        ...loadConfigurableEditorKeyboardShortcuts(DEFAULT_SHORTCUTS),
+      }),
+    });
+    saveSettings(get());
+  },
+  setEditorZoom: (zoom) => {
+    const clamped = Math.min(200, Math.max(50, Math.round(zoom)));
+    set({ editorZoom: clamped });
     saveSettings(get());
   },
   setLocale: (locale) => {

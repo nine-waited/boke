@@ -1990,9 +1990,81 @@ body.boke-file-tree-dragging .boke-file-tree-item {
   font-size: 13px;
 }
 
+.boke-settings-shortcut-fixed {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--boke-border);
+  background: var(--boke-surface);
+  color: var(--boke-text-muted);
+  font-family: var(--boke-mono);
+  font-size: 13px;
+  cursor: default;
+  user-select: none;
+}
+
 .boke-settings-shortcuts-reset {
   align-self: flex-start;
   margin-top: 4px;
+}
+
+.boke-settings-shortcuts-details {
+  margin-top: 16px;
+  max-width: 520px;
+}
+
+.boke-settings-shortcuts-details > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--boke-text);
+  user-select: none;
+}
+
+.boke-settings-shortcuts-details-hint {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  color: var(--boke-text-muted);
+}
+
+.boke-settings-shortcuts--editor {
+  max-width: none;
+}
+
+.boke-settings-shortcuts--editor .boke-settings-shortcut-row {
+  grid-template-columns: minmax(132px, 42%) 1fr;
+}
+
+.boke-editor-zoom-host {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.boke-editor-zoom-host .boke-note-pane {
+  flex: 1;
+  min-height: 0;
+  zoom: var(--boke-editor-zoom, 1);
+}
+
+.boke-editor-zoom-hint {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 6;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--boke-text) 82%, transparent);
+  color: var(--boke-bg);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.35s ease;
 }
 
 .boke-milkdown-wrap {

@@ -16,6 +16,7 @@ import {
 } from "../markdown-editor-context-menu.js";
 import type { EditorSelectionRange } from "../markdown-editor-clipboard.js";
 import { readClipboardForPaste } from "../markdown-editor-clipboard.js";
+import { attachLiveEditorShortcutKeymap } from "../markdown-editor-keymap.js";
 import { attachLiveEditorScrollLock } from "../markdown-editor-live-view.js";
 import { MarkdownEditorContextMenu } from "./MarkdownEditorContextMenu.js";
 import "../crepe-theme.css";
@@ -347,6 +348,33 @@ function MilkdownCrepeEditor({
 
     tryAttach();
 
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [loading, crepeRef]);
+
+  useEffect(() => {
+    if (loading) return;
+    const crepe = crepeRef.current;
+    const root = editorRootRef.current;
+    if (!crepe || !root) return;
+
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+
+    const tryAttach = () => {
+      if (cancelled) return;
+      const editorEl = root.querySelector<HTMLElement>(".ProseMirror");
+      if (!editorEl) {
+        requestAnimationFrame(tryAttach);
+        return;
+      }
+      if (cleanup) return;
+      cleanup = attachLiveEditorShortcutKeymap(root, crepe, () => lastEmitted.current);
+    };
+
+    tryAttach();
     return () => {
       cancelled = true;
       cleanup?.();

@@ -3,6 +3,7 @@ import {
   isAttachment,
   isExcalidraw,
   isMarkdown,
+  isPdf,
   listAllFiles,
   normalizePath,
   joinPath,
@@ -155,6 +156,14 @@ export class VaultService {
     const files = await listAllFiles(this.adapter);
     return files
       .filter((f) => isMarkdown(f.path))
+      .map((f) => ({ path: f.path, size: f.size ?? 0, mtimeMs: f.mtimeMs ?? 0 }));
+  }
+
+  async listQuickOpenFiles(): Promise<Array<{ path: string; size: number; mtimeMs: number }>> {
+    if (!this.adapter) return [];
+    const files = await listAllFiles(this.adapter);
+    return files
+      .filter((f) => isMarkdown(f.path) || isExcalidraw(f.path) || isPdf(f.path))
       .map((f) => ({ path: f.path, size: f.size ?? 0, mtimeMs: f.mtimeMs ?? 0 }));
   }
 
@@ -609,7 +618,7 @@ async function uniqueSiblingPath(
 
 export function fileBaseName(path: string): string {
   const name = path.split("/").pop() ?? path;
-  return name.replace(/\.(md|excalidraw)$/i, "");
+  return name.replace(/\.(md|excalidraw|pdf)$/i, "");
 }
 
 export function noteBaseName(path: string): string {

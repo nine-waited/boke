@@ -11,6 +11,7 @@ import {
 } from "../markdown-editor-block-icons.js";
 import {
   getEditorSelectionMarkdown,
+  getEditorSelectionPlainText,
   hasClipboardText,
   hasEditorTextSelection,
   pasteMarkdownIntoEditor,
@@ -104,6 +105,24 @@ export function MarkdownEditorContextMenu({
             let text: string | null = null;
             crepe.editor.action((ctx) => {
               text = getEditorSelectionMarkdown(ctx, selection);
+            });
+            if (text) {
+              await writeSystemClipboardText(text);
+            }
+            onClose();
+          })();
+        }}
+      />
+      <MenuItem
+        label={t("note.editorContextMenuCopyPlain")}
+        icon={<CopyIcon />}
+        disabled={!canCopy}
+        onSelect={() => {
+          if (!crepe || !canCopy) return;
+          void (async () => {
+            let text: string | null = null;
+            crepe.editor.action((ctx) => {
+              text = getEditorSelectionPlainText(ctx, selection);
             });
             if (text) {
               await writeSystemClipboardText(text);

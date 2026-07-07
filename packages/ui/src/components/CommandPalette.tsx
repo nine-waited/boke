@@ -1,7 +1,9 @@
+import { fileBaseName } from "@chestnut/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n/index.js";
-import { vaultService, workspaceStore, useAppStore } from "../store.js";
+import { vaultService, useAppStore } from "../store.js";
 import { confirmAndDeleteVaultPath } from "../note-actions.js";
+import { openVaultEntry } from "../vault-entry-open.js";
 
 export function CommandPalette() {
   const t = useT();
@@ -13,11 +15,11 @@ export function CommandPalette() {
   const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   const loadFiles = () => {
-    vaultService.listMarkdown().then((list) => {
+    vaultService.listQuickOpenFiles().then((list) => {
       setFiles(
         list.map((f) => ({
           path: f.path,
-          title: f.path.split("/").pop()?.replace(/\.md$/, "") ?? f.path,
+          title: fileBaseName(f.path),
         })),
       );
     });
@@ -68,7 +70,7 @@ export function CommandPalette() {
       }
       if (e.key === "Enter" && items[selected]) {
         e.preventDefault();
-        workspaceStore.openFile(items[selected].path);
+        openVaultEntry(items[selected].path);
         setOpen(false);
       }
     };
@@ -99,7 +101,7 @@ export function CommandPalette() {
               }}
               className={`boke-palette-item${i === selected ? " selected" : ""}`}
               onClick={() => {
-                workspaceStore.openFile(item.path);
+                openVaultEntry(item.path);
                 setOpen(false);
               }}
             >
