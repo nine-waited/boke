@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   notePicMarkdownPrefix,
   resolveBundleImageFileName,
+  resolveImportableImageRef,
   rewriteBundleImagesForNote,
   selectBundleMarkdownFile,
 } from "./markdown-bundle-import.js";
@@ -33,6 +34,44 @@ describe("rewriteBundleImagesForNote", () => {
       map,
     );
     expect(next).toBe("![1.00](MyNote_pic/image.png)");
+  });
+
+  it("rewrites remote refs keyed by full url", () => {
+    const url = "https://cdn.example.com/photo.png";
+    const map = new Map([[url, "photo.png"]]);
+    const next = rewriteBundleImagesForNote(
+      `![alt](${url})`,
+      "MyNote_pic",
+      map,
+    );
+    expect(next).toBe("![alt](MyNote_pic/photo.png)");
+  });
+});
+
+describe("resolveImportableImageRef", () => {
+  it("accepts local bundle image names", () => {
+    expect(resolveImportableImageRef("image.png")).toEqual({
+      kind: "local",
+      fileName: "image.png",
+    });
+  });
+
+  it("accepts cloud attachment urls", () => {
+    const ref = "https://cloud.example/attachments/default/notes/foo_pic/a.png?token=abc";
+    expect(resolveImportableImageRef(ref)).toEqual({
+      kind: "remote",
+      url: ref,
+      suggestedFileName: "a.png",
+    });
+  });
+
+  it("accepts generic remote urls", () => {
+    const ref = "https://cdn.example.com/images/photo.jpg";
+    expect(resolveImportableImageRef(ref)).toEqual({
+      kind: "remote",
+      url: ref,
+      suggestedFileName: "photo.jpg",
+    });
   });
 });
 

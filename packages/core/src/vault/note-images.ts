@@ -83,9 +83,13 @@ export function resolvePathSegments(path: string): string {
 export function resolveNoteImageVaultPath(imageRef: string, notePath: string): string | null {
   if (!imageRef || !notePath) return null;
 
-  const raw = imageRef.replace(/\\/g, "/");
+  const raw = imageRef.replace(/\\/g, "/").trim();
+  if (/^https?:\/\//i.test(raw) || raw.startsWith("data:") || raw.startsWith("blob:")) {
+    return null;
+  }
+
   const norm = resolvePathSegments(decodeImageRef(imageRef));
-  if (!norm || /^https?:\/\//i.test(norm) || norm.startsWith("data:") || norm.startsWith("blob:")) {
+  if (!norm || /^https?:/i.test(norm) || norm.startsWith("data:") || norm.startsWith("blob:")) {
     return null;
   }
   if (/^[a-zA-Z]:\//.test(norm)) return null;
@@ -141,6 +145,14 @@ export function formatImageMarkdown(imagePath: string, alt = ""): string {
 
 const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\s*\)/g;
 
+const SINGLE_MARKDOWN_IMAGE_LINE_RE =
+  /^!\[[^\]]*\]\(\s*(?:<[^>]+>|[^)\s]+)(?:\s+"[^"]*")?\s*\)$/;
+
+/** True when `text` is a single markdown image line (local path or https URL). */
+export function isSingleMarkdownImageLine(text: string): boolean {
+  return SINGLE_MARKDOWN_IMAGE_LINE_RE.test(text.trim());
+}
+
 /** Replace markdown image refs; return `undefined` from `transform` to keep the original syntax. */
 export function transformMarkdownImageRefs(
   content: string,
@@ -177,6 +189,9 @@ export function resolveMarkdownImageRefToVaultPath(
   const fromNote = resolveNoteImageVaultPath(ref, notePath);
   if (fromNote) return fromNote;
 
+  const fromAttachment = parseCloudAttachmentVaultPath(ref);
+  if (fromAttachment) return fromAttachment;
+
   const normalized = normalizeMarkdownAssetRef(ref);
   if (vaultRoot && /^[a-zA-Z]:\//.test(normalized)) {
     const rel = absolutePathToVaultRelative(normalized, vaultRoot);
@@ -184,7 +199,67 @@ export function resolveMarkdownImageRefToVaultPath(
   }
 
   const bare = resolvePathSegments(normalized);
-  return bare && !/^https?:\/\//i.test(bare) && isImage(bare) ? bare : null;
+  return bare && !/^https?:/i.test(bare) && isImage(bare) ? bare : null;
+}
+
+export function isRemoteMarkdownImageRef(ref: string): boolean {
+  const norm = normalizeMarkdownAssetRef(ref);
+  return /^https?:\/\//i.test(norm);
+}
+
+/** Parse cloud REST attachment URLs, e.g. `/attachments/default/notes/foo_pic/a.png?token=...`. */
+export function parseCloudAttachmentVaultPath(ref: string): string | null {
+  try {
+    const raw = normalizeMarkdownAssetRef(ref);
+    if (!/^https?:\/\//i.test(raw)) return null;
+    const url = new URL(raw);
+    const match = url.pathname.match(/^\/attachments\/[^/]+\/(.+)$/i);
+    if (!match?.[1]) return null;
+    const vaultPath = normalizePath(decodeURIComponent(match[1]));
+    return isImage(vaultPath) ? vaultPath : null;
+  } catch {
+    return null;
+  }
+}
+
+export function suggestedImageFileNameFromRef(ref: string): string {
+  try {
+    if (isRemoteMarkdownImageRef(ref)) {
+      const url = new URL(normalizeMarkdownAssetRef(ref));
+      const fromPath = url.pathname.split("/").pop() ?? "";
+      const cleaned = fromPath.split("?")[0] ?? fromPath;
+      if (cleaned && isImage(cleaned)) return sanitizeImageFileName(cleaned);
+    }
+  } catch {
+    // fall through
+  }
+
+  const base = normalizeMarkdownAssetRef(ref).split("/").pop() ?? "image.png";
+  const withoutQuery = base.split("?")[0] ?? base;
+  return sanitizeImageFileName(withoutQuery || "image.png");
+}
+
+export type MarkdownImageExportSource =
+  | { kind: "vault"; vaultPath: string }
+  | { kind: "remote"; url: string; suggestedFileName: string };
+
+export function resolveMarkdownImageExportSource(
+  ref: string,
+  notePath: string,
+  vaultRoot?: string | null,
+): MarkdownImageExportSource | null {
+  const vaultPath = resolveMarkdownImageRefToVaultPath(ref, notePath, vaultRoot);
+  if (vaultPath) return { kind: "vault", vaultPath };
+
+  if (isRemoteMarkdownImageRef(ref)) {
+    return {
+      kind: "remote",
+      url: normalizeMarkdownAssetRef(ref),
+      suggestedFileName: suggestedImageFileNameFromRef(ref),
+    };
+  }
+
+  return null;
 }
 
 /** True when markdown content references the given vault-relative image path. */

@@ -1,4 +1,5 @@
 import type { Ctx } from "@milkdown/ctx";
+import { isSingleMarkdownImageLine } from "@chestnut/core";
 import { editorViewCtx } from "@milkdown/kit/core";
 import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -89,4 +90,22 @@ export function getImageMarkdownFromDom(ctx: Ctx, img: HTMLImageElement): string
 
 export function hasClipboardText(text: string | null): text is string {
   return text !== null && text.length > 0;
+}
+
+/** Paste handler: live editor otherwise inserts markdown image syntax as plain text. */
+export function attachLiveEditorMarkdownPaste(
+  editorEl: HTMLElement,
+  onPasteMarkdown: (markdown: string) => void,
+): () => void {
+  const onPaste = (event: ClipboardEvent) => {
+    const text = event.clipboardData?.getData("text/plain");
+    if (!text || !isSingleMarkdownImageLine(text)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    onPasteMarkdown(text.trim());
+  };
+
+  editorEl.addEventListener("paste", onPaste, true);
+  return () => editorEl.removeEventListener("paste", onPaste, true);
 }

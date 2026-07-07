@@ -24,6 +24,8 @@ import {
 import type { EditorSelectionRange } from "../markdown-editor-clipboard.js";
 import {
   getImageMarkdownFromDom,
+  attachLiveEditorMarkdownPaste,
+  pasteMarkdownIntoEditor,
   readClipboardForPaste,
   selectImageNodeAtDom,
 } from "../markdown-editor-clipboard.js";
@@ -319,6 +321,13 @@ function MilkdownCrepeEditor({
           },
         }),
         attachLiveEditorScrollLock(editorEl),
+        attachLiveEditorMarkdownPaste(editorEl, (markdown) => {
+          crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            const { from, to } = view.state.selection;
+            pasteMarkdownIntoEditor(ctx, { from, to }, markdown);
+          });
+        }),
       ];
       cleanup = () => cleanups.forEach((fn) => fn());
     };

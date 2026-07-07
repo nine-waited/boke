@@ -4,7 +4,7 @@ import {
   joinPath,
   notePicDirPath,
   rewriteBundleImagesForNote,
-  resolveBundleImageFileName,
+  resolveImportableImageRef,
   selectBundleMarkdownFile,
   notePicMarkdownPrefix,
 } from "@chestnut/core";
@@ -19,6 +19,7 @@ import {
 import { resolveNewItemParentDir, fileTreeSelection } from "./file-tree-selection.js";
 import { revealFileInTreeWhenReady } from "./file-tree-expand-context.js";
 import { getT } from "./i18n/index.js";
+import { fetchMarkdownImageBytes } from "./markdown-remote-images.js";
 import { useAppStore, vaultService, workspaceStore } from "./store.js";
 
 function joinAbsPath(dir: string, fileName: string): string {
@@ -74,15 +75,25 @@ export async function importMarkdownBundleFromFolder(
   const usedNames = new Set<string>();
 
   for (const ref of extractMarkdownImageRefs(content)) {
-    const sourceName = resolveBundleImageFileName(ref);
-    if (!sourceName || fileNameMap.has(sourceName)) continue;
+    if (fileNameMap.has(ref)) continue;
 
-    const sourceAbs = joinAbsPath(folderPath, sourceName);
-    if (!(await externalPathExists(sourceAbs))) continue;
+    const importable = resolveImportableImageRef(ref);
+    if (!importable) continue;
 
-    const destName = uniqueDestImageName(sourceName, usedNames);
-    fileNameMap.set(sourceName, destName);
-    const bytes = await readExternalBinary(sourceAbs);
+    if (importable.kind === "local") {
+      const sourceAbs = joinAbsPath(folderPath, importable.fileName);
+      if (!(await externalPathExists(sourceAbs))) continue;
+
+      const destName = uniqueDestImageName(importable.fileName, usedNames);
+      fileNameMap.set(ref, destName);
+      const bytes = await readExternalBinary(sourceAbs);
+      await vaultService.writeBinary(joinPath(picDir, destName), bytes);
+      continue;
+    }
+
+    const destName = uniqueDestImageName(importable.suggestedFileName, usedNames);
+    fileNameMap.set(ref, destName);
+    const bytes = await fetchMarkdownImageBytes(importable.url);
     await vaultService.writeBinary(joinPath(picDir, destName), bytes);
   }
 

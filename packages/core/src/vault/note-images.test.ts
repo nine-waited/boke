@@ -4,7 +4,10 @@ import {
   extractMarkdownImageRefs,
   markdownReferencesImage,
   normalizeMarkdownAssetRef,
+  parseCloudAttachmentVaultPath,
+  resolveMarkdownImageExportSource,
   resolveNoteImageVaultPath,
+  isSingleMarkdownImageLine,
 } from "./note-images.js";
 
 describe("normalizeMarkdownAssetRef", () => {
@@ -71,6 +74,20 @@ describe("extractMarkdownImageRefs", () => {
   });
 });
 
+describe("isSingleMarkdownImageLine", () => {
+  it("detects remote image markdown lines", () => {
+    expect(
+      isSingleMarkdownImageLine(
+        '![网络测试图](https://picsum.photos/seed/boke-test/400/300 "这是图片描述")',
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects plain text", () => {
+    expect(isSingleMarkdownImageLine("hello world")).toBe(false);
+  });
+});
+
 describe("markdownReferencesImage", () => {
   const notePath = "notes/foo.md";
   const vaultPath = "notes/foo_pic/image.png";
@@ -84,5 +101,44 @@ describe("markdownReferencesImage", () => {
   it("detects absolute paths under vault root", () => {
     const md = "![x](<C:/vault/notes/foo_pic/image.png>)";
     expect(markdownReferencesImage(md, vaultPath, notePath, root)).toBe(true);
+  });
+});
+
+describe("parseCloudAttachmentVaultPath", () => {
+  it("extracts vault path from cloud attachment urls", () => {
+    const url = "https://cloud.example/attachments/default/notes/foo_pic/a.png?token=abc";
+    expect(parseCloudAttachmentVaultPath(url)).toBe("notes/foo_pic/a.png");
+  });
+
+  it("returns null for non-attachment urls", () => {
+    expect(parseCloudAttachmentVaultPath("https://cdn.example.com/a.png")).toBeNull();
+  });
+});
+
+describe("resolveMarkdownImageExportSource", () => {
+  it("resolves local _pic refs to vault paths", () => {
+    expect(
+      resolveMarkdownImageExportSource("foo_pic/image.png", "notes/foo.md"),
+    ).toEqual({
+      kind: "vault",
+      vaultPath: "notes/foo_pic/image.png",
+    });
+  });
+
+  it("resolves cloud attachment urls to vault paths", () => {
+    const url = "https://cloud.example/attachments/default/notes/foo_pic/a.png?token=abc";
+    expect(resolveMarkdownImageExportSource(url, "notes/foo.md")).toEqual({
+      kind: "vault",
+      vaultPath: "notes/foo_pic/a.png",
+    });
+  });
+
+  it("treats generic remote urls as remote downloads", () => {
+    const url = "https://cdn.example.com/photo.jpg";
+    expect(resolveMarkdownImageExportSource(url, "notes/foo.md")).toEqual({
+      kind: "remote",
+      url,
+      suggestedFileName: "photo.jpg",
+    });
   });
 });

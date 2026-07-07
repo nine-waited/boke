@@ -1,12 +1,19 @@
 import {
   formatMarkdownImageRef,
+  isRemoteMarkdownImageRef,
   normalizeMarkdownAssetRef,
   NOTE_PIC_SUFFIX,
+  parseCloudAttachmentVaultPath,
   resolvePathSegments,
+  suggestedImageFileNameFromRef,
   transformMarkdownImageRefs,
 } from "./note-images.js";
 import { isImage } from "./types.js";
 import { fileBaseName } from "./service.js";
+
+export type ImportableImageRef =
+  | { kind: "local"; fileName: string }
+  | { kind: "remote"; url: string; suggestedFileName: string };
 
 /** File name from a same-directory markdown image ref, e.g. `image.png` or `./image.png`. */
 export function resolveBundleImageFileName(ref: string): string | null {
@@ -23,6 +30,21 @@ export function resolveBundleImageFileName(ref: string): string | null {
 
   const fileName = norm.split("/").pop() ?? "";
   return fileName && isImage(fileName) ? fileName : null;
+}
+
+export function resolveImportableImageRef(ref: string): ImportableImageRef | null {
+  const local = resolveBundleImageFileName(ref);
+  if (local) return { kind: "local", fileName: local };
+
+  const attachmentPath = parseCloudAttachmentVaultPath(ref);
+  if (attachmentPath || isRemoteMarkdownImageRef(ref)) {
+    const url = normalizeMarkdownAssetRef(ref);
+    const suggestedFileName =
+      attachmentPath?.split("/").pop() ?? suggestedImageFileNameFromRef(ref);
+    return { kind: "remote", url, suggestedFileName };
+  }
+
+  return null;
 }
 
 /** Pick the markdown file in a flat bundle folder, preferring `{folderName}.md`. */
@@ -42,10 +64,7 @@ export function rewriteBundleImagesForNote(
   fileNameMap: ReadonlyMap<string, string>,
 ): string {
   return transformMarkdownImageRefs(content, (ref, full) => {
-    const sourceName = resolveBundleImageFileName(ref);
-    if (!sourceName) return undefined;
-
-    const destName = fileNameMap.get(sourceName);
+    const destName = fileNameMap.get(ref);
     if (!destName) return undefined;
 
     const altMatch = full.match(/^!\[([^\]]*)\]/);

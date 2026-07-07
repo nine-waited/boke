@@ -4,11 +4,12 @@ import {
   joinPath,
   markdownExportDirPath,
   markdownExportFilePath,
-  resolveMarkdownImageRefToVaultPath,
+  resolveMarkdownImageExportSource,
   transformMarkdownImageRefs,
 } from "@chestnut/core";
 import { isTauri } from "@chestnut/storage-adapters";
 import { useExportProgressStore } from "./export-progress.js";
+import { fetchMarkdownImageBytes } from "./markdown-remote-images.js";
 import { vaultService } from "./store.js";
 
 function vaultRootPath(): string | null {
@@ -64,17 +65,29 @@ export async function exportMarkdownBundle(relativePath: string): Promise<string
 
     progress.setProgress(28, "render");
     const vaultPathToFileName = new Map<string, string>();
+    const remoteRefToFileName = new Map<string, string>();
+    const remoteDownloads: Array<{ ref: string; fileName: string }> = [];
     const usedNames = new Set<string>();
 
     const rewritten = transformMarkdownImageRefs(content, (ref, full) => {
-      const vaultPath = resolveMarkdownImageRefToVaultPath(ref, relativePath, vaultRoot);
-      if (!vaultPath) return undefined;
+      const source = resolveMarkdownImageExportSource(ref, relativePath, vaultRoot);
+      if (!source) return undefined;
 
-      let fileName = vaultPathToFileName.get(vaultPath);
-      if (!fileName) {
-        const base = vaultPath.split("/").pop() ?? "image.png";
-        fileName = uniqueExportFileName(base, usedNames);
-        vaultPathToFileName.set(vaultPath, fileName);
+      let fileName: string;
+      if (source.kind === "vault") {
+        fileName = vaultPathToFileName.get(source.vaultPath) ?? "";
+        if (!fileName) {
+          const base = source.vaultPath.split("/").pop() ?? "image.png";
+          fileName = uniqueExportFileName(base, usedNames);
+          vaultPathToFileName.set(source.vaultPath, fileName);
+        }
+      } else {
+        fileName = remoteRefToFileName.get(source.url) ?? "";
+        if (!fileName) {
+          fileName = uniqueExportFileName(source.suggestedFileName, usedNames);
+          remoteRefToFileName.set(source.url, fileName);
+          remoteDownloads.push({ ref: source.url, fileName });
+        }
       }
 
       const { alt, title: imageTitle } = parseMarkdownImageParts(full);
@@ -82,13 +95,25 @@ export async function exportMarkdownBundle(relativePath: string): Promise<string
     });
 
     progress.setProgress(42, "images");
-    const imageEntries = [...vaultPathToFileName.entries()];
-    for (let index = 0; index < imageEntries.length; index++) {
-      const [vaultPath, fileName] = imageEntries[index]!;
+    const vaultEntries = [...vaultPathToFileName.entries()];
+    const totalImages = vaultEntries.length + remoteDownloads.length;
+    let processed = 0;
+
+    for (const [vaultPath, fileName] of vaultEntries) {
       const destPath = joinPath(exportDir, fileName);
       const bytes = await vaultService.readBinary(vaultPath);
       await vaultService.writeBinary(destPath, bytes);
-      const pct = 42 + Math.round(((index + 1) / Math.max(imageEntries.length, 1)) * 38);
+      processed += 1;
+      const pct = 42 + Math.round((processed / Math.max(totalImages, 1)) * 38);
+      progress.setProgress(pct, "images");
+    }
+
+    for (const { ref, fileName } of remoteDownloads) {
+      const destPath = joinPath(exportDir, fileName);
+      const bytes = await fetchMarkdownImageBytes(ref);
+      await vaultService.writeBinary(destPath, bytes);
+      processed += 1;
+      const pct = 42 + Math.round((processed / Math.max(totalImages, 1)) * 38);
       progress.setProgress(pct, "images");
     }
 
