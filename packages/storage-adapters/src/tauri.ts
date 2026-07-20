@@ -126,6 +126,11 @@ export async function revealVaultEntry(
   });
 }
 
+/** Put absolute file paths on the OS clipboard so Explorer can paste the files. */
+export async function writeClipboardFiles(absolutePaths: string[]): Promise<void> {
+  await invoke("clipboard_write_files", { paths: absolutePaths });
+}
+
 export interface ExternalFsEntry {
   name: string;
   kind: "file" | "directory";

@@ -893,6 +893,7 @@ body.boke-sidebar-resizing * {
   --boke-file-tree-indent: 18px;
   padding: 4px 0 4px 4px;
   user-select: none;
+  outline: none;
 }
 
 .boke-file-tree-row {

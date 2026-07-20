@@ -21,6 +21,7 @@ base64 = "0.22"
 opener = { version = "0.7", features = ["reveal"] }
 trash = "5"
 tauri-plugin-clipboard-manager = "2"
+clipboard-win = "5"
 
 [profile.release]
 panic = "abort"

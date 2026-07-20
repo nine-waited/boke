@@ -4,6 +4,7 @@ export {
   isTauri,
   openVaultFolderInExplorer,
   revealVaultEntry,
+  writeClipboardFiles,
   pickFolder,
   listDirectory,
   readExternalText,

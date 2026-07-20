@@ -20,6 +20,9 @@ import {
   createAndOpenNote,
   createFolder,
   confirmAndDeleteVaultPath,
+  copyVaultEntryFile,
+  copyVaultEntryFiles,
+  copyVaultEntryPath,
   exportNoteToPdf,
   exportNoteToMarkdown,
   revealInFileManager,
@@ -77,6 +80,7 @@ interface FileTreeContextValue {
   selectExclusive: (path: string, kind: FileTreeSelectionKind) => void;
   toggleSelect: (path: string, kind: FileTreeSelectionKind) => void;
   selectRangeTo: (path: string, kind: FileTreeSelectionKind) => void;
+  focusTree: () => void;
   startRename: (path: string) => void;
   openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
   commitRename: (path: string, title: string) => Promise<void>;
@@ -354,14 +358,17 @@ function FileTreeFolderRow({
       if (event.shiftKey) {
         event.preventDefault();
         ctx?.selectRangeTo(folderPath, "directory");
+        ctx?.focusTree();
         return;
       }
       if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
         ctx?.toggleSelect(folderPath, "directory");
+        ctx?.focusTree();
         return;
       }
       ctx?.selectExclusive(folderPath, "directory");
+      ctx?.focusTree();
     },
     [ctx, folderPath],
   );
@@ -538,15 +545,18 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
         event.preventDefault();
         cancelPendingClick();
         ctx?.selectRangeTo(entry.path, "file");
+        ctx?.focusTree();
         return;
       }
       if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
         cancelPendingClick();
         ctx?.toggleSelect(entry.path, "file");
+        ctx?.focusTree();
         return;
       }
       ctx?.selectExclusive(entry.path, "file");
+      ctx?.focusTree();
       if (canRename) scheduleSingleClick();
       else openFile();
     },
@@ -709,6 +719,30 @@ function FileTreeContextMenuRevealItem({
   );
 }
 
+function FileTreeContextMenuCopyFileItem({
+  path,
+  onRun,
+}: {
+  path: string;
+  onRun: (action: () => void | Promise<unknown>) => void;
+}) {
+  const t = useT();
+  const desktopOnly = !isTauri();
+
+  return (
+    <button
+      type="button"
+      className={`boke-context-menu-item${desktopOnly ? " boke-context-menu-item--disabled" : ""}`}
+      onClick={() => {
+        if (desktopOnly) return;
+        onRun(() => copyVaultEntryFile(path));
+      }}
+    >
+      {t("fileTree.copyFile")}
+    </button>
+  );
+}
+
 function FileTreeContextMenuExportPdfItem({
   path,
   onRun,
@@ -809,6 +843,14 @@ function FileTreeContextMenu({
             {t("fileTree.rename")}
           </button>
         )}
+        <FileTreeContextMenuCopyFileItem path={target.path} onRun={run} />
+        <button
+          type="button"
+          className="boke-context-menu-item"
+          onClick={() => run(() => copyVaultEntryPath(target.path))}
+        >
+          {t("fileTree.copyPath")}
+        </button>
         <FileTreeContextMenuRevealItem path={target.path} onRun={run} />
         {isMarkdown(target.path) && (
           <>
@@ -992,20 +1034,51 @@ export function FileTree() {
     return fileTreeRename.subscribe(applyPendingRename);
   }, [startRename]);
 
+  const focusTree = useCallback(() => {
+    treeRootRef.current?.focus({ preventScroll: true });
+  }, []);
+
   const openContextMenu = useCallback((event: MouseEvent, target: ContextTarget) => {
     if (target.kind === "folder") {
       fileTreeSelection.selectForContextMenu(target.path, "directory");
     } else if (target.kind === "file") {
       fileTreeSelection.selectForContextMenu(target.path, "file");
     }
+    focusTree();
     setContextMenu({ x: event.clientX, y: event.clientY, target });
-  }, []);
+  }, [focusTree]);
 
   const selectRangeTo = useCallback((path: string, kind: FileTreeSelectionKind) => {
     const root = treeRootRef.current;
     const visible = root ? collectVisibleFileTreeItems(root) : [{ path, kind }];
     fileTreeSelection.selectRange(visible, path, kind);
   }, []);
+
+  useEffect(() => {
+    const root = treeRootRef.current;
+    if (!root) return;
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "c") return;
+      if (renamingPath) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+      if (active instanceof HTMLElement && active.isContentEditable) return;
+
+      const files = fileTreeSelection
+        .getSelectedEntries()
+        .filter((entry) => entry.kind === "file")
+        .map((entry) => entry.path);
+      if (files.length === 0) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      void copyVaultEntryFiles(files);
+    };
+
+    root.addEventListener("keydown", onKeyDown);
+    return () => root.removeEventListener("keydown", onKeyDown);
+  }, [renamingPath]);
 
   const commitRename = useCallback(
     async (path: string, title: string) => {
@@ -1146,6 +1219,7 @@ export function FileTree() {
     selectExclusive: (path, kind) => fileTreeSelection.selectExclusive(path, kind),
     toggleSelect: (path, kind) => fileTreeSelection.togglePath(path, kind),
     selectRangeTo,
+    focusTree,
     startRename,
     openContextMenu,
     commitRename,
@@ -1158,6 +1232,7 @@ export function FileTree() {
         <div
           ref={treeRootRef}
           className={`boke-file-tree${dropTarget === "" ? " boke-file-tree--drop-root" : ""}`}
+          tabIndex={0}
           {...{ "data-file-tree-drop": "" }}
           onContextMenu={(e) => {
             if (e.target !== e.currentTarget) return;

@@ -4,10 +4,12 @@ import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
 import { resolveNewItemParentDir, fileTreeSelection } from "./file-tree-selection.js";
 import { fileTreeRename } from "./file-tree-rename.js";
-import { isTauri, revealVaultEntry, TauriFsAdapter } from "@chestnut/storage-adapters";
+import { isTauri, revealVaultEntry, writeClipboardFiles, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
 import { exportMarkdownBundle } from "./markdown-md-export.js";
 import { revealFileInTree, revealFileInTreeWhenReady } from "./file-tree-expand-context.js";
+import { writeSystemClipboardText } from "./system-clipboard.js";
+import { formatNativePath } from "./vault-path-utils.js";
 
 function refreshTree(): void {
   useAppStore.getState().refreshTree();
@@ -84,6 +86,59 @@ export async function confirmAndDeleteVaultPath(
   if (!confirmed) return false;
   await deleteVaultPath(path, kind);
   return true;
+}
+
+/** Absolute native path when on desktop; otherwise the vault-relative path. */
+export function resolveVaultEntryClipboardPath(relativePath: string): string {
+  const adapter = vaultService.getAdapter();
+  if (adapter?.kind === "tauri" && "getAbsolutePath" in adapter) {
+    return formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(relativePath));
+  }
+  return relativePath.replace(/\\/g, "/");
+}
+
+export async function copyVaultEntryPath(relativePath: string): Promise<boolean> {
+  const t = getT();
+  const text = resolveVaultEntryClipboardPath(relativePath);
+  const ok = await writeSystemClipboardText(text);
+  useAppStore.getState().setStatusText(ok ? t("status.vaultPathCopied") : t("status.copyFailed"));
+  return ok;
+}
+
+/** Copy the file itself onto the OS clipboard (Explorer paste). Desktop only. */
+export async function copyVaultEntryFile(relativePath: string): Promise<boolean> {
+  return copyVaultEntryFiles([relativePath]);
+}
+
+/** Copy one or more vault files onto the OS clipboard (Explorer paste). Desktop only. */
+export async function copyVaultEntryFiles(relativePaths: string[]): Promise<boolean> {
+  const t = getT();
+  const paths = [...new Set(relativePaths.filter(Boolean))];
+  if (paths.length === 0) {
+    useAppStore.getState().setStatusText(t("status.copyFailed"));
+    return false;
+  }
+  if (!isTauri()) {
+    useAppStore.getState().setStatusText(t("status.copyFileDesktopOnly"));
+    return false;
+  }
+  const adapter = vaultService.getAdapter();
+  if (!adapter || adapter.kind !== "tauri" || !("getAbsolutePath" in adapter)) {
+    useAppStore.getState().setStatusText(t("status.copyFailed"));
+    return false;
+  }
+  try {
+    const absolutes = paths.map((path) =>
+      formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(path)),
+    );
+    await writeClipboardFiles(absolutes);
+    useAppStore.getState().setStatusText(t("status.fileCopied"));
+    return true;
+  } catch (err) {
+    console.error("[Chestnut] copy file failed:", err);
+    useAppStore.getState().setStatusText(t("status.copyFailed"));
+    return false;
+  }
 }
 
 export async function revealInFileManager(relativePath?: string): Promise<void> {

@@ -277,6 +277,48 @@ fn reveal_vault_entry(vault_root: String, entry_path: Option<String>) -> Result<
     open_path_in_explorer(path)
 }
 
+/// Put absolute file paths on the OS clipboard as CF_HDROP so Explorer can paste them.
+#[tauri::command]
+fn clipboard_write_files(paths: Vec<String>) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use clipboard_win::{formats, Clipboard, Setter};
+
+        if paths.is_empty() {
+            return Err("no files to copy".into());
+        }
+
+        let mut native_paths = Vec::with_capacity(paths.len());
+        for path in &paths {
+            let pb = PathBuf::from(path);
+            if !pb.is_file() {
+                return Err(format!("not a file: {path}"));
+            }
+            let native = pb
+                .canonicalize()
+                .map_err(|e| format!("canonicalize {path}: {e}"))?;
+            let mut s = native.to_string_lossy().to_string();
+            // Strip Windows extended path prefix so shell paste stays compatible.
+            if let Some(stripped) = s.strip_prefix(r"\\?\") {
+                s = stripped.to_string();
+            }
+            native_paths.push(s);
+        }
+
+        let _clip = Clipboard::new_attempts(10).map_err(|code| format!("open clipboard: {code}"))?;
+        formats::FileList
+            .write_clipboard(&native_paths)
+            .map_err(|code| format!("clipboard write files failed: {code}"))?;
+        Ok(())
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = paths;
+        Err("copying files to the clipboard is only supported on Windows".into())
+    }
+}
+
 #[tauri::command]
 fn vault_asset_url(path: String) -> Result<String, String> {
     let bytes = fs::read(&path).map_err(|e| e.to_string())?;
@@ -303,6 +345,7 @@ pub fn run() {
             list_directory,
             open_vault_folder,
             reveal_vault_entry,
+            clipboard_write_files,
             vault_read_text,
             vault_read_binary,
             vault_write_text,
