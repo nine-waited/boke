@@ -1,6 +1,8 @@
 export interface EditorContextMenuPoint {
   x: number;
   y: number;
+  /** DOM event target under the cursor when opening the menu. */
+  target: EventTarget | null;
 }
 
 export function attachMarkdownEditorContextMenu(
@@ -10,7 +12,7 @@ export function attachMarkdownEditorContextMenu(
   const onContextMenu = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    onOpen({ x: event.clientX, y: event.clientY });
+    onOpen({ x: event.clientX, y: event.clientY, target: event.target });
   };
 
   editorEl.addEventListener("contextmenu", onContextMenu);

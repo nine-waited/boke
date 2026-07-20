@@ -11,6 +11,13 @@ interface EditorZoomHostProps {
   children: ReactNode;
 }
 
+function findEditorScrollEl(host: HTMLElement): HTMLElement | null {
+  return (
+    host.querySelector<HTMLElement>(".boke-live-scroll") ??
+    host.querySelector<HTMLElement>(".cm-scroller")
+  );
+}
+
 export function EditorZoomHost({ children }: EditorZoomHostProps) {
   const t = useT();
   const editorZoom = useAppStore((s) => s.editorZoom);
@@ -33,11 +40,29 @@ export function EditorZoomHost({ children }: EditorZoomHostProps) {
     const onWheel = (event: WheelEvent) => {
       if (!wheelShortcutMatches(event, keyboardShortcuts)) return;
       event.preventDefault();
+
+      const prev = useAppStore.getState().editorZoom;
       const delta = event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
-      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, useAppStore.getState().editorZoom + delta));
-      if (next === useAppStore.getState().editorZoom) return;
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev + delta));
+      if (next === prev) return;
+
+      const scrollEl = findEditorScrollEl(host);
+      let anchorY = 0;
+      let offsetY = 0;
+      if (scrollEl) {
+        const rect = scrollEl.getBoundingClientRect();
+        offsetY = event.clientY - rect.top;
+        anchorY = scrollEl.scrollTop + offsetY;
+      }
+
       setEditorZoom(next);
       showHint(next);
+
+      if (!scrollEl) return;
+      const ratio = next / prev;
+      requestAnimationFrame(() => {
+        scrollEl.scrollTop = anchorY * ratio - offsetY;
+      });
     };
 
     host.addEventListener("wheel", onWheel, { passive: false });

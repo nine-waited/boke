@@ -2102,6 +2102,26 @@ body.boke-file-tree-dragging .boke-file-tree-item {
 .boke-editor-zoom-host .boke-note-pane {
   flex: 1;
   min-height: 0;
+}
+
+/* Zoom via font-size so contenteditable caret / hit-testing stay correct.
+   Avoid CSS zoom/transform on the editor — they desync the caret in WebView2.
+   Crepe hardcodes `.ProseMirror p { font-size: 16px }`, so override it with em. */
+.boke-editor-zoom-host .boke-live-pane .milkdown .ProseMirror {
+  font-size: calc(16px * var(--boke-editor-zoom, 1));
+}
+
+.boke-editor-zoom-host .boke-live-pane .milkdown .ProseMirror p {
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+.boke-editor-zoom-host .boke-source-editor,
+.boke-editor-zoom-host .boke-source-editor .cm-editor {
+  font-size: calc(14px * var(--boke-editor-zoom, 1));
+}
+
+.boke-editor-zoom-host .boke-live-pane .ProseMirror img {
   zoom: var(--boke-editor-zoom, 1);
 }
 
@@ -2263,29 +2283,29 @@ body.boke-file-tree-dragging .boke-file-tree-item {
 }
 
 .boke-live-pane .milkdown .ProseMirror h1 {
-  font-size: 1.65rem;
+  font-size: 1.65em;
   line-height: 1.35;
   letter-spacing: -0.02em;
 }
 
 .boke-live-pane .milkdown .ProseMirror h2 {
-  font-size: 1.35rem;
+  font-size: 1.35em;
   line-height: 1.4;
 }
 
 .boke-live-pane .milkdown .ProseMirror h3 {
-  font-size: 1.15rem;
+  font-size: 1.15em;
   line-height: 1.45;
 }
 
 .boke-live-pane .milkdown .ProseMirror h4 {
-  font-size: 1.05rem;
+  font-size: 1.05em;
   line-height: 1.45;
 }
 
 .boke-live-pane .milkdown .ProseMirror h5,
 .boke-live-pane .milkdown .ProseMirror h6 {
-  font-size: 1rem;
+  font-size: 1em;
   line-height: 1.5;
 }
 

@@ -7,7 +7,7 @@ import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { replaceAll, getMarkdown } from "@milkdown/utils";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type MutableRefObject } from "react";
 import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
-import { attachNoteImageSelectHandlers } from "../note-image-select.js";
+import { attachNoteImageSelectHandlers, resolveNoteImage } from "../note-image-select.js";
 import { deleteNoteImageFileOnRemove, getImageVaultPathFromView } from "../note-image-delete.js";
 import {
   findImageNodeAtDom,
@@ -23,13 +23,12 @@ import {
 } from "../markdown-editor-context-menu.js";
 import type { EditorSelectionRange } from "../markdown-editor-clipboard.js";
 import {
-  getImageMarkdownFromDom,
+  copyImageBinaryFromDom,
   attachLiveEditorMarkdownPaste,
   pasteMarkdownIntoEditor,
   readClipboardForPaste,
   selectImageNodeAtDom,
 } from "../markdown-editor-clipboard.js";
-import { writeSystemClipboardText } from "../system-clipboard.js";
 import { attachLiveEditorShortcutKeymap } from "../markdown-editor-keymap.js";
 import { attachLiveEditorScrollLock } from "../markdown-editor-live-view.js";
 import { MarkdownEditorContextMenu } from "./MarkdownEditorContextMenu.js";
@@ -55,6 +54,7 @@ interface MilkdownCrepeEditorProps extends MarkdownEditorProps {
 interface EditorContextMenuState extends EditorContextMenuPoint {
   selection: EditorSelectionRange;
   clipboardText: string | null;
+  targetImage: HTMLImageElement | null;
 }
 
 function deleteImageAtDom(view: EditorView, img: HTMLImageElement): boolean {
@@ -300,16 +300,13 @@ function MilkdownCrepeEditor({
             });
           },
           onCopy: async (img) => {
-            await crepe.editor.action((ctx) => {
-              const view = ctx.get(editorViewCtx);
+            let view: EditorView | null = null;
+            crepe.editor.action((ctx) => {
+              view = ctx.get(editorViewCtx);
               selectImageNodeAtDom(view, img);
             });
-            let markdown: string | null = null;
-            await crepe.editor.action((ctx) => {
-              markdown = getImageMarkdownFromDom(ctx, img);
-            });
-            if (markdown) {
-              await writeSystemClipboardText(markdown);
+            if (view) {
+              await copyImageBinaryFromDom(view, img, notePathRef.current);
             }
           },
           onUpdateCaption: async (img, caption) => {
@@ -385,8 +382,15 @@ function MilkdownCrepeEditor({
             view.focus();
             const { from, to } = view.state.selection;
             const selection = { from, to };
+            const targetEl =
+              point.target instanceof HTMLElement
+                ? point.target
+                : point.target instanceof Node && point.target.parentElement
+                  ? point.target.parentElement
+                  : null;
+            const targetImage = targetEl ? resolveNoteImage(targetEl, view.dom) : null;
             void readClipboardForPaste().then((clipboardText) => {
-              onOpenContextMenuRef.current({ ...point, selection, clipboardText });
+              onOpenContextMenuRef.current({ ...point, selection, clipboardText, targetImage });
             });
           });
         });
@@ -517,6 +521,8 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
             y={contextMenu.y}
             selection={contextMenu.selection}
             clipboardText={contextMenu.clipboardText}
+            targetImage={contextMenu.targetImage}
+            notePath={props.notePath}
             crepe={crepeRef.current}
             onClose={() => setContextMenu(null)}
           />

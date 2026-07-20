@@ -16,6 +16,32 @@ See [[notes/b]] and #inline-tag
     expect(cache.tags).toContain("inline-tag");
   });
 
+  it("ignores # inside fenced code and blockquotes for headings", () => {
+    const cache = parseMarkdownFile(
+      "notes/outline.md",
+      `# Real
+
+\`\`\`python
+# not a heading
+def foo():
+    pass
+\`\`\`
+
+~~~bash
+# shell comment
+echo hi
+~~~
+
+> # quoted heading
+> more quote
+
+## Also real
+`,
+    );
+    expect(cache.headings.map((h) => h.text)).toEqual(["Real", "Also real"]);
+    expect(cache.headings.map((h) => h.level)).toEqual([1, 2]);
+  });
+
   it("builds backlinks", () => {
     const mc = new MetadataCache();
     mc.set("a.md", "[[b]]");

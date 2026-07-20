@@ -1,5 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import type { Crepe } from "@milkdown/crepe";
+import { editorViewCtx } from "@milkdown/kit/core";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { insertMarkdownBlock, type MarkdownInsertBlock } from "../markdown-editor-insert.js";
 import {
   CodeBlockIcon,
@@ -10,12 +12,15 @@ import {
   TaskListBlockIcon,
 } from "../markdown-editor-block-icons.js";
 import {
+  copyImageBinaryFromDom,
   getEditorSelectionMarkdown,
   getEditorSelectionPlainText,
+  getImageMarkdownFromDom,
   hasClipboardText,
   hasEditorTextSelection,
   pasteMarkdownIntoEditor,
   readClipboardForPaste,
+  selectImageNodeAtDom,
   type EditorSelectionRange,
 } from "../markdown-editor-clipboard.js";
 import { writeSystemClipboardText } from "../system-clipboard.js";
@@ -27,6 +32,8 @@ interface MarkdownEditorContextMenuProps {
   y: number;
   selection: EditorSelectionRange;
   clipboardText: string | null;
+  targetImage: HTMLImageElement | null;
+  notePath: string;
   crepe: Crepe | null;
   onClose: () => void;
 }
@@ -60,11 +67,14 @@ export function MarkdownEditorContextMenu({
   y,
   selection,
   clipboardText,
+  targetImage,
+  notePath,
   crepe,
   onClose,
 }: MarkdownEditorContextMenuProps) {
   const t = useT();
-  const canCopy = hasEditorTextSelection(selection);
+  const canCopyText = hasEditorTextSelection(selection);
+  const canCopy = Boolean(targetImage) || canCopyText;
   const canPaste = hasClipboardText(clipboardText);
 
   useEffect(() => {
@@ -102,6 +112,18 @@ export function MarkdownEditorContextMenu({
         onSelect={() => {
           if (!crepe || !canCopy) return;
           void (async () => {
+            if (targetImage) {
+              let view: EditorView | null = null;
+              crepe.editor.action((ctx) => {
+                view = ctx.get(editorViewCtx);
+                selectImageNodeAtDom(view, targetImage);
+              });
+              if (view) {
+                await copyImageBinaryFromDom(view, targetImage, notePath);
+              }
+              onClose();
+              return;
+            }
             let text: string | null = null;
             crepe.editor.action((ctx) => {
               text = getEditorSelectionMarkdown(ctx, selection);
@@ -120,6 +142,19 @@ export function MarkdownEditorContextMenu({
         onSelect={() => {
           if (!crepe || !canCopy) return;
           void (async () => {
+            if (targetImage) {
+              let link: string | null = null;
+              crepe.editor.action((ctx) => {
+                const view = ctx.get(editorViewCtx);
+                selectImageNodeAtDom(view, targetImage);
+                link = getImageMarkdownFromDom(ctx, targetImage);
+              });
+              if (link) {
+                await writeSystemClipboardText(link);
+              }
+              onClose();
+              return;
+            }
             let text: string | null = null;
             crepe.editor.action((ctx) => {
               text = getEditorSelectionPlainText(ctx, selection);

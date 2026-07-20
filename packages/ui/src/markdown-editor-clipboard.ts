@@ -5,11 +5,38 @@ import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceRange } from "@milkdown/utils";
 import { findImageNodeAtDom } from "./note-image-caption.js";
+import { getImageVaultPathFromView } from "./note-image-delete.js";
 import { markdownToPlainText } from "./markdown-strip-inline.js";
-import { readSystemClipboardText } from "./system-clipboard.js";
+import { vaultService } from "./store.js";
+import {
+  readSystemClipboardText,
+  writeSystemClipboardImage,
+  writeSystemClipboardImageElement,
+} from "./system-clipboard.js";
+
 export interface EditorSelectionRange {
   from: number;
   to: number;
+}
+
+function mimeFromImagePath(path: string): string {
+  switch (path.split(".").pop()?.toLowerCase()) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    case "bmp":
+      return "image/bmp";
+    case "ico":
+      return "image/x-icon";
+    default:
+      return "image/png";
+  }
 }
 
 export function hasEditorTextSelection(range: EditorSelectionRange): boolean {
@@ -86,6 +113,26 @@ export function getImageMarkdownFromDom(ctx: Ctx, img: HTMLImageElement): string
   if (!found) return null;
   const markdown = getMarkdown({ from: found.pos, to: found.pos + found.nodeSize })(ctx);
   return markdown?.trim() ? markdown.trim() : null;
+}
+
+/** Copy image pixels to the clipboard (vault bytes first, then DOM rasterization). */
+export async function copyImageBinaryFromDom(
+  view: EditorView,
+  img: HTMLImageElement,
+  notePath: string,
+): Promise<boolean> {
+  const vaultPath = getImageVaultPathFromView(view, img, notePath);
+  if (vaultPath) {
+    try {
+      const bytes = await vaultService.readBinary(vaultPath);
+      if (await writeSystemClipboardImage(bytes, mimeFromImagePath(vaultPath))) {
+        return true;
+      }
+    } catch {
+      // Fall through to DOM rasterization.
+    }
+  }
+  return writeSystemClipboardImageElement(img);
 }
 
 export function hasClipboardText(text: string | null): text is string {

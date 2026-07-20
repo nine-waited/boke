@@ -1,11 +1,52 @@
 const WIKILINK_RE = /\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
 const EMBED_RE = /!\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
 const TAG_RE = /(?:^|\s)#([a-zA-Z\u4e00-\u9fff][\w\u4e00-\u9fff/-]*)/g;
-const HEADING_RE = /^(#{1,6})\s+(.+)$/gm;
+const HEADING_LINE_RE = /^(#{1,6})\s+(.+)$/;
+const FENCE_OPEN_RE = /^(`{3,}|~{3,})/;
+const BLOCKQUOTE_LINE_RE = /^\s{0,3}>/;
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 
 import type { FileCache } from "@chestnut/plugin-sdk";
 import { normalizePath } from "../vault/types.js";
+
+/** Extract ATX headings from markdown body, skipping fenced code and blockquotes. */
+export function extractBodyHeadings(body: string): FileCache["headings"] {
+  const headings: FileCache["headings"] = [];
+  const lines = body.split(/\r?\n/);
+  let inFence = false;
+  let fenceMarker: string | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trimStart();
+    const fenceMatch = trimmed.match(FENCE_OPEN_RE);
+
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = marker;
+      } else if (marker === fenceMarker) {
+        inFence = false;
+        fenceMarker = null;
+      }
+      continue;
+    }
+
+    if (inFence) continue;
+    if (BLOCKQUOTE_LINE_RE.test(line)) continue;
+
+    const m = line.match(HEADING_LINE_RE);
+    if (!m) continue;
+    headings.push({
+      level: m[1].length,
+      text: m[2].trim(),
+      line: i,
+    });
+  }
+
+  return headings;
+}
 
 function parseFrontmatter(content: string): { frontmatter: Record<string, unknown>; body: string } {
   const match = content.match(FRONTMATTER_RE);
@@ -47,7 +88,6 @@ export function parseMarkdownFile(path: string, content: string): FileCache {
   const tagSet = new Set<string>();
 
   let m: RegExpExecArray | null;
-  const bodyLines = body.split("\n");
 
   EMBED_RE.lastIndex = 0;
   while ((m = EMBED_RE.exec(body)) !== null) {
@@ -78,20 +118,10 @@ export function parseMarkdownFile(path: string, content: string): FileCache {
     tagSet.add(fmTags);
   }
 
-  const headings: FileCache["headings"] = [];
-  HEADING_RE.lastIndex = 0;
-  while ((m = HEADING_RE.exec(body)) !== null) {
-    headings.push({
-      level: m[1].length,
-      text: m[2].trim(),
-      line: body.slice(0, m.index).split("\n").length - 1,
-    });
-  }
-
   return {
     path,
     frontmatter,
-    headings,
+    headings: extractBodyHeadings(body),
     links,
     embeds,
     tags: [...tagSet],

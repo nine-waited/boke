@@ -20,7 +20,7 @@ const IMAGE_BLOCK_SELECTOR = [
   ".crepe-image-block",
 ].join(", ");
 
-function resolveNoteImage(target: HTMLElement, container: HTMLElement): HTMLImageElement | null {
+export function resolveNoteImage(target: HTMLElement, container: HTMLElement): HTMLImageElement | null {
   if (target.closest(".boke-note-image-toolbar")) return null;
   if (target.closest(".boke-note-image-lightbox")) return null;
 
