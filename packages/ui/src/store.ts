@@ -26,7 +26,6 @@ import {
 import { applyDocumentLang, detectLocale, type Locale } from "./i18n/messages.js";
 import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "./sidebar-layout.js";
 import { fileTreeSelection } from "./file-tree-selection.js";
-import { isNotePicFolder } from "@chestnut/core";
 import { DEFAULT_UI_FONT, applyUiFont, resolveUiFont, type UiFont } from "./ui-font.js";
 import { DEFAULT_APP_THEME, applyAppTheme, resolveAppTheme, type AppTheme } from "./ui-theme.js";
 
@@ -389,10 +388,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (get().showNotePicFolders === show) return;
     set({ showNotePicFolders: show });
     if (!show) {
-      const selectedFolder = fileTreeSelection.getSelectedFolderPath();
-      if (selectedFolder && isNotePicFolder(selectedFolder)) {
-        fileTreeSelection.clearSelectedFolder();
-      }
+      fileTreeSelection.deselectNotePicFolders();
     }
     saveSettings(get());
   },

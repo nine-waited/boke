@@ -26,7 +26,7 @@ import {
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
-import { fileTreeSelection } from "../file-tree-selection.js";
+import { fileTreeSelection, collectVisibleFileTreeItems, type FileTreeSelectionKind } from "../file-tree-selection.js";
 import { fileTreeExpanded } from "../file-tree-expanded.js";
 import { fileTreeRename } from "../file-tree-rename.js";
 import { isFileTreeEntryVisible } from "../file-tree-visibility.js";
@@ -65,16 +65,18 @@ type ContextTarget =
 
 interface FileTreeContextValue {
   activePath: string | null;
-  selectedFolderPath: string | null;
-  selectedFilePath: string | null;
+  selectionRevision: number;
   contextMenuPath: string | null;
   renamingPath: string | null;
   dragging: FileTreeDragPayload | null;
   dropTarget: string | null;
   expandFolderRequest: string | null;
   consumeClickAfterDrag: () => boolean;
-  selectFolder: (path: string | null) => void;
-  selectFile: (path: string | null) => void;
+  isSelected: (path: string) => boolean;
+  hasSelection: () => boolean;
+  selectExclusive: (path: string, kind: FileTreeSelectionKind) => void;
+  toggleSelect: (path: string, kind: FileTreeSelectionKind) => void;
+  selectRangeTo: (path: string, kind: FileTreeSelectionKind) => void;
   startRename: (path: string) => void;
   openContextMenu: (event: MouseEvent, target: ContextTarget) => void;
   commitRename: (path: string, title: string) => Promise<void>;
@@ -155,6 +157,8 @@ function TreeRow({
   ref,
   dropPath,
   parentDir,
+  path,
+  kind,
   interactionProps,
 }: {
   depth: number;
@@ -163,6 +167,8 @@ function TreeRow({
   ref?: Ref<HTMLDivElement>;
   dropPath?: string;
   parentDir?: string;
+  path?: string;
+  kind?: FileTreeSelectionKind;
   interactionProps?: HTMLAttributes<HTMLDivElement>;
 }) {
   return (
@@ -172,6 +178,8 @@ function TreeRow({
         className={`boke-file-tree-item ${className}`.trim()}
         data-file-tree-drop={dropPath}
         data-file-tree-parent={parentDir}
+        data-file-tree-path={path}
+        data-file-tree-kind={kind}
         {...interactionProps}
       >
         {children}
@@ -284,7 +292,7 @@ function FileTreeFolderRow({
   const isPicFolder = isNotePicFolder(folderPath);
   const isExportFolder = isExportTargetFolder(folderPath);
   const isContextTarget = ctx?.contextMenuPath === folderPath;
-  const isActive = ctx?.selectedFolderPath === folderPath && !isContextTarget;
+  const isActive = Boolean(ctx?.isSelected(folderPath)) && !isContextTarget;
   const isRenaming = ctx?.renamingPath === folderPath;
   const draggable = !isRenaming && !isPicFolder && !isExportFolder && canDragFileTreeEntry(folderPath, "directory");
   const [draft, setDraft] = useState(folderName);
@@ -340,10 +348,23 @@ function FileTreeFolderRow({
 
   const canRename = canRenameFolder(folderPath);
 
-  const handleClick = useCallback(() => {
-    if (ctx?.consumeClickAfterDrag()) return;
-    ctx?.selectFolder(folderPath);
-  }, [ctx, folderPath]);
+  const handleClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (ctx?.consumeClickAfterDrag()) return;
+      if (event.shiftKey) {
+        event.preventDefault();
+        ctx?.selectRangeTo(folderPath, "directory");
+        return;
+      }
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        ctx?.toggleSelect(folderPath, "directory");
+        return;
+      }
+      ctx?.selectExclusive(folderPath, "directory");
+    },
+    [ctx, folderPath],
+  );
 
   const handleDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
     if (!canRename) return;
@@ -377,6 +398,8 @@ function FileTreeFolderRow({
     <TreeRow
       ref={rowRef}
       depth={depth}
+      path={folderPath}
+      kind="directory"
       className={fileTreeItemClassName(
         `boke-file-tree-dir${isActive ? " active" : ""}${isContextTarget ? " context-target" : ""}${draggable ? " boke-file-tree-item--draggable" : ""}`,
         folderPath,
@@ -428,11 +451,11 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
   const t = useT();
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const activePath = ctx?.activePath ?? null;
-  const selectedFolderPath = ctx?.selectedFolderPath ?? null;
-  const selectedFilePath = ctx?.selectedFilePath ?? null;
   const isContextTarget = ctx?.contextMenuPath === entry.path;
-  const highlightedPath = selectedFolderPath ? null : (selectedFilePath ?? activePath);
-  const isActive = highlightedPath === entry.path && !isContextTarget;
+  const selected = Boolean(ctx?.isSelected(entry.path));
+  const isActive =
+    !isContextTarget &&
+    (selected || (!ctx?.hasSelection() && activePath === entry.path));
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -508,12 +531,27 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
 
   const { scheduleSingleClick, cancelPendingClick } = useDeferredSingleClick(handleDeferredOpen);
 
-  const handleClick = useCallback(() => {
-    if (ctx?.consumeClickAfterDrag()) return;
-    ctx?.selectFile(entry.path);
-    if (canRename) scheduleSingleClick();
-    else openFile();
-  }, [ctx, entry.path, canRename, scheduleSingleClick, openFile]);
+  const handleClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (ctx?.consumeClickAfterDrag()) return;
+      if (event.shiftKey) {
+        event.preventDefault();
+        cancelPendingClick();
+        ctx?.selectRangeTo(entry.path, "file");
+        return;
+      }
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        cancelPendingClick();
+        ctx?.toggleSelect(entry.path, "file");
+        return;
+      }
+      ctx?.selectExclusive(entry.path, "file");
+      if (canRename) scheduleSingleClick();
+      else openFile();
+    },
+    [ctx, entry.path, canRename, scheduleSingleClick, openFile, cancelPendingClick],
+  );
 
   const handleDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
     if (!canRename) return;
@@ -548,6 +586,8 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
     <TreeRow
       ref={rowRef}
       depth={depth}
+      path={entry.path}
+      kind="file"
       className={fileTreeItemClassName(
         `boke-file-tree-file${isActive ? " active" : ""}${isContextTarget ? " context-target" : ""}${draggable ? " boke-file-tree-item--draggable" : ""}`,
         entry.path,
@@ -863,14 +903,11 @@ export function FileTree() {
     (cb) => workspaceStore.subscribe(cb),
     () => workspaceStore.getActivePath(),
   );
-  const selectedFolderPath = useSyncExternalStore(
+  const selectionRevision = useSyncExternalStore(
     (cb) => fileTreeSelection.subscribe(cb),
-    () => fileTreeSelection.getSelectedFolderPath(),
+    () => fileTreeSelection.getRevision(),
   );
-  const selectedFilePath = useSyncExternalStore(
-    (cb) => fileTreeSelection.subscribe(cb),
-    () => fileTreeSelection.getSelectedFilePath(),
-  );
+  const treeRootRef = useRef<HTMLDivElement | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -957,11 +994,17 @@ export function FileTree() {
 
   const openContextMenu = useCallback((event: MouseEvent, target: ContextTarget) => {
     if (target.kind === "folder") {
-      fileTreeSelection.setSelectedFolderPath(target.path);
+      fileTreeSelection.selectForContextMenu(target.path, "directory");
     } else if (target.kind === "file") {
-      fileTreeSelection.setSelectedFilePath(target.path);
+      fileTreeSelection.selectForContextMenu(target.path, "file");
     }
     setContextMenu({ x: event.clientX, y: event.clientY, target });
+  }, []);
+
+  const selectRangeTo = useCallback((path: string, kind: FileTreeSelectionKind) => {
+    const root = treeRootRef.current;
+    const visible = root ? collectVisibleFileTreeItems(root) : [{ path, kind }];
+    fileTreeSelection.selectRange(visible, path, kind);
   }, []);
 
   const commitRename = useCallback(
@@ -1091,16 +1134,18 @@ export function FileTree() {
 
   const ctxValue: FileTreeContextValue = {
     activePath,
-    selectedFolderPath,
-    selectedFilePath,
+    selectionRevision,
     contextMenuPath,
     renamingPath,
     dragging,
     dropTarget,
     expandFolderRequest,
     consumeClickAfterDrag,
-    selectFolder: (path) => fileTreeSelection.setSelectedFolderPath(path),
-    selectFile: (path) => fileTreeSelection.setSelectedFilePath(path),
+    isSelected: (path) => fileTreeSelection.isSelected(path),
+    hasSelection: () => fileTreeSelection.hasSelection(),
+    selectExclusive: (path, kind) => fileTreeSelection.selectExclusive(path, kind),
+    toggleSelect: (path, kind) => fileTreeSelection.togglePath(path, kind),
+    selectRangeTo,
     startRename,
     openContextMenu,
     commitRename,
@@ -1111,6 +1156,7 @@ export function FileTree() {
     <>
       <FileTreeContext.Provider value={ctxValue}>
         <div
+          ref={treeRootRef}
           className={`boke-file-tree${dropTarget === "" ? " boke-file-tree--drop-root" : ""}`}
           {...{ "data-file-tree-drop": "" }}
           onContextMenu={(e) => {
