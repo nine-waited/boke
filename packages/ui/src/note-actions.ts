@@ -1,8 +1,12 @@
-import { exportTargetDirPath } from "@chestnut/core";
+import { exportTargetDirPath, isNotePicFolder } from "@chestnut/core";
 import { vaultService, workspaceStore, useAppStore } from "./store.js";
 import { getDefaultTitle, getT } from "./i18n/index.js";
 import { confirmAction } from "./confirm-dialog.js";
-import { resolveNewItemParentDir, fileTreeSelection } from "./file-tree-selection.js";
+import {
+  resolveNewItemParentDir,
+  fileTreeSelection,
+  type FileTreeSelectionEntry,
+} from "./file-tree-selection.js";
 import { fileTreeRename } from "./file-tree-rename.js";
 import { isTauri, revealVaultEntry, writeClipboardFiles, TauriFsAdapter } from "@chestnut/storage-adapters";
 import { exportMarkdownToPdf } from "./markdown-pdf-export.js";
@@ -13,6 +17,36 @@ import { formatNativePath } from "./vault-path-utils.js";
 
 function refreshTree(): void {
   useAppStore.getState().refreshTree();
+}
+
+/** Drop nested paths when an ancestor folder is also selected. */
+export function pruneNestedVaultEntries(entries: FileTreeSelectionEntry[]): FileTreeSelectionEntry[] {
+  const sorted = [...entries].sort(
+    (a, b) => a.path.length - b.path.length || a.path.localeCompare(b.path),
+  );
+  const kept: FileTreeSelectionEntry[] = [];
+  for (const entry of sorted) {
+    const underKept = kept.some(
+      (parent) =>
+        parent.kind === "directory" &&
+        (entry.path === parent.path || entry.path.startsWith(`${parent.path}/`)),
+    );
+    if (!underKept) kept.push(entry);
+  }
+  return kept;
+}
+
+/** `_pic` folders cannot be deleted; files inside them remain deletable. */
+export function filterDeletableVaultEntries(
+  entries: FileTreeSelectionEntry[],
+): FileTreeSelectionEntry[] {
+  return entries.filter(
+    (entry) => !(entry.kind === "directory" && isNotePicFolder(entry.path)),
+  );
+}
+
+function entryLabel(path: string): string {
+  return path.split("/").pop() ?? path;
 }
 
 function resolveCreateDir(dir?: string): string {
@@ -66,25 +100,86 @@ export async function deleteVaultPath(path: string, kind: "file" | "directory"):
   refreshTree();
 }
 
+async function deleteVaultEntryWithoutRefresh(
+  path: string,
+  kind: "file" | "directory",
+): Promise<void> {
+  const picDir = kind === "file" ? await vaultService.notePicDirIfExists(path) : null;
+  await vaultService.deletePath(path, kind);
+  workspaceStore.clearPathsForDelete(path, kind === "directory");
+  if (picDir) {
+    workspaceStore.clearPathsForDelete(picDir, true);
+  }
+}
+
 export async function confirmAndDeleteVaultPath(
   path: string,
   kind: "file" | "directory",
   label: string,
 ): Promise<boolean> {
+  return confirmAndDeleteVaultEntries([{ path, kind }], label);
+}
+
+export async function confirmAndDeleteVaultEntries(
+  entries: FileTreeSelectionEntry[],
+  singleLabel?: string,
+): Promise<boolean> {
   const t = getT();
-  const picDir = kind === "file" ? await vaultService.notePicDirIfExists(path) : null;
-  const picFolder = picDir?.split("/").pop() ?? "";
+  const pruned = pruneNestedVaultEntries(filterDeletableVaultEntries(entries));
+  if (pruned.length === 0) return false;
+
+  if (pruned.length === 1) {
+    const entry = pruned[0];
+    const label = singleLabel ?? entryLabel(entry.path);
+    const picDir = entry.kind === "file" ? await vaultService.notePicDirIfExists(entry.path) : null;
+    const picFolder = picDir?.split("/").pop() ?? "";
+    const confirmed = await confirmAction({
+      title: entry.kind === "directory" ? t("fileTree.deleteFolder") : t("fileTree.delete"),
+      message: picDir
+        ? t("fileTree.deleteNoteConfirm", { name: label, picFolder })
+        : t("fileTree.deleteConfirm", { name: label }),
+      confirmLabel: t("common.delete"),
+      cancelLabel: t("common.cancel"),
+      danger: true,
+    });
+    if (!confirmed) return false;
+    await deleteVaultPath(entry.path, entry.kind);
+    fileTreeSelection.clear();
+    return true;
+  }
+
+  const fileCount = pruned.filter((entry) => entry.kind === "file").length;
+  const folderCount = pruned.filter((entry) => entry.kind === "directory").length;
+  let title: string;
+  let message: string;
+  if (fileCount > 0 && folderCount > 0) {
+    title = t("fileTree.deleteItems");
+    message = t("fileTree.deleteMixedConfirm", { fileCount, folderCount });
+  } else if (folderCount > 0) {
+    title = t("fileTree.deleteFolders");
+    message = t("fileTree.deleteFoldersConfirm", { count: folderCount });
+  } else {
+    title = t("fileTree.deleteFiles");
+    message = t("fileTree.deleteFilesConfirm", { count: fileCount });
+  }
+
   const confirmed = await confirmAction({
-    title: kind === "directory" ? t("fileTree.deleteFolder") : t("fileTree.delete"),
-    message: picDir
-      ? t("fileTree.deleteNoteConfirm", { name: label, picFolder })
-      : t("fileTree.deleteConfirm", { name: label }),
+    title,
+    message,
     confirmLabel: t("common.delete"),
     cancelLabel: t("common.cancel"),
     danger: true,
   });
   if (!confirmed) return false;
-  await deleteVaultPath(path, kind);
+
+  const ordered = [...pruned].sort(
+    (a, b) => b.path.length - a.path.length || b.path.localeCompare(a.path),
+  );
+  for (const entry of ordered) {
+    await deleteVaultEntryWithoutRefresh(entry.path, entry.kind);
+  }
+  fileTreeSelection.clear();
+  refreshTree();
   return true;
 }
 
@@ -112,9 +207,14 @@ export async function copyVaultEntryFile(relativePath: string): Promise<boolean>
 
 /** Copy one or more vault files onto the OS clipboard (Explorer paste). Desktop only. */
 export async function copyVaultEntryFiles(relativePaths: string[]): Promise<boolean> {
+  return copyVaultEntries(relativePaths.map((path) => ({ path, kind: "file" as const })));
+}
+
+/** Copy files and/or folders onto the OS clipboard (Explorer paste). Desktop only. */
+export async function copyVaultEntries(entries: FileTreeSelectionEntry[]): Promise<boolean> {
   const t = getT();
-  const paths = [...new Set(relativePaths.filter(Boolean))];
-  if (paths.length === 0) {
+  const pruned = pruneNestedVaultEntries(entries);
+  if (pruned.length === 0) {
     useAppStore.getState().setStatusText(t("status.copyFailed"));
     return false;
   }
@@ -128,8 +228,8 @@ export async function copyVaultEntryFiles(relativePaths: string[]): Promise<bool
     return false;
   }
   try {
-    const absolutes = paths.map((path) =>
-      formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(path)),
+    const absolutes = pruned.map((entry) =>
+      formatNativePath((adapter as TauriFsAdapter).getAbsolutePath(entry.path)),
     );
     await writeClipboardFiles(absolutes);
     useAppStore.getState().setStatusText(t("status.fileCopied"));

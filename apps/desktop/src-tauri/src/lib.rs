@@ -291,8 +291,8 @@ fn clipboard_write_files(paths: Vec<String>) -> Result<(), String> {
         let mut native_paths = Vec::with_capacity(paths.len());
         for path in &paths {
             let pb = PathBuf::from(path);
-            if !pb.is_file() {
-                return Err(format!("not a file: {path}"));
+            if !pb.exists() {
+                return Err(format!("path not found: {path}"));
             }
             let native = pb
                 .canonicalize()

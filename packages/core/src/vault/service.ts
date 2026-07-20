@@ -97,6 +97,9 @@ export class VaultService {
   async deletePath(path: string, kind: "file" | "directory"): Promise<void> {
     if (!this.adapter) throw new Error("No vault mounted");
     const normalized = normalizePath(path);
+    if (kind === "directory" && isNotePicFolder(normalized)) {
+      throw new Error("Cannot delete a note image folder");
+    }
     const pathsToDelete = [normalized];
 
     if (kind === "file" && isMarkdown(normalized)) {

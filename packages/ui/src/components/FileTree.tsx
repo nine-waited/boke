@@ -19,17 +19,17 @@ import {
   createAndOpenDrawing,
   createAndOpenNote,
   createFolder,
-  confirmAndDeleteVaultPath,
-  copyVaultEntryFile,
-  copyVaultEntryFiles,
+  confirmAndDeleteVaultEntries,
+  copyVaultEntries,
   copyVaultEntryPath,
+  filterDeletableVaultEntries,
   exportNoteToPdf,
   exportNoteToMarkdown,
   revealInFileManager,
 } from "../note-actions.js";
 import { ExcalidrawGrayIcon, FolderGrayIcon, FolderLockIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { useFileTreeReveal, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
-import { fileTreeSelection, collectVisibleFileTreeItems, type FileTreeSelectionKind } from "../file-tree-selection.js";
+import { fileTreeSelection, collectVisibleFileTreeItems, type FileTreeSelectionEntry, type FileTreeSelectionKind } from "../file-tree-selection.js";
 import { fileTreeExpanded } from "../file-tree-expanded.js";
 import { fileTreeRename } from "../file-tree-rename.js";
 import { isFileTreeEntryVisible } from "../file-tree-visibility.js";
@@ -719,11 +719,11 @@ function FileTreeContextMenuRevealItem({
   );
 }
 
-function FileTreeContextMenuCopyFileItem({
-  path,
+function FileTreeContextMenuCopyItem({
+  entries,
   onRun,
 }: {
-  path: string;
+  entries: FileTreeSelectionEntry[];
   onRun: (action: () => void | Promise<unknown>) => void;
 }) {
   const t = useT();
@@ -735,12 +735,22 @@ function FileTreeContextMenuCopyFileItem({
       className={`boke-context-menu-item${desktopOnly ? " boke-context-menu-item--disabled" : ""}`}
       onClick={() => {
         if (desktopOnly) return;
-        onRun(() => copyVaultEntryFile(path));
+        onRun(() => copyVaultEntries(entries));
       }}
     >
       {t("fileTree.copyFile")}
     </button>
   );
+}
+
+function resolveContextMenuEntries(target: ContextTarget): FileTreeSelectionEntry[] {
+  if (target.kind === "root") return [];
+  const kind: FileTreeSelectionKind = target.kind === "folder" ? "directory" : "file";
+  const selected = fileTreeSelection.getSelectedEntries();
+  if (selected.length > 1 && fileTreeSelection.isSelected(target.path)) {
+    return selected;
+  }
+  return [{ path: target.path, kind }];
 }
 
 function FileTreeContextMenuExportPdfItem({
@@ -818,16 +828,36 @@ function FileTreeContextMenu({
 }) {
   const t = useT();
   const parentDir = target.kind === "root" ? "" : target.kind === "folder" ? target.path : "";
+  const menuEntries = resolveContextMenuEntries(target);
+  const isMulti = menuEntries.length > 1;
 
   const run = (action: () => void | Promise<unknown>) => {
     onClose();
     void action();
   };
 
-  const confirmDelete = (label: string, path: string, kind: "file" | "directory") => {
+  const confirmDeleteEntries = (entries: FileTreeSelectionEntry[], singleLabel?: string) => {
     onClose();
-    void confirmAndDeleteVaultPath(path, kind, label);
+    void confirmAndDeleteVaultEntries(entries, singleLabel);
   };
+
+  if (isMulti) {
+    const deletableEntries = filterDeletableVaultEntries(menuEntries);
+    return (
+      <>
+        <FileTreeContextMenuCopyItem entries={menuEntries} onRun={run} />
+        {deletableEntries.length > 0 && (
+          <button
+            type="button"
+            className="boke-context-menu-item boke-context-menu-item--danger"
+            onClick={() => confirmDeleteEntries(deletableEntries)}
+          >
+            {t("fileTree.deleteItems")}
+          </button>
+        )}
+      </>
+    );
+  }
 
   if (target.kind === "file") {
     const name = target.path.split("/").pop() ?? target.path;
@@ -843,7 +873,7 @@ function FileTreeContextMenu({
             {t("fileTree.rename")}
           </button>
         )}
-        <FileTreeContextMenuCopyFileItem path={target.path} onRun={run} />
+        <FileTreeContextMenuCopyItem entries={menuEntries} onRun={run} />
         <button
           type="button"
           className="boke-context-menu-item"
@@ -861,7 +891,7 @@ function FileTreeContextMenu({
         <button
           type="button"
           className="boke-context-menu-item boke-context-menu-item--danger"
-          onClick={() => confirmDelete(name, target.path, "file")}
+          onClick={() => confirmDeleteEntries(menuEntries, name)}
         >
           {t("fileTree.delete")}
         </button>
@@ -914,6 +944,7 @@ function FileTreeContextMenu({
       />
       {target.kind === "folder" && (
         <>
+          <FileTreeContextMenuCopyItem entries={menuEntries} onRun={run} />
           <button
             type="button"
             className={`boke-context-menu-item${cannotRenameFolder ? " boke-context-menu-item--disabled" : ""}`}
@@ -924,13 +955,15 @@ function FileTreeContextMenu({
           >
             {t("fileTree.rename")}
           </button>
-          <button
-            type="button"
-            className="boke-context-menu-item boke-context-menu-item--danger"
-            onClick={() => confirmDelete(folderLabel, target.path, "directory")}
-          >
-            {t("fileTree.deleteFolder")}
-          </button>
+          {!isPicFolder && (
+            <button
+              type="button"
+              className="boke-context-menu-item boke-context-menu-item--danger"
+              onClick={() => confirmDeleteEntries(menuEntries, folderLabel)}
+            >
+              {t("fileTree.deleteFolder")}
+            </button>
+          )}
         </>
       )}
     </>
@@ -1059,21 +1092,28 @@ export function FileTree() {
     if (!root) return;
 
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "c") return;
       if (renamingPath) return;
       const active = document.activeElement;
       if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
       if (active instanceof HTMLElement && active.isContentEditable) return;
 
-      const files = fileTreeSelection
-        .getSelectedEntries()
-        .filter((entry) => entry.kind === "file")
-        .map((entry) => entry.path);
-      if (files.length === 0) return;
+      const selected = fileTreeSelection.getSelectedEntries();
+      if (selected.length === 0) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-      void copyVaultEntryFiles(files);
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        event.stopPropagation();
+        void copyVaultEntries(selected);
+        return;
+      }
+
+      if (event.key === "Delete" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const deletable = filterDeletableVaultEntries(selected);
+        if (deletable.length === 0) return;
+        void confirmAndDeleteVaultEntries(deletable);
+      }
     };
 
     root.addEventListener("keydown", onKeyDown);
