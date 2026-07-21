@@ -55,6 +55,8 @@ import { useT } from "../i18n/index.js";
 import { isTauri } from "@chestnut/storage-adapters";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
 import { ContextMenuFrame } from "./ContextMenuFrame.js";
+import { FileTreePinnedBar } from "./FileTreePinnedBar.js";
+import { isPinnableVaultFile } from "../file-tree-pinned.js";
 
 interface FileTreeProps {
   dir?: string;
@@ -827,6 +829,7 @@ function FileTreeContextMenu({
   onRename: (path: string) => void;
 }) {
   const t = useT();
+  const pinnedFilePaths = useAppStore((s) => s.pinnedFilePaths);
   const parentDir = target.kind === "root" ? "" : target.kind === "folder" ? target.path : "";
   const menuEntries = resolveContextMenuEntries(target);
   const isMulti = menuEntries.length > 1;
@@ -862,6 +865,8 @@ function FileTreeContextMenu({
   if (target.kind === "file") {
     const name = target.path.split("/").pop() ?? target.path;
     const canRename = isRenamableFile(target.path);
+    const canPin = isPinnableVaultFile(target.path);
+    const isPinned = pinnedFilePaths.includes(target.path);
     return (
       <>
         {canRename && (
@@ -871,6 +876,15 @@ function FileTreeContextMenu({
             onClick={() => run(() => onRename(target.path))}
           >
             {t("fileTree.rename")}
+          </button>
+        )}
+        {canPin && (
+          <button
+            type="button"
+            className="boke-context-menu-item"
+            onClick={() => run(() => useAppStore.getState().togglePinnedFilePath(target.path))}
+          >
+            {isPinned ? t("fileTree.unpin") : t("fileTree.pin")}
           </button>
         )}
         <FileTreeContextMenuCopyItem entries={menuEntries} onRun={run} />
@@ -1136,9 +1150,11 @@ export function FileTree() {
             workspaceStore.renamePathPrefix(path, newPath);
             fileTreeSelection.remapVaultPathPrefix(path, newPath);
             fileTreeExpanded.remapVaultPathPrefix(path, newPath);
+            useAppStore.getState().remapPinnedFilePathPrefix(path, newPath);
           } else {
             workspaceStore.renamePath(path, newPath);
             fileTreeSelection.remapVaultPath(path, newPath);
+            useAppStore.getState().remapPinnedFilePath(path, newPath);
           }
           refreshTree();
         }
@@ -1160,9 +1176,11 @@ export function FileTree() {
           workspaceStore.renamePathPrefix(payload.path, newPath);
           fileTreeSelection.remapVaultPathPrefix(payload.path, newPath);
           fileTreeExpanded.remapVaultPathPrefix(payload.path, newPath);
+          useAppStore.getState().remapPinnedFilePathPrefix(payload.path, newPath);
         } else {
           workspaceStore.renamePath(payload.path, newPath);
           fileTreeSelection.remapVaultPath(payload.path, newPath);
+          useAppStore.getState().remapPinnedFilePath(payload.path, newPath);
         }
         refreshTree();
         await revealFileInTreeWhenReady(newPath);
@@ -1268,6 +1286,7 @@ export function FileTree() {
 
   return (
     <>
+      <FileTreePinnedBar />
       <FileTreeContext.Provider value={ctxValue}>
         <div
           ref={treeRootRef}

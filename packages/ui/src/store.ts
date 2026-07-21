@@ -29,6 +29,14 @@ import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "./sidebar-layout.js";
 import { fileTreeSelection } from "./file-tree-selection.js";
 import { DEFAULT_UI_FONT, applyUiFont, resolveUiFont, type UiFont } from "./ui-font.js";
 import { DEFAULT_APP_THEME, applyAppTheme, resolveAppTheme, type AppTheme } from "./ui-theme.js";
+import {
+  isPinnableVaultFile,
+  normalizePinnedFilePaths,
+  remapPinnedFilePath as remapPinnedPath,
+  remapPinnedFilePathPrefix as remapPinnedPrefix,
+  removePinnedFilePathsUnder as removePinnedUnder,
+  reorderPinnedFilePaths as reorderPinnedPaths,
+} from "./file-tree-pinned.js";
 
 export interface AppState {
   vaultMounted: boolean;
@@ -50,6 +58,7 @@ export interface AppState {
   sidebarWidth: number;
   sidebarCollapsed: boolean;
   showNotePicFolders: boolean;
+  pinnedFilePaths: string[];
 }
 
 export interface AppActions {
@@ -75,6 +84,14 @@ export interface AppActions {
   toggleSidebarCollapsed: () => void;
   setShowNotePicFolders: (show: boolean) => void;
   toggleShowNotePicFolders: () => void;
+  pinFilePath: (path: string) => void;
+  unpinFilePath: (path: string) => void;
+  unpinFilePaths: (paths: string[]) => void;
+  togglePinnedFilePath: (path: string) => void;
+  remapPinnedFilePath: (oldPath: string, newPath: string) => void;
+  remapPinnedFilePathPrefix: (oldPrefix: string, newPrefix: string) => void;
+  removePinnedFilePathsUnder: (path: string, isDirectory: boolean) => void;
+  reorderPinnedFilePaths: (path: string, insertBeforeIndex: number) => void;
 }
 
 const SETTINGS_KEY = "chestnut-app-settings";
@@ -93,6 +110,7 @@ interface PersistedSettings {
   sidebarWidth?: number;
   sidebarCollapsed?: boolean;
   showNotePicFolders?: boolean;
+  pinnedFilePaths?: string[];
 }
 
 function loadSettings(): PersistedSettings {
@@ -121,6 +139,7 @@ function saveSettings(state: AppState): void {
       sidebarWidth: state.sidebarWidth,
       sidebarCollapsed: state.sidebarCollapsed,
       showNotePicFolders: state.showNotePicFolders,
+      pinnedFilePaths: state.pinnedFilePaths,
     }),
   );
 }
@@ -255,6 +274,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   sidebarWidth: clampSidebarWidth(saved.sidebarWidth ?? SIDEBAR_WIDTH_DEFAULT),
   sidebarCollapsed: saved.sidebarCollapsed ?? false,
   showNotePicFolders: saved.showNotePicFolders ?? true,
+  pinnedFilePaths: normalizePinnedFilePaths(saved.pinnedFilePaths),
 
   mountVault: async (adapter) => {
     await vaultService.mount(adapter);
@@ -387,6 +407,60 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
   toggleShowNotePicFolders: () => {
     get().setShowNotePicFolders(!get().showNotePicFolders);
+  },
+  pinFilePath: (path) => {
+    if (!isPinnableVaultFile(path)) return;
+    const pinnedFilePaths = get().pinnedFilePaths;
+    if (pinnedFilePaths.includes(path)) return;
+    set({ pinnedFilePaths: [path, ...pinnedFilePaths] });
+    saveSettings(get());
+  },
+  unpinFilePath: (path) => {
+    const pinnedFilePaths = get().pinnedFilePaths.filter((item) => item !== path);
+    if (pinnedFilePaths.length === get().pinnedFilePaths.length) return;
+    set({ pinnedFilePaths });
+    saveSettings(get());
+  },
+  unpinFilePaths: (paths) => {
+    if (paths.length === 0) return;
+    if (paths.length === 1) {
+      get().unpinFilePath(paths[0]!);
+      return;
+    }
+    const remove = new Set(paths);
+    const pinnedFilePaths = get().pinnedFilePaths.filter((item) => !remove.has(item));
+    if (pinnedFilePaths.length === get().pinnedFilePaths.length) return;
+    set({ pinnedFilePaths });
+    saveSettings(get());
+  },
+  togglePinnedFilePath: (path) => {
+    if (get().pinnedFilePaths.includes(path)) get().unpinFilePath(path);
+    else get().pinFilePath(path);
+  },
+  remapPinnedFilePath: (oldPath, newPath) => {
+    const pinnedFilePaths = remapPinnedPath(get().pinnedFilePaths, oldPath, newPath);
+    if (pinnedFilePaths === get().pinnedFilePaths) return;
+    set({ pinnedFilePaths });
+    saveSettings(get());
+  },
+  remapPinnedFilePathPrefix: (oldPrefix, newPrefix) => {
+    const pinnedFilePaths = remapPinnedPrefix(get().pinnedFilePaths, oldPrefix, newPrefix);
+    if (pinnedFilePaths.join("\0") === get().pinnedFilePaths.join("\0")) return;
+    set({ pinnedFilePaths });
+    saveSettings(get());
+  },
+  removePinnedFilePathsUnder: (path, isDirectory) => {
+    const pinnedFilePaths = removePinnedUnder(get().pinnedFilePaths, path, isDirectory);
+    if (pinnedFilePaths.length === get().pinnedFilePaths.length) return;
+    set({ pinnedFilePaths });
+    saveSettings(get());
+  },
+  reorderPinnedFilePaths: (path, insertBeforeIndex) => {
+    const pinnedFilePaths = reorderPinnedPaths(get().pinnedFilePaths, path, insertBeforeIndex);
+    if (pinnedFilePaths === get().pinnedFilePaths) return;
+    if (pinnedFilePaths.join("\0") === get().pinnedFilePaths.join("\0")) return;
+    set({ pinnedFilePaths });
+    saveSettings(get());
   },
 }));
 
