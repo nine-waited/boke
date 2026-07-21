@@ -208,7 +208,15 @@ export class WorkspaceStore {
   }
 
   closeTab(id: string): void {
-    if (this.leaves.length <= 1) return;
+    if (this.leaves.length <= 1) {
+      const leaf = this.leaves[0];
+      if (!leaf || leaf.id !== id || leaf.type === "empty") return;
+      const empty: Leaf = { id: uid(), type: "empty" };
+      this.leaves = [empty];
+      this.activeId = empty.id;
+      this.notify();
+      return;
+    }
     this.closeTabs([id]);
   }
 
@@ -242,7 +250,15 @@ export class WorkspaceStore {
     if (idsToClose.length === 0) return;
     const closeSet = new Set(idsToClose);
     const next = this.leaves.filter((l) => !closeSet.has(l.id));
-    if (next.length === 0 || next.length === this.leaves.length) return;
+    if (next.length === this.leaves.length) return;
+
+    if (next.length === 0) {
+      const empty: Leaf = { id: uid(), type: "empty" };
+      this.leaves = [empty];
+      this.activeId = empty.id;
+      this.notify();
+      return;
+    }
 
     if (closeSet.has(this.activeId)) {
       const oldIdx = this.leaves.findIndex((l) => l.id === this.activeId);

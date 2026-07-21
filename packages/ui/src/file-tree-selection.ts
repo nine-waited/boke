@@ -1,5 +1,4 @@
 import { isNotePicFolder } from "@chestnut/core";
-import { workspaceStore } from "./store.js";
 import { remapVaultPathUnderPrefix, remapVaultPathUnderPrefixNullable } from "./vault-path-remap.js";
 
 type Listener = () => void;
@@ -243,13 +242,13 @@ export function parentDirOfVaultPath(path: string): string {
   return slash >= 0 ? path.slice(0, slash) : "";
 }
 
-/** Parent dir for sidebar / command “new item” actions. */
+/** Parent dir for sidebar / command / tab-bar “new item” actions. */
 export function resolveNewItemParentDir(): string {
   const selectedFolder = fileTreeSelection.getSelectedFolderPath();
   if (selectedFolder) return selectedFolder;
 
-  const activePath = workspaceStore.getActivePath();
-  if (activePath) return parentDirOfVaultPath(activePath);
+  const selectedFile = fileTreeSelection.getSelectedFilePath();
+  if (selectedFile) return parentDirOfVaultPath(selectedFile);
 
   return "";
 }

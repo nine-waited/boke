@@ -42,7 +42,6 @@ import { clearSourceEditorHistory } from "./source-editor-history-cache.js";
 import { registerCoreCommands } from "./commands.js";
 import { ConfirmDialogHost } from "./confirm-dialog.js";
 import { ExportProgressHost } from "./export-progress.js";
-import { createAndOpenNote } from "./note-actions.js";
 
 const ExcalidrawView = lazy(() =>
   import("./components/ExcalidrawView.js").then((m) => ({ default: m.ExcalidrawView })),
@@ -89,12 +88,7 @@ function EditorContent() {
   }
 
   if (!active || active.type === "empty") {
-    return (
-      <div className="boke-welcome">
-        <p>{t("welcome.hint")}</p>
-        <button onClick={() => createAndOpenNote()}>{t("welcome.newNote")}</button>
-      </div>
-    );
+    return <div className="boke-editor-blank" aria-hidden="true" />;
   }
 
   const activeMarkdownPath = active.type === "markdown" ? (active.path ?? null) : null;

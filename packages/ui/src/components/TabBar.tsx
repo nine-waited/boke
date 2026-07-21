@@ -3,6 +3,7 @@ import { useT } from "../i18n/index.js";
 import { useAppStore, workspaceStore } from "../store.js";
 import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { focusMainContent, isFileContentTab } from "../focus-main-content.js";
+import { createAndOpenNote } from "../note-actions.js";
 import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
 function TabContextMenu({
@@ -23,7 +24,9 @@ function TabContextMenu({
     action();
   };
 
-  const canClose = tabCount > 1;
+  const leaf = workspaceStore.getState().leaves.find((l) => l.id === tabId);
+  const canCloseThis = !(tabCount === 1 && leaf?.type === "empty");
+  const canCloseOthers = tabCount > 1;
   const canCloseLeft = tabIndex > 0;
   const canCloseRight = tabIndex >= 0 && tabIndex < tabCount - 1;
 
@@ -42,11 +45,11 @@ function TabContextMenu({
 
   return (
     <>
-      {item(t("tab.close"), !canClose, () => workspaceStore.closeTab(tabId))}
-      {item(t("tab.closeOthers"), !canClose, () => workspaceStore.closeOtherTabs(tabId))}
+      {item(t("tab.close"), !canCloseThis, () => workspaceStore.closeTab(tabId))}
+      {item(t("tab.closeOthers"), !canCloseOthers, () => workspaceStore.closeOtherTabs(tabId))}
       {item(t("tab.closeToLeft"), !canCloseLeft, () => workspaceStore.closeTabsToLeft(tabId))}
       {item(t("tab.closeToRight"), !canCloseRight, () => workspaceStore.closeTabsToRight(tabId))}
-      {item(t("tab.closeAll"), !canClose, () => workspaceStore.closeAllTabs(tabId))}
+      {item(t("tab.closeAll"), !canCloseOthers, () => workspaceStore.closeAllTabs(tabId))}
     </>
   );
 }
@@ -67,6 +70,8 @@ export function TabBar() {
     tabIndex: number;
   } | null>(null);
 
+  const visibleLeaves = state.leaves.filter((leaf) => leaf.type !== "empty");
+
   useEffect(() => {
     const el = tabsRef.current;
     if (!el) return;
@@ -84,7 +89,7 @@ export function TabBar() {
 
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [state.leaves.length]);
+  }, [visibleLeaves.length]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -114,7 +119,7 @@ export function TabBar() {
       case "publish":
         return t("tab.publish");
       default:
-        return t("tab.welcome");
+        return t("tab.note");
     }
   };
 
@@ -127,8 +132,17 @@ export function TabBar() {
 
   return (
     <>
-      <div className="boke-tabs" ref={tabsRef}>
-        {state.leaves.map((leaf, index) => (
+      <div
+        className="boke-tabs"
+        ref={tabsRef}
+        onDoubleClick={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest(".boke-tab")) return;
+          event.preventDefault();
+          void createAndOpenNote();
+        }}
+      >
+        {visibleLeaves.map((leaf, index) => (
           <div
             key={leaf.id}
             className={`boke-tab${leaf.id === state.activeId ? " active" : ""}${contextMenu?.tabId === leaf.id ? " context-target" : ""}`}
@@ -166,17 +180,15 @@ export function TabBar() {
               </span>
             )}
             {label(leaf)}
-            {state.leaves.length > 1 && (
-              <button
-                className="boke-tab-close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  workspaceStore.closeTab(leaf.id);
-                }}
-              >
-                ×
-              </button>
-            )}
+            <button
+              className="boke-tab-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                workspaceStore.closeTab(leaf.id);
+              }}
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
@@ -190,7 +202,7 @@ export function TabBar() {
           <TabContextMenu
             tabId={contextMenu.tabId}
             tabIndex={contextMenu.tabIndex}
-            tabCount={state.leaves.length}
+            tabCount={visibleLeaves.length}
             onClose={() => setContextMenu(null)}
           />
         </ContextMenuFrame>

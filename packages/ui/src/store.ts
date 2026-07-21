@@ -13,7 +13,7 @@ import type { PluginApi, PluginManifest } from "@chestnut/plugin-sdk";
 import { APP_VERSION } from "@chestnut/plugin-sdk";
 import { PluginHost } from "@chestnut/core";
 import type { RemoteConfig } from "@chestnut/storage-adapters";
-import { ensureDefaultReadme, getDefaultReadmePathForLocale, resolveWelcomeReadmePath } from "./default-readme.js";
+import { ensureDefaultReadme } from "./default-readme.js";
 import {
   DEFAULT_SHORTCUTS,
   loadKeyboardShortcuts,
@@ -291,14 +291,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       treeVersion: get().treeVersion + 1,
     });
     saveSettings(get());
-
-    const workspace = workspaceStore.getState();
-    if (!workspace.active || workspace.active.type === "empty") {
-      const welcomePath = vaultAdapter
-        ? await resolveWelcomeReadmePath(get().locale, (path) => vaultAdapter.exists(path))
-        : getDefaultReadmePathForLocale(get().locale);
-      workspaceStore.openFile(welcomePath);
-    }
   },
 
   unmountVault: async () => {

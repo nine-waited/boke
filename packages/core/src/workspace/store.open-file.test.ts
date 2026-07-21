@@ -31,3 +31,23 @@ describe("WorkspaceStore.openFile", () => {
     expect(store.getState().active?.path).toBe("notes/a.md");
   });
 });
+
+describe("WorkspaceStore.closeTab", () => {
+  it("closes the last content tab and leaves an empty welcome leaf", () => {
+    const store = new WorkspaceStore();
+    const id = store.openFile("notes/a.md");
+    store.closeTab(id);
+    expect(store.getState().leaves).toHaveLength(1);
+    expect(store.getState().active?.type).toBe("empty");
+    expect(store.getState().active?.path).toBeUndefined();
+  });
+
+  it("does nothing when closing the sole empty welcome tab", () => {
+    const store = new WorkspaceStore();
+    const id = store.getState().activeId;
+    store.closeTab(id);
+    expect(store.getState().leaves).toHaveLength(1);
+    expect(store.getState().active?.type).toBe("empty");
+    expect(store.getState().activeId).toBe(id);
+  });
+});
