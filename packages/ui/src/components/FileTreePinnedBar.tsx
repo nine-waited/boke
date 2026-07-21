@@ -44,6 +44,7 @@ function PinnedFileIcon({ path }: { path: string }) {
   return null;
 }
 
+/** Insert-before index from pointer Y: top half → before item, bottom half → after. */
 function findPinnedInsertBeforeIndex(clientY: number, paths: string[]): number {
   const items = Array.from(document.querySelectorAll<HTMLElement>(`[${PINNED_PATH_ATTR}]`));
   for (const el of items) {
@@ -66,6 +67,8 @@ interface PinnedDragSession {
   pointerId: number;
   startX: number;
   startY: number;
+  lastClientX: number;
+  lastClientY: number;
   sourceElement: HTMLElement;
   active: boolean;
   longPressTimer: ReturnType<typeof setTimeout> | null;
@@ -175,15 +178,18 @@ export function FileTreePinnedBar() {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
         sourceElement,
         active: false,
         longPressTimer: null,
       };
       sessionRef.current = session;
 
+      // Same activation as the file tree: long-press, or move past the drag threshold.
       session.longPressTimer = setTimeout(() => {
         if (sessionRef.current !== session || session.active) return;
-        beginDrag(session, session.startX, session.startY);
+        beginDrag(session, session.lastClientX, session.lastClientY);
       }, FILE_TREE_DRAG_LONG_PRESS_MS);
 
       const finish = (ev: globalThis.PointerEvent) => {
@@ -210,14 +216,17 @@ export function FileTreePinnedBar() {
 
       const onMove = (ev: globalThis.PointerEvent) => {
         if (ev.pointerId !== session.pointerId) return;
-        const dx = ev.clientX - session.startX;
-        const dy = ev.clientY - session.startY;
-        const moved = Math.hypot(dx, dy) >= FILE_TREE_DRAG_MOVE_PX;
-
+        session.lastClientX = ev.clientX;
+        session.lastClientY = ev.clientY;
         if (!session.active) {
-          if (moved && session.longPressTimer) {
-            clearTimeout(session.longPressTimer);
-            session.longPressTimer = null;
+          const dx = ev.clientX - session.startX;
+          const dy = ev.clientY - session.startY;
+          if (Math.hypot(dx, dy) >= FILE_TREE_DRAG_MOVE_PX) {
+            if (session.longPressTimer) {
+              clearTimeout(session.longPressTimer);
+              session.longPressTimer = null;
+            }
+            beginDrag(session, ev.clientX, ev.clientY);
           }
           return;
         }
@@ -269,7 +278,7 @@ export function FileTreePinnedBar() {
     openVaultEntry(path);
   };
 
-  const dropLineActive =
+  const dropTargetActive =
     draggingPath !== null &&
     insertBeforeIndex !== null &&
     computeReorder(pinnedFilePaths, draggingPath, insertBeforeIndex).join("\0") !==
@@ -287,13 +296,24 @@ export function FileTreePinnedBar() {
             const selected = selectedPaths.includes(path);
             const highlighted = selected || (!hasSelection && activePath === path);
             const isDragging = draggingPath === path;
-            const showLineBefore = dropLineActive && insertBeforeIndex === index;
+            const dropBefore = dropTargetActive && insertBeforeIndex === index;
+            const dropAfter =
+              dropTargetActive &&
+              insertBeforeIndex === pinnedFilePaths.length &&
+              index === pinnedFilePaths.length - 1;
             return (
               <li key={path} className="boke-file-tree-pinned-row">
-                {showLineBefore && <div className="boke-file-tree-pinned-drop-line" aria-hidden="true" />}
                 <button
                   type="button"
-                  className={`boke-file-tree-pinned-item${highlighted ? " is-active" : ""}${isDragging ? " is-dragging" : ""}`}
+                  className={[
+                    "boke-file-tree-pinned-item",
+                    highlighted ? "is-active" : "",
+                    isDragging ? "is-dragging" : "",
+                    dropBefore ? "is-drop-before" : "",
+                    dropAfter ? "is-drop-after" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   title={path}
                   data-pinned-path={path}
                   onClick={(event) => handleClick(event, path)}
@@ -306,15 +326,23 @@ export function FileTreePinnedBar() {
               </li>
             );
           })}
-          {dropLineActive && insertBeforeIndex !== null && insertBeforeIndex >= pinnedFilePaths.length && (
-            <li className="boke-file-tree-pinned-row" aria-hidden="true">
-              <div className="boke-file-tree-pinned-drop-line" />
-            </li>
-          )}
         </ul>
       </div>
       {menu && (
         <ContextMenuFrame x={menu.x} y={menu.y}>
+          {menu.paths.length === 1 && (
+            <button
+              type="button"
+              className="boke-context-menu-item"
+              onClick={() => {
+                const path = menu.paths[0]!;
+                reorderPinnedFilePaths(path, 0);
+                setMenu(null);
+              }}
+            >
+              {t("fileTree.pin")}
+            </button>
+          )}
           <button
             type="button"
             className="boke-context-menu-item"

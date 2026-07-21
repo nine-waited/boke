@@ -966,18 +966,6 @@ body.boke-sidebar-resizing * {
   position: relative;
 }
 
-.boke-file-tree-pinned-drop-line {
-  position: absolute;
-  top: -1px;
-  left: 6px;
-  right: 10px;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--boke-accent);
-  pointer-events: none;
-  z-index: 1;
-}
-
 .boke-file-tree-pinned-item {
   display: flex;
   align-items: center;
@@ -1013,6 +1001,14 @@ body.boke-sidebar-resizing * {
 
 .boke-file-tree-pinned-item.is-dragging {
   opacity: 0.35;
+}
+
+.boke-file-tree-pinned-item.is-drop-before {
+  box-shadow: 0 -2px 0 0 var(--boke-accent);
+}
+
+.boke-file-tree-pinned-item.is-drop-after {
+  box-shadow: 0 2px 0 0 var(--boke-accent);
 }
 
 body.boke-file-tree-pinned-dragging {
