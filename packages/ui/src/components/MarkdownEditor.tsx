@@ -3,7 +3,7 @@ import { editorViewCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/ctx";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
+import { undoDepth, redoDepth } from "@milkdown/kit/prose/history";
 import { replaceAll, getMarkdown } from "@milkdown/utils";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type MutableRefObject } from "react";
 import { resolveImageSrcForDisplay, savePastedNoteImage } from "../note-images.js";
@@ -44,6 +44,8 @@ interface MarkdownEditorProps {
   onChange: (content: string) => void;
   onSave?: () => void;
   presentation?: "default" | "live";
+  /** When false, skip external content sync so hidden keep-alive undo stays intact. */
+  active?: boolean;
 }
 
 interface MilkdownCrepeEditorProps extends MarkdownEditorProps {
@@ -164,6 +166,7 @@ function MilkdownCrepeEditor({
   onChange,
   onSave,
   presentation = "default",
+  active = true,
   crepeRef,
   onOpenContextMenu,
 }: MilkdownCrepeEditorProps) {
@@ -180,10 +183,20 @@ function MilkdownCrepeEditor({
   notePathRef.current = notePath;
   onOpenContextMenuRef.current = onOpenContextMenu;
 
-  const { loading } = useEditor((root) => {
-    editorRootRef.current = root;
-    let crepe!: Crepe;
+  const [loading, setLoading] = useState(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const initialContentRef = useRef(content);
 
+  // Create Crepe once per mount. Avoid @milkdown/react useEditor — its provider
+  // recreates the editor whenever loading flips, which wipes undo history.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    root.replaceChildren();
+    editorRootRef.current = root;
+
+    let crepe!: Crepe;
     const uploadImage = async (file: File) => {
       const path = await savePastedNoteImage(notePathRef.current, file);
       scheduleInsertedImageEmptyCaption(
@@ -199,7 +212,7 @@ function MilkdownCrepeEditor({
     const t = getT();
     crepe = new Crepe({
       root,
-      defaultValue: content,
+      defaultValue: initialContentRef.current,
       features: {
         [CrepeFeature.TopBar]: presentation !== "live",
         [CrepeFeature.BlockEdit]: false,
@@ -231,11 +244,30 @@ function MilkdownCrepeEditor({
     });
 
     crepeRef.current = crepe;
-    return crepe;
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    void crepe
+      .create()
+      .then(() => {
+        if (!cancelled) setLoading(false);
+      })
+      .catch((err) => {
+        console.error("[Chestnut] milkdown create failed:", err);
+        if (!cancelled) setLoading(false);
+      });
 
+    return () => {
+      cancelled = true;
+      void crepe.destroy().catch(() => {});
+      if (crepeRef.current === crepe) crepeRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keep-alive remounts by path key
+  }, [crepeRef, presentation]);
+
+  // Keep React content in sync with the editor without wiping undo history.
+  // replaceAll clears ProseMirror history — never call it when undo/redo exists.
   useEffect(() => {
-    if (loading) return;
+    if (loading || !active) return;
     const crepe = crepeRef.current;
     if (!crepe) return;
 
@@ -246,13 +278,42 @@ function MilkdownCrepeEditor({
 
     if (content === lastEmitted.current) return;
 
-    lastEmitted.current = content;
     try {
+      let historyPending = false;
+      let editorMarkdown = "";
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        historyPending = undoDepth(view.state) > 0 || redoDepth(view.state) > 0;
+        editorMarkdown = getMarkdown()(ctx);
+      });
+
+      if (historyPending || editorMarkdown === content) {
+        lastEmitted.current = editorMarkdown || content;
+        return;
+      }
+
+      lastEmitted.current = content;
       crepe.editor.action(replaceAll(content, true));
     } catch {
       // Editor may still be initializing.
     }
-  }, [content, loading, crepeRef]);
+  }, [content, loading, active, crepeRef]);
+
+  useEffect(() => {
+    if (!active || loading) return;
+    const crepe = crepeRef.current;
+    if (!crepe) return;
+    const id = requestAnimationFrame(() => {
+      try {
+        crepe.editor.action((ctx) => {
+          ctx.get(editorViewCtx).focus();
+        });
+      } catch {
+        // Editor may still be initializing.
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [active, loading, crepeRef]);
 
   useEffect(() => {
     if (loading || presentation !== "live") return;
@@ -445,7 +506,7 @@ function MilkdownCrepeEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  return <Milkdown />;
+  return <div ref={rootRef} data-milkdown-root className="milkdown" />;
 }
 
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
@@ -493,27 +554,23 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
         {isLive ? (
           <div className="boke-live-scroll">
             <div className="boke-live-editor-inner">
-              <MilkdownProvider>
-                <MilkdownCrepeEditor
-                  crepeRef={crepeRef}
-                  presentation={presentation}
-                  content={content}
-                  onOpenContextMenu={openContextMenu}
-                  {...props}
-                />
-              </MilkdownProvider>
+              <MilkdownCrepeEditor
+                crepeRef={crepeRef}
+                presentation={presentation}
+                content={content}
+                onOpenContextMenu={openContextMenu}
+                {...props}
+              />
             </div>
           </div>
         ) : (
-          <MilkdownProvider>
-            <MilkdownCrepeEditor
-              crepeRef={crepeRef}
-              presentation={presentation}
-              content={content}
-              onOpenContextMenu={openContextMenu}
-              {...props}
-            />
-          </MilkdownProvider>
+          <MilkdownCrepeEditor
+            crepeRef={crepeRef}
+            presentation={presentation}
+            content={content}
+            onOpenContextMenu={openContextMenu}
+            {...props}
+          />
         )}
         {contextMenu && (
           <MarkdownEditorContextMenu

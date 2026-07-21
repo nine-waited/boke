@@ -132,13 +132,16 @@ export function TabBar() {
           <div
             key={leaf.id}
             className={`boke-tab${leaf.id === state.activeId ? " active" : ""}${contextMenu?.tabId === leaf.id ? " context-target" : ""}`}
-            onClick={() => workspaceStore.setActive(leaf.id)}
+            onClick={() => {
+              workspaceStore.setActive(leaf.id);
+              if (isFileContentTab(leaf.type)) focusMainContent();
+            }}
             onDoubleClick={() => {
               if (!isFileContentTab(leaf.type)) return;
               workspaceStore.setActive(leaf.id);
               const nextCollapsed = !sidebarCollapsed;
               setSidebarCollapsed(nextCollapsed);
-              if (nextCollapsed) focusMainContent();
+              focusMainContent();
             }}
             onContextMenu={(e) => openContextMenu(e, leaf.id, index)}
           >

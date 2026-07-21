@@ -766,6 +766,35 @@ body.boke-sidebar-resizing * {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  position: relative;
+}
+
+.boke-markdown-shell[hidden] {
+  display: none !important;
+}
+
+.boke-note-pane-slot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Keep inactive panes laid out (not display:none) so editor undo state stays valid. */
+.boke-note-pane-slot:not(.is-active) {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.boke-note-mode-slot:not(.is-active) {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .boke-markdown-shell .boke-note-layout {

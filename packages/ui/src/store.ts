@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { VaultAdapter } from "@chestnut/core";
 import {
   commandRegistry,
+  EditorPaneLru,
   eventBus,
   metadataCache,
   searchIndex,
@@ -396,5 +397,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     get().setShowNotePicFolders(!get().showNotePicFolders);
   },
 }));
+
+export const editorPaneLru = new EditorPaneLru();
 
 export { pluginHost, commandRegistry, workspaceStore, vaultService, metadataCache, searchIndex, eventBus };

@@ -57,15 +57,9 @@ export class WorkspaceStore {
 
   openFile(path: string, opts?: { newTab?: boolean; mode?: LeafMode }): string {
     const mode = opts?.mode ?? "live";
+
+    // Prefer an existing tab for this path so keep-alive panes stay bound.
     if (!opts?.newTab) {
-      const active = this.leaves.find((l) => l.id === this.activeId);
-      if (active && !active.pinned && (active.type === "empty" || active.type === "markdown")) {
-        active.type = "markdown";
-        active.path = path;
-        active.mode = mode;
-        this.notify();
-        return active.id;
-      }
       const existing = this.leaves.find((l) => l.type === "markdown" && l.path === path);
       if (existing) {
         this.activeId = existing.id;
@@ -73,7 +67,19 @@ export class WorkspaceStore {
         this.notify();
         return existing.id;
       }
+
+      // Only reuse an empty welcome leaf — never rewrite another note's path
+      // (that remounts/reloads the editor and drops undo).
+      const active = this.leaves.find((l) => l.id === this.activeId);
+      if (active && !active.pinned && active.type === "empty") {
+        active.type = "markdown";
+        active.path = path;
+        active.mode = mode;
+        this.notify();
+        return active.id;
+      }
     }
+
     const leaf: Leaf = { id: uid(), type: "markdown", path, mode };
     this.leaves.push(leaf);
     this.activeId = leaf.id;

@@ -7,4 +7,5 @@ export * from "./metadata/cache.js";
 export * from "./search/index.js";
 export * from "./commands/registry.js";
 export * from "./workspace/store.js";
+export * from "./workspace/editor-pane-cache.js";
 export * from "./plugins/host.js";

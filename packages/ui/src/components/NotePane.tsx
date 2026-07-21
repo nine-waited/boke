@@ -13,6 +13,8 @@ interface NotePaneProps {
   path: string;
   mode: LeafMode | string;
   leafId: string;
+  /** When false, pane is keep-alive hidden; editors stay mounted. */
+  isActive?: boolean;
 }
 
 const MODE_OPTIONS = [
@@ -25,11 +27,13 @@ function NoteTitleBar({
   leafId,
   mode,
   flushContent,
+  isActive,
 }: {
   path: string;
   leafId: string;
   mode: LeafMode | string;
   flushContent: () => Promise<void>;
+  isActive: boolean;
 }) {
   const t = useT();
   const locale = useLocale();
@@ -44,11 +48,12 @@ function NoteTitleBar({
   }, [path]);
 
   useEffect(() => {
+    if (!isActive) return;
     if (isDefaultUntitledName(baseName, locale)) {
       inputRef.current?.focus();
       inputRef.current?.select();
     }
-  }, [path, baseName, locale]);
+  }, [path, baseName, locale, isActive]);
 
   const commitTitle = useCallback(async () => {
     if (committingRef.current) return;
@@ -101,11 +106,14 @@ function NoteTitleBar({
   );
 }
 
-export function NotePane({ path, mode, leafId }: NotePaneProps) {
+export function NotePane({ path, mode, leafId, isActive = true }: NotePaneProps) {
   const t = useT();
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
+  const loadedOnceRef = useRef(false);
   const viewMode = normalizeLeafMode(mode);
+  const [liveMounted, setLiveMounted] = useState(() => viewMode === "live");
+  const [sourceMounted, setSourceMounted] = useState(() => viewMode === "source");
   const liveRef = useRef<MarkdownEditorHandle>(null);
   const sourceRef = useRef<MarkdownSourceEditorHandle>(null);
   const notePaneRef = useRef<HTMLDivElement>(null);
@@ -113,13 +121,30 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
   contentRef.current = content;
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
+    // Avoid unmounting editors on keep-alive revisit — only block UI on first load.
+    if (!loadedOnceRef.current) setLoading(true);
     vaultService
       .read(path)
-      .then(setContent)
-      .finally(() => setLoading(false));
+      .then((text) => {
+        if (cancelled) return;
+        setContent(text);
+        loadedOnceRef.current = true;
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     eventBus.emit("file-open", { path });
+    return () => {
+      cancelled = true;
+    };
   }, [path]);
+
+  useEffect(() => {
+    // Keep whichever modes the user has opened; never tear them down on tab hide.
+    if (viewMode === "live") setLiveMounted(true);
+    if (viewMode === "source") setSourceMounted(true);
+  }, [viewMode]);
 
   const onChange = useCallback(
     (next: string) => {
@@ -162,35 +187,51 @@ export function NotePane({ path, mode, leafId }: NotePaneProps) {
     [viewMode, content],
   );
 
-  if (loading) {
+  if (loading && !loadedOnceRef.current) {
     return <div style={{ padding: 24, color: "var(--boke-text-muted)" }}>{t("note.loading")}</div>;
   }
 
   return (
     <div className="boke-note-layout" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <div className="boke-note-main">
-        <NoteTitleBar path={path} leafId={leafId} mode={mode} flushContent={flushContent} />
+        <NoteTitleBar
+          path={path}
+          leafId={leafId}
+          mode={mode}
+          flushContent={flushContent}
+          isActive={isActive}
+        />
         <EditorZoomHost>
           <div ref={notePaneRef} className={`boke-note-pane boke-note-pane--${viewMode}`}>
-            {viewMode === "live" ? (
-              <MarkdownEditor
-                ref={liveRef}
-                key={`${path}:live`}
-                presentation="live"
-                notePath={path}
-                content={content}
-                onChange={onChange}
-                onSave={onSave}
-              />
-            ) : (
-              <div className="boke-source-pane">
-                <MarkdownSourceEditor
-                  ref={sourceRef}
-                  key={`${path}:source`}
+            {liveMounted && (
+              <div
+                className={`boke-note-mode-slot${viewMode === "live" ? " is-active" : ""}`}
+                aria-hidden={viewMode !== "live"}
+              >
+                <MarkdownEditor
+                  ref={liveRef}
+                  presentation="live"
                   notePath={path}
                   content={content}
                   onChange={onChange}
                   onSave={onSave}
+                  active={isActive && viewMode === "live"}
+                />
+              </div>
+            )}
+            {sourceMounted && (
+              <div
+                className={`boke-note-mode-slot boke-source-pane${viewMode === "source" ? " is-active" : ""}`}
+                aria-hidden={viewMode !== "source"}
+              >
+                <MarkdownSourceEditor
+                  ref={sourceRef}
+                  leafId={leafId}
+                  notePath={path}
+                  content={content}
+                  onChange={onChange}
+                  onSave={onSave}
+                  active={isActive && viewMode === "source"}
                 />
               </div>
             )}

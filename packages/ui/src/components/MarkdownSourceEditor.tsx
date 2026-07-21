@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, forwardRef, useImperativeHandle, useState } from "react";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, undoDepth, redoDepth } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { searchKeymap } from "@codemirror/search";
 import { Decoration, ViewPlugin, type DecorationSet } from "@codemirror/view";
@@ -14,7 +14,13 @@ import { CopyIcon } from "../markdown-editor-block-icons.js";
 import { writeSystemClipboardText } from "../system-clipboard.js";
 import { useT } from "../i18n/index.js";
 import { useAppStore } from "../store.js";
+import {
+  putSourceEditorHistory,
+  sourceHistoryCacheKey,
+  takeSourceEditorHistory,
+} from "../source-editor-history-cache.js";
 import { ContextMenuFrame } from "./ContextMenuFrame.js";
+
 const wikilinkPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
@@ -57,8 +63,11 @@ function buildWikilinkDecorations(view: EditorView): DecorationSet {
 interface MarkdownSourceEditorProps {
   content: string;
   notePath: string;
+  leafId: string;
   onChange: (content: string) => void;
   onSave?: () => void;
+  /** When false, skip external content sync so hidden keep-alive undo stays intact. */
+  active?: boolean;
 }
 
 export interface MarkdownSourceEditorHandle {
@@ -66,168 +75,194 @@ export interface MarkdownSourceEditorHandle {
 }
 
 export const MarkdownSourceEditor = forwardRef<MarkdownSourceEditorHandle, MarkdownSourceEditorProps>(
-  function MarkdownSourceEditor({ content, notePath, onChange, onSave }, ref) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const themeCompartmentRef = useRef(new Compartment());
-  const onChangeRef = useRef(onChange);
-  const onSaveRef = useRef(onSave);
-  const notePathRef = useRef(notePath);
-  const contentRef = useRef(content);
-  const openContextMenuRef = useRef<(x: number, y: number) => void>(() => {});
-  const appTheme = useAppStore((s) => s.theme);
-  const t = useT();
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  openContextMenuRef.current = (x, y) => setContextMenu({ x, y });
-  onChangeRef.current = onChange;
-  onSaveRef.current = onSave;
-  notePathRef.current = notePath;
-  contentRef.current = content;
+  function MarkdownSourceEditor({ content, notePath, leafId: _leafId, onChange, onSave, active = true }, ref) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const viewRef = useRef<EditorView | null>(null);
+    const themeCompartmentRef = useRef(new Compartment());
+    const onChangeRef = useRef(onChange);
+    const onSaveRef = useRef(onSave);
+    const notePathRef = useRef(notePath);
+    const contentRef = useRef(content);
+    const openContextMenuRef = useRef<(x: number, y: number) => void>(() => {});
+    const appTheme = useAppStore((s) => s.theme);
+    const t = useT();
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+    openContextMenuRef.current = (x, y) => setContextMenu({ x, y });
+    onChangeRef.current = onChange;
+    onSaveRef.current = onSave;
+    notePathRef.current = notePath;
+    contentRef.current = content;
 
-  useImperativeHandle(ref, () => ({
-    goToDocLine(docLine: number) {
+    useImperativeHandle(ref, () => ({
+      goToDocLine(docLine: number) {
+        const view = viewRef.current;
+        if (!view) return;
+        const lineNo = Math.min(Math.max(docLine + 1, 1), view.state.doc.lines);
+        const lineObj = view.state.doc.line(lineNo);
+        view.dispatch({
+          selection: { anchor: lineObj.from, head: lineObj.from },
+          effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
+        });
+        view.focus();
+      },
+    }));
+
+    const initEditor = useCallback(() => {
+      if (!containerRef.current || viewRef.current) return;
+
+      const cacheKey = sourceHistoryCacheKey(notePath);
+      const restored = takeSourceEditorHistory(cacheKey);
+      if (restored && restored.state.doc.toString() === contentRef.current) {
+        themeCompartmentRef.current = restored.themeCompartment;
+        viewRef.current = new EditorView({ state: restored.state, parent: containerRef.current });
+        return;
+      }
+
+      themeCompartmentRef.current = new Compartment();
+      const saveKeymap = keymap.of([
+        {
+          key: "Mod-s",
+          run: () => {
+            onSaveRef.current?.();
+            return true;
+          },
+        },
+      ]);
+
+      const state = EditorState.create({
+        doc: contentRef.current,
+        extensions: [
+          lineNumbers(),
+          highlightActiveLine(),
+          history(),
+          markdown({ base: markdownLanguage }),
+          wikilinkPlugin,
+          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+          buildSourceEditorShortcutKeymap(() => contentRef.current),
+          saveKeymap,
+          themeCompartmentRef.current.of(buildSourceEditorTheme(useAppStore.getState().theme)),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              onChangeRef.current(update.state.doc.toString());
+            }
+          }),
+          EditorView.domEventHandlers({
+            contextmenu(event, view) {
+              const { from, to } = view.state.selection.main;
+              if (from === to) return false;
+              event.preventDefault();
+              openContextMenuRef.current(event.clientX, event.clientY);
+              return true;
+            },
+            paste(event, view) {
+              const file = getClipboardImageFile(event.clipboardData);
+              const mdPath = notePathRef.current;
+              if (!file || !mdPath) return false;
+              event.preventDefault();
+              void (async () => {
+                const imagePath = await savePastedNoteImage(mdPath, file);
+                const markdown = formatImageMarkdown(imagePath);
+                const { from, to } = view.state.selection.main;
+                view.dispatch({
+                  changes: { from, to, insert: markdown },
+                  selection: { anchor: from + markdown.length },
+                });
+              })();
+              return true;
+            },
+          }),
+        ],
+      });
+
+      viewRef.current = new EditorView({ state, parent: containerRef.current });
+    }, [notePath]);
+
+    useEffect(() => {
+      initEditor();
+      return () => {
+        const view = viewRef.current;
+        if (view) {
+          putSourceEditorHistory(sourceHistoryCacheKey(notePath), {
+            state: view.state,
+            themeCompartment: themeCompartmentRef.current,
+          });
+          view.destroy();
+        }
+        viewRef.current = null;
+      };
+    }, [initEditor, notePath]);
+
+    useEffect(() => {
       const view = viewRef.current;
       if (!view) return;
-      const lineNo = Math.min(Math.max(docLine + 1, 1), view.state.doc.lines);
-      const lineObj = view.state.doc.line(lineNo);
       view.dispatch({
-        selection: { anchor: lineObj.from, head: lineObj.from },
-        effects: EditorView.scrollIntoView(lineObj.from, { y: "center" }),
+        effects: themeCompartmentRef.current.reconfigure(buildSourceEditorTheme(appTheme)),
       });
-      view.focus();
-    },
-  }));
+    }, [appTheme]);
 
-  const initEditor = useCallback(() => {
-    if (!containerRef.current || viewRef.current) return;
-
-    const saveKeymap = keymap.of([
-      {
-        key: "Mod-s",
-        run: () => {
-          onSaveRef.current?.();
-          return true;
-        },
-      },
-    ]);
-
-    const state = EditorState.create({
-      doc: content,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLine(),
-        history(),
-        markdown({ base: markdownLanguage }),
-        wikilinkPlugin,
-        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-        buildSourceEditorShortcutKeymap(() => contentRef.current),
-        saveKeymap,
-        themeCompartmentRef.current.of(buildSourceEditorTheme(useAppStore.getState().theme)),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            onChangeRef.current(update.state.doc.toString());
-          }
-        }),
-        EditorView.domEventHandlers({
-          contextmenu(event, view) {
-            const { from, to } = view.state.selection.main;
-            if (from === to) return false;
-            event.preventDefault();
-            openContextMenuRef.current(event.clientX, event.clientY);
-            return true;
-          },
-          paste(event, view) {
-            const file = getClipboardImageFile(event.clipboardData);
-            const mdPath = notePathRef.current;
-            if (!file || !mdPath) return false;
-            event.preventDefault();
-            void (async () => {
-              const imagePath = await savePastedNoteImage(mdPath, file);
-              const markdown = formatImageMarkdown(imagePath);
-              const { from, to } = view.state.selection.main;
-              view.dispatch({
-                changes: { from, to, insert: markdown },
-                selection: { anchor: from + markdown.length },
-              });
-            })();
-            return true;
-          },
-        }),
-      ],
-    });
-
-    viewRef.current = new EditorView({ state, parent: containerRef.current });
-  }, []);
-
-  useEffect(() => {
-    initEditor();
-    return () => {
-      viewRef.current?.destroy();
-      viewRef.current = null;
-    };
-  }, [initEditor]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(buildSourceEditorTheme(appTheme)),
-    });
-  }, [appTheme]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    const current = view.state.doc.toString();
-    if (current !== content) {
+    useEffect(() => {
+      if (!active) return;
+      const view = viewRef.current;
+      if (!view) return;
+      const current = view.state.doc.toString();
+      if (current === content) return;
+      // Never clobber undo/redo stacks.
+      if (undoDepth(view.state) > 0 || redoDepth(view.state) > 0) return;
       view.dispatch({
         changes: { from: 0, to: current.length, insert: content },
       });
-    }
-  }, [content]);
+    }, [content, active]);
 
-  useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    window.addEventListener("click", close);
-    window.addEventListener("scroll", close, true);
-    return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("scroll", close, true);
-    };
-  }, [contextMenu]);
+    useEffect(() => {
+      if (!active) return;
+      const view = viewRef.current;
+      if (!view) return;
+      const id = requestAnimationFrame(() => view.focus());
+      return () => cancelAnimationFrame(id);
+    }, [active]);
 
-  return (
-    <>
-      <div ref={containerRef} className="boke-source-editor" />
-      {contextMenu && (
-        <ContextMenuFrame
-          x={contextMenu.x}
-          y={contextMenu.y}
-          className="boke-context-menu boke-md-editor-context-menu"
-          onClick={(event) => event.stopPropagation()}
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          <button
-            type="button"
-            className="boke-md-editor-context-menu-item"
-            onClick={() => {
-              const view = viewRef.current;
-              if (!view) return;
-              const { from, to } = view.state.selection.main;
-              const text = getSourceSelectionPlainText(from, to, view.state.doc.toString());
-              if (text) void writeSystemClipboardText(text);
-              setContextMenu(null);
-            }}
+    useEffect(() => {
+      if (!contextMenu) return;
+      const close = () => setContextMenu(null);
+      window.addEventListener("click", close);
+      window.addEventListener("scroll", close, true);
+      return () => {
+        window.removeEventListener("click", close);
+        window.removeEventListener("scroll", close, true);
+      };
+    }, [contextMenu]);
+
+    return (
+      <>
+        <div ref={containerRef} className="boke-source-editor" />
+        {contextMenu && (
+          <ContextMenuFrame
+            x={contextMenu.x}
+            y={contextMenu.y}
+            className="boke-context-menu boke-md-editor-context-menu"
+            onClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.preventDefault()}
           >
-            <span className="boke-md-editor-context-menu-item__icon">
-              <CopyIcon />
-            </span>
-            <span className="boke-md-editor-context-menu-item__label">{t("note.editorContextMenuCopyPlain")}</span>
-          </button>
-        </ContextMenuFrame>
-      )}
-    </>
-  );
+            <button
+              type="button"
+              className="boke-md-editor-context-menu-item"
+              onClick={() => {
+                const view = viewRef.current;
+                if (!view) return;
+                const { from, to } = view.state.selection.main;
+                const text = getSourceSelectionPlainText(from, to, view.state.doc.toString());
+                if (text) void writeSystemClipboardText(text);
+                setContextMenu(null);
+              }}
+            >
+              <span className="boke-md-editor-context-menu-item__icon">
+                <CopyIcon />
+              </span>
+              <span className="boke-md-editor-context-menu-item__label">{t("note.editorContextMenuCopyPlain")}</span>
+            </button>
+          </ContextMenuFrame>
+        )}
+      </>
+    );
   },
 );
