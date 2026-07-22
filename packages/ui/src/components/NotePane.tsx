@@ -8,6 +8,7 @@ import type { OutlineHeading } from "../markdown-outline.js";
 import { formatImageMarkdown, savePastedNoteImage } from "../note-images.js";
 import { isDefaultUntitledName, useLocale, useT } from "../i18n/index.js";
 import { eventBus, useAppStore, vaultService, workspaceStore } from "../store.js";
+import { restoreRemovedNoteImagesIfNeeded } from "../note-image-delete.js";
 
 interface NotePaneProps {
   path: string;
@@ -150,6 +151,7 @@ export const NotePane = memo(function NotePane({ path, mode, leafId, isActive = 
     (next: string) => {
       setContent(next);
       vaultService.write(path, next);
+      void restoreRemovedNoteImagesIfNeeded(path, next);
     },
     [path],
   );

@@ -106,6 +106,10 @@ export class TauriFsAdapter implements VaultAdapter {
     this.assetUrls.set(normalized, url);
     return url;
   }
+
+  invalidateAssetUrl(path: string): void {
+    this.assetUrls.delete(normalizePath(path));
+  }
 }
 
 export function isTauri(): boolean {

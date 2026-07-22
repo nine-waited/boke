@@ -3,10 +3,14 @@ import {
   markdownReferencesImage,
   normalizePath,
   notePicDirPath,
+  type VaultAdapter,
 } from "@chestnut/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { resolveImageVaultPath } from "./image-open.js";
+import { resolveImageVaultPath, trackImageDisplayUrl } from "./image-open.js";
 import { useAppStore, vaultService } from "./store.js";
+
+/** Session cache so Ctrl+Z can restore disk files removed with "delete on remove". */
+const removedImageBytes = new Map<string, Uint8Array>();
 
 function getVaultRoot(): string | null {
   const adapter = vaultService.getAdapter();
@@ -40,6 +44,51 @@ export function getImageVaultPathFromView(
   return src ? resolveImageVaultPath(src, notePath, vaultRoot) : null;
 }
 
+async function ensureParentDir(vaultPath: string): Promise<void> {
+  const adapter = vaultService.getAdapter();
+  if (!adapter) return;
+  const slash = vaultPath.lastIndexOf("/");
+  if (slash <= 0) return;
+  const parent = vaultPath.slice(0, slash);
+  if (!(await adapter.exists(parent))) {
+    await adapter.mkdir(parent);
+  }
+}
+
+function invalidateAssetUrl(vaultPath: string): void {
+  const adapter = vaultService.getAdapter() as
+    | (VaultAdapter & { invalidateAssetUrl?: (p: string) => void })
+    | null;
+  adapter?.invalidateAssetUrl?.(vaultPath);
+}
+
+async function reloadDisplayedImages(vaultPath: string): Promise<void> {
+  const normalized = normalizePath(vaultPath);
+  let freshUrl: string;
+  try {
+    invalidateAssetUrl(normalized);
+    freshUrl = await vaultService.getAssetUrl(normalized);
+    trackImageDisplayUrl(freshUrl, normalized);
+  } catch {
+    return;
+  }
+
+  for (const img of document.querySelectorAll("img")) {
+    if (!(img instanceof HTMLImageElement)) continue;
+    const dataPath = img.dataset.vaultPath || img.dataset.embed;
+    if (dataPath && normalizePath(dataPath) === normalized) {
+      img.src = freshUrl;
+      continue;
+    }
+    const src = img.getAttribute("src");
+    if (!src) continue;
+    const resolved = resolveImageVaultPath(src, undefined, getVaultRoot());
+    if (resolved === normalized) {
+      img.src = freshUrl;
+    }
+  }
+}
+
 export async function deleteNoteImageFileOnRemove(
   vaultPath: string,
   notePath: string,
@@ -66,6 +115,53 @@ export async function deleteNoteImageFileOnRemove(
   const adapter = vaultService.getAdapter();
   if (!adapter || !(await adapter.exists(normalized))) return;
 
+  try {
+    const bytes = await vaultService.readBinary(normalized);
+    removedImageBytes.set(normalized, bytes);
+  } catch (err) {
+    console.warn("[Chestnut] failed to cache image before delete:", err);
+  }
+
   await vaultService.deletePath(normalized, "file");
+  invalidateAssetUrl(normalized);
   useAppStore.getState().refreshTree();
+}
+
+/**
+ * After undo/content change: if markdown references an image we deleted this session
+ * and the file is gone from disk, write the cached bytes back.
+ */
+export async function restoreRemovedNoteImagesIfNeeded(
+  notePath: string,
+  noteContent: string,
+): Promise<void> {
+  if (removedImageBytes.size === 0) return;
+
+  const vaultRoot = getVaultRoot();
+  const adapter = vaultService.getAdapter();
+  if (!adapter) return;
+
+  let restored = false;
+  for (const [vaultPath, bytes] of [...removedImageBytes]) {
+    if (!markdownReferencesImage(noteContent, vaultPath, notePath, vaultRoot)) continue;
+
+    if (await adapter.exists(vaultPath)) {
+      removedImageBytes.delete(vaultPath);
+      continue;
+    }
+
+    try {
+      await ensureParentDir(vaultPath);
+      await vaultService.writeBinary(vaultPath, bytes);
+      removedImageBytes.delete(vaultPath);
+      restored = true;
+      await reloadDisplayedImages(vaultPath);
+    } catch (err) {
+      console.warn("[Chestnut] failed to restore removed image:", vaultPath, err);
+    }
+  }
+
+  if (restored) {
+    useAppStore.getState().refreshTree();
+  }
 }
