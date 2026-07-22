@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import { useT } from "./i18n/index.js";
 
@@ -45,6 +46,26 @@ export function ConfirmDialogHost() {
   const answer = useConfirmStore((s) => s.answer);
   const t = useT();
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        answer(true);
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        answer(false);
+      }
+    };
+    // Capture so ProseMirror / other editors cannot treat Enter as a newline.
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [open, answer]);
+
   if (!open || !options) return null;
 
   const confirmLabel = options.confirmLabel ?? t("common.confirm");
@@ -64,7 +85,9 @@ export function ConfirmDialogHost() {
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="boke-confirm-title">{options.title}</h2>
-        <p id="boke-confirm-message">{options.message}</p>
+        <p id="boke-confirm-message" style={{ whiteSpace: "pre-wrap" }}>
+          {options.message}
+        </p>
         <div className="boke-confirm-actions">
           <button type="button" onClick={() => answer(false)}>
             {cancelLabel}
