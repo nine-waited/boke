@@ -1093,6 +1093,16 @@ body.boke-file-tree-pinned-dragging .boke-file-tree-pinned-item {
   background: color-mix(in srgb, var(--boke-accent) 20%, var(--boke-bg-secondary));
 }
 
+.boke-file-tree-item.is-workspace-active {
+  background: color-mix(in srgb, var(--boke-accent) 14%, var(--boke-bg-secondary));
+  color: var(--boke-text);
+  box-shadow: inset 3px 0 0 var(--boke-accent);
+}
+
+.boke-file-tree-item.is-workspace-active:hover {
+  background: color-mix(in srgb, var(--boke-accent) 20%, var(--boke-bg-secondary));
+}
+
 .boke-file-tree-item.context-target {
   background: color-mix(in srgb, var(--boke-text-muted) 14%, var(--boke-bg-secondary));
   color: var(--boke-text);

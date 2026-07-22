@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -73,7 +74,6 @@ type ContextTarget =
   | { kind: "file"; path: string };
 
 interface FileTreeContextValue {
-  activePath: string | null;
   selectionRevision: number;
   contextMenuPath: string | null;
   renamingPath: string | null;
@@ -471,12 +471,11 @@ function FileTreeFileItem({ entry, depth }: { entry: VaultEntry; depth: number }
   const ctx = useContext(FileTreeContext);
   const t = useT();
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
-  const activePath = ctx?.activePath ?? null;
   const isContextTarget = ctx?.contextMenuPath === entry.path;
   const selected = Boolean(ctx?.isSelected(entry.path));
-  const isActive =
-    !isContextTarget &&
-    (selected || (!ctx?.hasSelection() && activePath === entry.path));
+  // Workspace-active highlight is applied imperatively on the tree root to avoid
+  // re-rendering every row when only the active tab path changes.
+  const isActive = !isContextTarget && selected;
   const isRenaming = ctx?.renamingPath === entry.path;
   const [draft, setDraft] = useState(() => fileBaseName(entry.path));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -648,7 +647,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const treeVersion = useAppStore((s) => s.treeVersion);
   const showNotePicFolders = useAppStore((s) => s.showNotePicFolders);
-  const fileTreeChildOrder = useAppStore((s) => s.fileTreeChildOrder);
+  const childOrderForDir = useAppStore((s) => s.fileTreeChildOrder[dir]);
   const folderName = dir.split("/").pop() || dir;
 
   useEffect(() => {
@@ -670,9 +669,10 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {
       const visible = list.filter((e) => isFileTreeEntryVisible(e, showNotePicFolders));
-      setEntries(applyFileTreeChildOrder(sortFileTreeEntries(visible, dir), dir, fileTreeChildOrder));
+      const orderMap = childOrderForDir ? { [dir]: childOrderForDir } : {};
+      setEntries(applyFileTreeChildOrder(sortFileTreeEntries(visible, dir), dir, orderMap));
     });
-  }, [dir, treeVersion, showNotePicFolders, fileTreeChildOrder]);
+  }, [dir, treeVersion, showNotePicFolders, childOrderForDir]);
 
   if (!expanded && dir) {
     return (
@@ -1009,6 +1009,7 @@ export function FileTree() {
     (cb) => fileTreeSelection.subscribe(cb),
     () => fileTreeSelection.getRevision(),
   );
+  const treeVersion = useAppStore((s) => s.treeVersion);
   const treeRootRef = useRef<HTMLDivElement | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1358,28 +1359,73 @@ export function FileTree() {
   const contextMenuPath =
     contextMenu && contextMenu.target.kind !== "root" ? contextMenu.target.path : null;
 
-  const ctxValue: FileTreeContextValue = {
-    activePath,
-    selectionRevision,
-    contextMenuPath,
-    renamingPath,
-    dragging,
-    dropTarget,
-    dropBeforePath,
-    dropAfterPath,
-    expandFolderRequest,
-    consumeClickAfterDrag,
-    isSelected: (path) => fileTreeSelection.isSelected(path),
-    hasSelection: () => fileTreeSelection.hasSelection(),
-    selectExclusive: (path, kind) => fileTreeSelection.selectExclusive(path, kind),
-    toggleSelect: (path, kind) => fileTreeSelection.togglePath(path, kind),
-    selectRangeTo,
-    focusTree,
-    startRename,
-    openContextMenu,
-    commitRename,
-    handlePointerDown,
-  };
+  const isSelected = useCallback((path: string) => fileTreeSelection.isSelected(path), []);
+  const hasSelection = useCallback(() => fileTreeSelection.hasSelection(), []);
+  const selectExclusive = useCallback(
+    (path: string, kind: FileTreeSelectionKind) => fileTreeSelection.selectExclusive(path, kind),
+    [],
+  );
+  const toggleSelect = useCallback(
+    (path: string, kind: FileTreeSelectionKind) => fileTreeSelection.togglePath(path, kind),
+    [],
+  );
+
+  useEffect(() => {
+    const root = treeRootRef.current;
+    if (!root) return;
+    for (const el of root.querySelectorAll(".boke-file-tree-item.is-workspace-active")) {
+      el.classList.remove("is-workspace-active");
+    }
+    if (fileTreeSelection.hasSelection()) return;
+    if (!activePath) return;
+    const target = root.querySelector(`[data-file-tree-path="${CSS.escape(activePath)}"]`);
+    target?.classList.add("is-workspace-active");
+  }, [activePath, selectionRevision, treeVersion]);
+
+  const ctxValue = useMemo<FileTreeContextValue>(
+    () => ({
+      selectionRevision,
+      contextMenuPath,
+      renamingPath,
+      dragging,
+      dropTarget,
+      dropBeforePath,
+      dropAfterPath,
+      expandFolderRequest,
+      consumeClickAfterDrag,
+      isSelected,
+      hasSelection,
+      selectExclusive,
+      toggleSelect,
+      selectRangeTo,
+      focusTree,
+      startRename,
+      openContextMenu,
+      commitRename,
+      handlePointerDown,
+    }),
+    [
+      selectionRevision,
+      contextMenuPath,
+      renamingPath,
+      dragging,
+      dropTarget,
+      dropBeforePath,
+      dropAfterPath,
+      expandFolderRequest,
+      consumeClickAfterDrag,
+      isSelected,
+      hasSelection,
+      selectExclusive,
+      toggleSelect,
+      selectRangeTo,
+      focusTree,
+      startRename,
+      openContextMenu,
+      commitRename,
+      handlePointerDown,
+    ],
+  );
 
   return (
     <>

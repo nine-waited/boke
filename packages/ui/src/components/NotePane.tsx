@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { normalizeLeafMode, noteBaseName, sanitizeNoteTitle, type LeafMode } from "@chestnut/core";
 import { EditorZoomHost } from "./EditorZoomHost.js";
 import { MarkdownEditor, type MarkdownEditorHandle } from "./MarkdownEditor.js";
@@ -106,7 +106,7 @@ function NoteTitleBar({
   );
 }
 
-export function NotePane({ path, mode, leafId, isActive = true }: NotePaneProps) {
+export const NotePane = memo(function NotePane({ path, mode, leafId, isActive = true }: NotePaneProps) {
   const t = useT();
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -241,7 +241,7 @@ export function NotePane({ path, mode, leafId, isActive = true }: NotePaneProps)
       <OutlinePanel path={path} content={content} onHeadingClick={handleHeadingClick} />
     </div>
   );
-}
+});
 
 export function ModeToggle({ leafId, mode }: { leafId: string; mode: string }) {
   const t = useT();

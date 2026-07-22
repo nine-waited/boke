@@ -1,15 +1,15 @@
 import {
   useSyncExternalStore,
   useEffect,
-  useLayoutEffect,
   useRef,
   lazy,
   Suspense,
+  useMemo,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { isTauri, TauriFsAdapter } from "@chestnut/storage-adapters";
-import type { LeafMode } from "@chestnut/core";
+import type { Leaf, LeafMode } from "@chestnut/core";
 import { normalizeLeafMode } from "@chestnut/core";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
@@ -49,33 +49,73 @@ const ExcalidrawView = lazy(() =>
 
 let commandsRegistered = false;
 
+interface EditorMountSnapshot {
+  activeId: string;
+  activeType: Leaf["type"] | undefined;
+  activePath: string | null;
+  markdownLeaves: Leaf[];
+  markdownKey: string;
+  lruKey: string;
+}
+
+let cachedEditorMountSnapshot: EditorMountSnapshot | null = null;
+
+function getEditorMountSnapshot(): EditorMountSnapshot {
+  const state = workspaceStore.getState();
+  const markdownLeaves = state.leaves.filter((leaf) => leaf.type === "markdown" && leaf.path);
+  const markdownKey = markdownLeaves.map((leaf) => `${leaf.path}\0${normalizeLeafMode(leaf.mode)}`).join("\n");
+  const lruKey = editorPaneLru.getSnapshot().join("\n");
+  const activePath = state.active?.path ?? null;
+  const activeType = state.active?.type;
+  const prev = cachedEditorMountSnapshot;
+  if (
+    prev &&
+    prev.activeId === state.activeId &&
+    prev.activeType === activeType &&
+    prev.activePath === activePath &&
+    prev.markdownKey === markdownKey &&
+    prev.lruKey === lruKey
+  ) {
+    return prev;
+  }
+  const next: EditorMountSnapshot = {
+    activeId: state.activeId,
+    activeType,
+    activePath,
+    markdownLeaves,
+    markdownKey,
+    lruKey,
+  };
+  cachedEditorMountSnapshot = next;
+  return next;
+}
+
+function subscribeEditorMount(onStoreChange: () => void): () => void {
+  const unsubWs = workspaceStore.subscribe(onStoreChange);
+  const unsubLru = editorPaneLru.subscribe(onStoreChange);
+  return () => {
+    unsubWs();
+    unsubLru();
+  };
+}
+
 function EditorContent() {
   const t = useT();
-  const state = useSyncExternalStore(
-    (cb) => workspaceStore.subscribe(cb),
-    () => workspaceStore.getState(),
-  );
-  useSyncExternalStore(
-    (cb) => editorPaneLru.subscribe(cb),
-    () => editorPaneLru.getSnapshot(),
-  );
+  const mount = useSyncExternalStore(subscribeEditorMount, getEditorMountSnapshot);
   const vaultMounted = useAppStore((s) => s.vaultMounted);
 
-  const active = state.active;
-  const markdownLeaves = state.leaves.filter((leaf) => leaf.type === "markdown" && leaf.path);
-  const leafByPath = new Map(markdownLeaves.map((leaf) => [leaf.path!, leaf]));
   const lastModeByPathRef = useRef(new Map<string, LeafMode>());
-  for (const leaf of markdownLeaves) {
+  for (const leaf of mount.markdownLeaves) {
     if (leaf.path) {
       lastModeByPathRef.current.set(leaf.path, normalizeLeafMode(leaf.mode));
     }
   }
 
-  useLayoutEffect(() => {
-    if (active?.type === "markdown" && active.path) {
-      editorPaneLru.touch(active.path);
+  useEffect(() => {
+    if (mount.activeType === "markdown" && mount.activePath) {
+      editorPaneLru.touch(mount.activePath);
     }
-  }, [active?.id, active?.type, active?.path]);
+  }, [mount.activeId, mount.activeType, mount.activePath]);
 
   useEffect(() => {
     if (vaultMounted) return;
@@ -83,40 +123,47 @@ function EditorContent() {
     clearSourceEditorHistory();
   }, [vaultMounted]);
 
+  const leafByPath = useMemo(() => {
+    const map = new Map<string, Leaf>();
+    for (const leaf of mount.markdownLeaves) {
+      if (leaf.path) map.set(leaf.path, leaf);
+    }
+    return map;
+  }, [mount.markdownLeaves]);
+
   if (!vaultMounted) {
     return <div className="boke-vault-loading">{t("vault.loading")}</div>;
   }
 
-  if (!active || active.type === "empty") {
+  if (!mount.activeType || mount.activeType === "empty") {
     return <div className="boke-editor-blank" aria-hidden="true" />;
   }
 
-  const activeMarkdownPath = active.type === "markdown" ? (active.path ?? null) : null;
-  // Always keep every open markdown tab mounted; LRU only adds recently replaced ghosts.
+  const activeMarkdownPath = mount.activeType === "markdown" ? mount.activePath : null;
   const mountPaths = Array.from(
     new Set([
-      ...markdownLeaves.map((leaf) => leaf.path!),
+      ...mount.markdownLeaves.map((leaf) => leaf.path!),
       ...editorPaneLru.resolveMountPaths(activeMarkdownPath),
     ]),
   );
-  const markdownVisible = active.type === "markdown";
+  const markdownVisible = mount.activeType === "markdown";
 
   let nonMarkdown: ReactNode = null;
-  switch (active.type) {
+  switch (mount.activeType) {
     case "markdown":
       break;
     case "excalidraw":
-      nonMarkdown = active.path ? (
+      nonMarkdown = mount.activePath ? (
         <Suspense fallback={<div style={{ padding: 24 }}>{t("excalidraw.loadingApp")}</div>}>
-          <ExcalidrawView path={active.path} />
+          <ExcalidrawView path={mount.activePath} />
         </Suspense>
       ) : null;
       break;
     case "image":
-      nonMarkdown = active.path ? <ImageView path={active.path} /> : null;
+      nonMarkdown = mount.activePath ? <ImageView path={mount.activePath} /> : null;
       break;
     case "pdf":
-      nonMarkdown = active.path ? <PdfView path={active.path} /> : null;
+      nonMarkdown = mount.activePath ? <PdfView path={mount.activePath} /> : null;
       break;
     case "graph":
       nonMarkdown = <GraphView />;
@@ -141,7 +188,7 @@ function EditorContent() {
         >
           {mountPaths.map((path) => {
             const leaf = leafByPath.get(path);
-            const isActive = markdownVisible && active.path === path;
+            const isActive = markdownVisible && mount.activePath === path;
             const mode = leaf ? normalizeLeafMode(leaf.mode) : (lastModeByPathRef.current.get(path) ?? "live");
             return (
               <div
