@@ -22,6 +22,8 @@ import {
   FILE_TREE_DRAG_MOVE_PX,
 } from "../file-tree-pointer-dnd.js";
 import { reorderPinnedFilePaths as computeReorder } from "../file-tree-pinned.js";
+import { fileTreeSelection } from "../file-tree-selection.js";
+import { revealFileInTree, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
 import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
 const PINNED_PATH_ATTR = "data-pinned-path";
@@ -114,6 +116,14 @@ export function FileTreePinnedBar() {
     });
     setAnchorPath((prev) => (prev && pinnedFilePaths.includes(prev) ? prev : null));
   }, [pinnedFilePaths]);
+
+  // Selecting / opening another file outside the pinned selection clears pin highlight.
+  useEffect(() => {
+    if (!activePath) return;
+    if (selectedPaths.length === 0 || selectedPaths.includes(activePath)) return;
+    setSelectedPaths([]);
+    setAnchorPath(null);
+  }, [activePath, selectedPaths]);
 
   useEffect(() => {
     if (!menu) return;
@@ -299,7 +309,10 @@ export function FileTreePinnedBar() {
       return;
     }
     selectExclusive(path);
+    fileTreeSelection.selectExclusive(path, "file");
     openVaultEntry(path);
+    revealFileInTree(path);
+    void revealFileInTreeWhenReady(path);
   };
 
   return (
