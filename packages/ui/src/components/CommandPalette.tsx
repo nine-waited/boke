@@ -4,6 +4,15 @@ import { useT } from "../i18n/index.js";
 import { vaultService, useAppStore } from "../store.js";
 import { confirmAndDeleteVaultPath } from "../note-actions.js";
 import { openVaultEntry } from "../vault-entry-open.js";
+import { fileTreeSelection } from "../file-tree-selection.js";
+import { revealFileInTree, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
+
+function openAndHighlightFile(path: string): void {
+  fileTreeSelection.selectExclusive(path, "file");
+  openVaultEntry(path);
+  revealFileInTree(path);
+  void revealFileInTreeWhenReady(path);
+}
 
 export function CommandPalette() {
   const t = useT();
@@ -70,7 +79,7 @@ export function CommandPalette() {
       }
       if (e.key === "Enter" && items[selected]) {
         e.preventDefault();
-        openVaultEntry(items[selected].path);
+        openAndHighlightFile(items[selected].path);
         setOpen(false);
       }
     };
@@ -101,7 +110,7 @@ export function CommandPalette() {
               }}
               className={`boke-palette-item${i === selected ? " selected" : ""}`}
               onClick={() => {
-                openVaultEntry(item.path);
+                openAndHighlightFile(item.path);
                 setOpen(false);
               }}
             >

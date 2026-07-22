@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useT } from "../i18n/index.js";
 import { searchIndex, workspaceStore, useAppStore } from "../store.js";
+import { fileTreeSelection } from "../file-tree-selection.js";
+import { revealFileInTree, revealFileInTreeWhenReady } from "../file-tree-expand-context.js";
 
 export function SearchPanel() {
   const t = useT();
@@ -29,6 +31,14 @@ export function SearchPanel() {
 
   if (!open) return null;
 
+  const openResult = (path: string) => {
+    fileTreeSelection.selectExclusive(path, "file");
+    workspaceStore.openFile(path);
+    setOpen(false);
+    revealFileInTree(path);
+    void revealFileInTreeWhenReady(path);
+  };
+
   return (
     <div className="boke-modal-overlay" onClick={() => setOpen(false)}>
       <div className="boke-palette" onClick={(e) => e.stopPropagation()}>
@@ -40,14 +50,7 @@ export function SearchPanel() {
         />
         <div className="boke-palette-list">
           {results.map((r) => (
-            <div
-              key={r.path}
-              className="boke-palette-item"
-              onClick={() => {
-                workspaceStore.openFile(r.path);
-                setOpen(false);
-              }}
-            >
+            <div key={r.path} className="boke-palette-item" onClick={() => openResult(r.path)}>
               {r.title}
               <small>{r.path}</small>
             </div>
