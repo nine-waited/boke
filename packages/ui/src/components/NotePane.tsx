@@ -5,11 +5,12 @@ import { MarkdownEditor, type MarkdownEditorHandle } from "./MarkdownEditor.js";
 import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./MarkdownSourceEditor.js";
 import { OutlinePanel } from "./OutlinePanel.js";
 import { OutlineBoundaryControl } from "./OutlineBoundaryControl.js";
-import type { OutlineHeading } from "../markdown-outline.js";
+import { bodyLineToDocLine, type OutlineHeading } from "../markdown-outline.js";
 import { formatImageMarkdown, savePastedNoteImage } from "../note-images.js";
 import { isDefaultUntitledName, useLocale, useT } from "../i18n/index.js";
 import { eventBus, useAppStore, vaultService, workspaceStore } from "../store.js";
 import { restoreRemovedNoteImagesIfNeeded } from "../note-image-delete.js";
+import { consumeEditorReveal, subscribeEditorReveal } from "../pending-editor-reveal.js";
 
 interface NotePaneProps {
   path: string;
@@ -196,6 +197,33 @@ export const NotePane = memo(function NotePane({
     },
     [viewMode, content],
   );
+
+  const [revealToken, setRevealToken] = useState(0);
+  useEffect(() => subscribeEditorReveal(() => setRevealToken((n) => n + 1)), []);
+
+  useEffect(() => {
+    if (!isActive || loading) return;
+    const bodyLine = consumeEditorReveal(path);
+    if (bodyLine === null) return;
+
+    const docLine = bodyLineToDocLine(content, bodyLine);
+    const jump = () => {
+      if (viewMode === "source") {
+        sourceRef.current?.goToDocLine(docLine);
+      } else {
+        liveRef.current?.goToDocLine(docLine, content);
+      }
+    };
+
+    const raf = requestAnimationFrame(jump);
+    const t1 = window.setTimeout(jump, 80);
+    const t2 = window.setTimeout(jump, 220);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [isActive, loading, path, content, viewMode, revealToken]);
 
   const outlineCollapsed = useAppStore((s) => s.outlineLayouts[paneId].collapsed);
   const outlineWidth = useAppStore((s) => s.outlineLayouts[paneId].width);

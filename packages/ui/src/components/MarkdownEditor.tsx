@@ -31,6 +31,7 @@ import {
 } from "../markdown-editor-clipboard.js";
 import { attachLiveEditorShortcutKeymap } from "../markdown-editor-keymap.js";
 import { attachLiveEditorScrollLock } from "../markdown-editor-live-view.js";
+import { findDocLinePos } from "../markdown-editor-actions.js";
 import { MarkdownEditorContextMenu } from "./MarkdownEditorContextMenu.js";
 import "../crepe-theme.css";
 
@@ -130,34 +131,6 @@ function scheduleInsertedImageEmptyCaption(
     });
   };
   requestAnimationFrame(finalize);
-}
-
-function findHeadingPos(view: EditorView, markdown: string, docLine: number): number | null {
-  const lines = markdown.split(/\r?\n/);
-  const match = (lines[docLine] ?? "").trim().match(/^#{1,6}\s+(.+?)\s*$/);
-  if (!match) return null;
-
-  const title = match[1].trim();
-  let occurrence = 0;
-  for (let i = 0; i < docLine; i++) {
-    const prev = (lines[i] ?? "").trim().match(/^#{1,6}\s+(.+?)\s*$/);
-    if (prev && prev[1].trim() === title) occurrence++;
-  }
-
-  const headings = view.dom.querySelectorAll("h1, h2, h3, h4, h5, h6");
-  let seen = 0;
-  for (const el of headings) {
-    if (el.textContent?.trim() !== title) continue;
-    if (seen === occurrence) {
-      try {
-        return view.posAtDOM(el, 0);
-      } catch {
-        return null;
-      }
-    }
-    seen++;
-  }
-  return null;
 }
 
 function MilkdownCrepeEditor({
@@ -526,7 +499,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
 
       crepe.editor.action((ctx) => {
         const view = ctx.get(editorViewCtx);
-        const pos = findHeadingPos(view, markdown, docLine);
+        const pos = findDocLinePos(view, markdown, docLine);
         if (pos === null) return;
 
         const safePos = Math.min(Math.max(pos, 0), view.state.doc.content.size);

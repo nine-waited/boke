@@ -1429,22 +1429,26 @@ export function FileTree() {
 
   return (
     <>
-      <FileTreePinnedBar />
-      <FileTreeContext.Provider value={ctxValue}>
-        <div
-          ref={treeRootRef}
-          className={`boke-file-tree${dropTarget === "" ? " boke-file-tree--drop-root" : ""}`}
-          tabIndex={0}
-          {...{ "data-file-tree-drop": "" }}
-          onContextMenu={(e) => {
-            if (e.target !== e.currentTarget) return;
-            e.preventDefault();
-            openContextMenu(e, { kind: "root", path: "" });
-          }}
-        >
-          <FileTreeNode />
+      <div className="boke-file-tree-shell">
+        <FileTreePinnedBar />
+        <div className="boke-file-tree-scroll">
+          <FileTreeContext.Provider value={ctxValue}>
+            <div
+              ref={treeRootRef}
+              className={`boke-file-tree${dropTarget === "" ? " boke-file-tree--drop-root" : ""}`}
+              tabIndex={0}
+              {...{ "data-file-tree-drop": "" }}
+              onContextMenu={(e) => {
+                if (e.target !== e.currentTarget) return;
+                e.preventDefault();
+                openContextMenu(e, { kind: "root", path: "" });
+              }}
+            >
+              <FileTreeNode />
+            </div>
+          </FileTreeContext.Provider>
         </div>
-      </FileTreeContext.Provider>
+      </div>
       {contextMenu && (
         <ContextMenuFrame
           x={contextMenu.x}

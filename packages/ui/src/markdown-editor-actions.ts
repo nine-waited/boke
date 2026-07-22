@@ -14,6 +14,10 @@ import { insertMarkdownBlock } from "./markdown-editor-insert.js";
 import { extractHeadings } from "./markdown-outline.js";
 import { stripInlineMarkdownFormat } from "./markdown-strip-inline.js";
 
+function normalizeLineText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 function findHeadingPos(view: EditorView, markdown: string, docLine: number): number | null {
   const lines = markdown.split(/\r?\n/);
   const match = (lines[docLine] ?? "").trim().match(/^#{1,6}\s+(.+?)\s*$/);
@@ -42,6 +46,41 @@ function findHeadingPos(view: EditorView, markdown: string, docLine: number): nu
   return null;
 }
 
+/** Locate a non-heading body line in the live editor by matching block text. */
+function findBodyLinePos(view: EditorView, markdown: string, docLine: number): number | null {
+  const lines = markdown.split(/\r?\n/);
+  const target = normalizeLineText(lines[docLine] ?? "");
+  if (!target) return null;
+
+  let occurrence = 0;
+  for (let i = 0; i < docLine; i++) {
+    if (normalizeLineText(lines[i] ?? "") === target) occurrence++;
+  }
+
+  const blocks = view.dom.querySelectorAll("p, li, pre, blockquote, td, th, h1, h2, h3, h4, h5, h6");
+  let seen = 0;
+  for (const el of blocks) {
+    const text = normalizeLineText(el.textContent ?? "");
+    if (!text) continue;
+    const matched = text === target || text.includes(target) || target.includes(text);
+    if (!matched) continue;
+    if (seen === occurrence) {
+      try {
+        return view.posAtDOM(el, 0);
+      } catch {
+        return null;
+      }
+    }
+    seen++;
+  }
+  return null;
+}
+
+/** Resolve an editor position for any document line (heading or body). */
+function findDocLinePos(view: EditorView, markdown: string, docLine: number): number | null {
+  return findHeadingPos(view, markdown, docLine) ?? findBodyLinePos(view, markdown, docLine);
+}
+
 function getLiveHeadingIndex(view: EditorView): number {
   const headings = [...view.dom.querySelectorAll("h1, h2, h3, h4, h5, h6")];
   const sel = view.state.selection.from;
@@ -58,7 +97,7 @@ function getLiveHeadingIndex(view: EditorView): number {
 }
 
 function jumpToHeading(view: EditorView, markdown: string, docLine: number): void {
-  const pos = findHeadingPos(view, markdown, docLine);
+  const pos = findDocLinePos(view, markdown, docLine);
   if (pos === null) return;
   const safePos = Math.min(Math.max(pos, 0), view.state.doc.content.size);
   view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, safePos)));
@@ -192,4 +231,4 @@ export function runLiveEditorShortcut(
   }
 }
 
-export { findHeadingPos, jumpToHeading };
+export { findHeadingPos, findDocLinePos, jumpToHeading };

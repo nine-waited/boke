@@ -9,6 +9,16 @@ export interface OutlineHeading {
   docLine: number;
 }
 
+/** Convert a 0-based body line (after frontmatter) to a 0-based full-document line. */
+export function bodyLineToDocLine(content: string, bodyLine: number): number {
+  const fm = content.match(FRONTMATTER_RE);
+  if (!fm) return Math.max(0, bodyLine);
+  const offset = fm[0].endsWith("\n")
+    ? fm[0].split(/\r?\n/).length - 1
+    : fm[0].split(/\r?\n/).length;
+  return Math.max(0, offset + bodyLine);
+}
+
 export function extractHeadings(path: string, content: string): OutlineHeading[] {
   const fm = content.match(FRONTMATTER_RE);
   const offset = fm ? fm[0].split(/\r?\n/).length : 0;

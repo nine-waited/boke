@@ -609,28 +609,43 @@ body.boke-sidebar-resizing * {
 
 .boke-sidebar-content {
   flex: 1;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 4px 0;
   min-height: 0;
+}
+
+.boke-file-tree-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.boke-file-tree-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   --boke-sidebar-scroll-size: 4px;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--boke-text-muted) 42%, transparent) transparent;
 }
 
-.boke-sidebar-content::-webkit-scrollbar {
+.boke-file-tree-scroll::-webkit-scrollbar {
   width: var(--boke-sidebar-scroll-size);
 }
 
-.boke-sidebar-content::-webkit-scrollbar-track {
+.boke-file-tree-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.boke-sidebar-content::-webkit-scrollbar-thumb {
+.boke-file-tree-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--boke-text-muted) 42%, transparent);
   border-radius: 999px;
 }
 
-.boke-sidebar-content::-webkit-scrollbar-thumb:hover {
+.boke-file-tree-scroll::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--boke-text-muted) 62%, transparent);
 }
 
@@ -1174,12 +1189,12 @@ body.boke-outline-resizing * {
 }
 
 .boke-file-tree-pinned {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: relative;
+  flex-shrink: 0;
+  z-index: 1;
   margin: 0 0 4px;
   padding: 4px 4px 6px;
-  background: color-mix(in srgb, var(--boke-bg-secondary) 92%, var(--boke-bg-primary));
+  background: color-mix(in srgb, var(--boke-bg-secondary) 92%, var(--boke-bg));
   border-bottom: 1px solid var(--boke-border);
   user-select: none;
 }
@@ -1887,10 +1902,39 @@ body.boke-file-tree-dragging .boke-file-tree-item {
   background: var(--boke-surface);
 }
 
-.boke-palette-item small {
+.boke-palette-item small,
+.boke-palette-item-path {
   display: block;
   color: var(--boke-text-muted);
   font-size: 12px;
+}
+
+.boke-palette-item-path {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boke-palette-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boke-palette-snippet {
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--boke-text-muted);
+}
+
+.boke-palette-snippet-match {
+  font-weight: 700;
+  color: var(--boke-error);
 }
 
 .boke-markdown-preview {
