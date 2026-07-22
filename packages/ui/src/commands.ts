@@ -55,12 +55,12 @@ export function registerCoreCommands(): void {
     name: t("commands.toggleSource"),
     category: t("commands.category"),
     callback: () => {
-      const state = workspaceStore.getState();
-      const leaf = state.active;
-      if (leaf?.type === "markdown" && leaf.path) {
-        const next = leaf.mode === "source" ? "live" : "source";
-        workspaceStore.setMode(leaf.id, next);
-      }
+  const state = workspaceStore.getState();
+  const leaf = state.panes[state.focusedPane].active ?? state.active;
+  if (leaf?.type === "markdown" && leaf.path) {
+    const next = leaf.mode === "source" ? "live" : "source";
+    workspaceStore.setMode(leaf.id, next);
+  }
     },
   });
 }

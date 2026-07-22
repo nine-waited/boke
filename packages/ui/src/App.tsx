@@ -5,11 +5,13 @@ import {
   lazy,
   Suspense,
   useMemo,
+  useCallback,
   type CSSProperties,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { isTauri, TauriFsAdapter } from "@chestnut/storage-adapters";
-import type { Leaf, LeafMode } from "@chestnut/core";
+import type { Leaf, LeafMode, PaneId } from "@chestnut/core";
 import { normalizeLeafMode } from "@chestnut/core";
 import { TabBar } from "./components/TabBar.js";
 import { FileTree } from "./components/FileTree.js";
@@ -28,6 +30,7 @@ import { GlobalKeyboardShortcuts } from "./components/GlobalKeyboardShortcuts.js
 import { ToolbarVaultPath } from "./components/ToolbarVaultPath.js";
 import { ToolbarIconButton } from "./components/ToolbarIconButton.js";
 import { ToolbarAlwaysOnTopButton } from "./components/ToolbarAlwaysOnTopButton.js";
+import { ToolbarSplitButton } from "./components/ToolbarSplitButton.js";
 import { ToolbarImportMarkdownButton } from "./components/ToolbarImportMarkdownButton.js";
 import { QuickOpenIcon, SearchIcon, SettingsIcon } from "./icons/toolbar-icons.js";
 import { formatShortcutLabel } from "./keyboard-shortcuts.js";
@@ -57,37 +60,44 @@ interface EditorMountSnapshot {
   markdownLeaves: Leaf[];
   markdownKey: string;
   lruKey: string;
+  paneKey: string;
 }
 
-let cachedEditorMountSnapshot: EditorMountSnapshot | null = null;
+const cachedEditorMountByPane = new Map<PaneId, EditorMountSnapshot>();
 
-function getEditorMountSnapshot(): EditorMountSnapshot {
+function getEditorMountSnapshot(paneId: PaneId): EditorMountSnapshot {
   const state = workspaceStore.getState();
-  const markdownLeaves = state.leaves.filter((leaf) => leaf.type === "markdown" && leaf.path);
-  const markdownKey = markdownLeaves.map((leaf) => `${leaf.path}\0${normalizeLeafMode(leaf.mode)}`).join("\n");
+  const pane = state.panes[paneId];
+  const markdownLeaves = pane.leaves.filter((leaf) => leaf.type === "markdown" && leaf.path);
+  const markdownKey = markdownLeaves
+    .map((leaf) => `${leaf.path}\0${normalizeLeafMode(leaf.mode)}`)
+    .join("\n");
   const lruKey = editorPaneLru.getSnapshot().join("\n");
-  const activePath = state.active?.path ?? null;
-  const activeType = state.active?.type;
-  const prev = cachedEditorMountSnapshot;
+  const activePath = pane.active?.path ?? null;
+  const activeType = pane.active?.type;
+  const paneKey = `${pane.activeId}\0${activeType}\0${activePath}`;
+  const prev = cachedEditorMountByPane.get(paneId) ?? null;
   if (
     prev &&
-    prev.activeId === state.activeId &&
+    prev.activeId === pane.activeId &&
     prev.activeType === activeType &&
     prev.activePath === activePath &&
     prev.markdownKey === markdownKey &&
-    prev.lruKey === lruKey
+    prev.lruKey === lruKey &&
+    prev.paneKey === paneKey
   ) {
     return prev;
   }
   const next: EditorMountSnapshot = {
-    activeId: state.activeId,
+    activeId: pane.activeId,
     activeType,
     activePath,
     markdownLeaves,
     markdownKey,
     lruKey,
+    paneKey,
   };
-  cachedEditorMountSnapshot = next;
+  cachedEditorMountByPane.set(paneId, next);
   return next;
 }
 
@@ -100,9 +110,9 @@ function subscribeEditorMount(onStoreChange: () => void): () => void {
   };
 }
 
-function EditorContent() {
+function EditorContent({ paneId }: { paneId: PaneId }) {
   const t = useT();
-  const mount = useSyncExternalStore(subscribeEditorMount, getEditorMountSnapshot);
+  const mount = useSyncExternalStore(subscribeEditorMount, () => getEditorMountSnapshot(paneId));
   const vaultMounted = useAppStore((s) => s.vaultMounted);
 
   const lastModeByPathRef = useRef(new Map<string, LeafMode>());
@@ -190,7 +200,9 @@ function EditorContent() {
           {mountPaths.map((path) => {
             const leaf = leafByPath.get(path);
             const isActive = markdownVisible && mount.activePath === path;
-            const mode = leaf ? normalizeLeafMode(leaf.mode) : (lastModeByPathRef.current.get(path) ?? "live");
+            const mode = leaf
+              ? normalizeLeafMode(leaf.mode)
+              : (lastModeByPathRef.current.get(path) ?? "live");
             return (
               <div
                 key={path}
@@ -201,6 +213,7 @@ function EditorContent() {
                   path={path}
                   mode={mode}
                   leafId={leaf?.id ?? `parked:${path}`}
+                  paneId={paneId}
                   isActive={isActive}
                 />
               </div>
@@ -210,6 +223,86 @@ function EditorContent() {
       )}
       {nonMarkdown}
     </>
+  );
+}
+
+function EditorColumn({ paneId }: { paneId: PaneId }) {
+  const focusedPane = useSyncExternalStore(
+    (cb) => workspaceStore.subscribe(cb),
+    () => workspaceStore.getState().focusedPane,
+  );
+  const split = useSyncExternalStore(
+    (cb) => workspaceStore.subscribe(cb),
+    () => workspaceStore.getState().split,
+  );
+  const isFocused = !split || focusedPane === paneId;
+
+  return (
+    <div
+      className={`boke-editor-pane${isFocused ? " is-focused" : ""}`}
+      data-pane={paneId}
+      onMouseDownCapture={() => workspaceStore.setFocusedPane(paneId)}
+      onDragOver={(event) => {
+        if (!split) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(event) => {
+        if (!split) return;
+        event.preventDefault();
+        const leafId =
+          event.dataTransfer.getData("application/x-chestnut-tab") ||
+          event.dataTransfer.getData("text/plain");
+        if (!leafId) return;
+        workspaceStore.moveLeafToPane(leafId, paneId);
+      }}
+    >
+      <TabBar paneId={paneId} />
+      <div className="boke-content" data-pane={paneId} tabIndex={-1}>
+        <EditorContent paneId={paneId} />
+      </div>
+    </div>
+  );
+}
+
+function SplitResizeHandle() {
+  const setSplitRatio = useAppStore((s) => s.setSplitRatio);
+  const dragging = useRef(false);
+
+  const onPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const handle = event.currentTarget;
+      const area = handle.parentElement;
+      if (!area) return;
+      dragging.current = true;
+      handle.setPointerCapture(event.pointerId);
+
+      const onMove = (e: PointerEvent) => {
+        if (!dragging.current) return;
+        const rect = area.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        setSplitRatio((e.clientX - rect.left) / rect.width);
+      };
+      const onUp = (e: PointerEvent) => {
+        dragging.current = false;
+        handle.releasePointerCapture(e.pointerId);
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [setSplitRatio],
+  );
+
+  return (
+    <div
+      className="boke-split-resize-handle"
+      role="separator"
+      aria-orientation="vertical"
+      onPointerDown={onPointerDown}
+    />
   );
 }
 
@@ -227,7 +320,12 @@ export function App() {
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
   const toggleSidebarCollapsed = useAppStore((s) => s.toggleSidebarCollapsed);
+  const splitRatio = useAppStore((s) => s.splitRatio);
   const autoMountStarted = useRef(false);
+  const split = useSyncExternalStore(
+    (cb) => workspaceStore.subscribe(cb),
+    () => workspaceStore.getState().split,
+  );
 
   useEffect(() => {
     if (!commandsRegistered) {
@@ -298,6 +396,7 @@ export function App() {
             </ToolbarIconButton>
             <ToolbarImportMarkdownButton />
             <ToolbarAlwaysOnTopButton />
+            <ToolbarSplitButton />
           </div>
         </div>
       </div>
@@ -324,11 +423,31 @@ export function App() {
           </div>
         )}
 
-        <div className="boke-editor-area">
-          {vaultMounted && <TabBar />}
-          <div className="boke-content" tabIndex={-1}>
-            <EditorContent />
-          </div>
+        <div
+          className={`boke-editor-area${split ? " is-split" : ""}`}
+          style={
+            split
+              ? ({
+                  gridTemplateColumns: `${splitRatio}fr 5px ${1 - splitRatio}fr`,
+                } as CSSProperties)
+              : undefined
+          }
+        >
+          {vaultMounted ? (
+            split ? (
+              <>
+                <EditorColumn paneId="left" />
+                <SplitResizeHandle />
+                <EditorColumn paneId="right" />
+              </>
+            ) : (
+              <EditorColumn paneId="left" />
+            )
+          ) : (
+            <div className="boke-content" tabIndex={-1}>
+              <EditorContent paneId="left" />
+            </div>
+          )}
         </div>
       </div>
 

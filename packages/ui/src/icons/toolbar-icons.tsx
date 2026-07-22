@@ -167,3 +167,28 @@ export function AlwaysOnTopIcon({ slashed = false }: { slashed?: boolean }) {
     </svg>
   );
 }
+
+/** Two vertical panes — split editor. */
+export function SplitViewIcon() {
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <rect
+        x="3.5"
+        y="4.5"
+        width="17"
+        height="15"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <path
+        d="M12 4.5v15"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}

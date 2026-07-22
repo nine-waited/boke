@@ -1,7 +1,12 @@
+import { workspaceStore } from "./store.js";
+
 /** Focus the main editor surface after hiding the file sidebar. */
-export function focusMainContent(): void {
+export function focusMainContent(paneId?: "left" | "right"): void {
   requestAnimationFrame(() => {
-    const root = document.querySelector<HTMLElement>(".boke-content");
+    const id = paneId ?? workspaceStore.getFocusedPane();
+    const root =
+      document.querySelector<HTMLElement>(`.boke-content[data-pane="${id}"]`) ??
+      document.querySelector<HTMLElement>(".boke-content");
     if (!root) return;
 
     root.focus({ preventScroll: true });

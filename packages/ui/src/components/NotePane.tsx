@@ -1,9 +1,10 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { normalizeLeafMode, noteBaseName, sanitizeNoteTitle, type LeafMode } from "@chestnut/core";
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { normalizeLeafMode, noteBaseName, sanitizeNoteTitle, type LeafMode, type PaneId } from "@chestnut/core";
 import { EditorZoomHost } from "./EditorZoomHost.js";
 import { MarkdownEditor, type MarkdownEditorHandle } from "./MarkdownEditor.js";
 import { MarkdownSourceEditor, type MarkdownSourceEditorHandle } from "./MarkdownSourceEditor.js";
 import { OutlinePanel } from "./OutlinePanel.js";
+import { OutlineBoundaryControl } from "./OutlineBoundaryControl.js";
 import type { OutlineHeading } from "../markdown-outline.js";
 import { formatImageMarkdown, savePastedNoteImage } from "../note-images.js";
 import { isDefaultUntitledName, useLocale, useT } from "../i18n/index.js";
@@ -14,6 +15,7 @@ interface NotePaneProps {
   path: string;
   mode: LeafMode | string;
   leafId: string;
+  paneId?: PaneId;
   /** When false, pane is keep-alive hidden; editors stay mounted. */
   isActive?: boolean;
 }
@@ -107,7 +109,13 @@ function NoteTitleBar({
   );
 }
 
-export const NotePane = memo(function NotePane({ path, mode, leafId, isActive = true }: NotePaneProps) {
+export const NotePane = memo(function NotePane({
+  path,
+  mode,
+  leafId,
+  paneId = "left",
+  isActive = true,
+}: NotePaneProps) {
   const t = useT();
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -189,6 +197,11 @@ export const NotePane = memo(function NotePane({ path, mode, leafId, isActive = 
     [viewMode, content],
   );
 
+  const outlineCollapsed = useAppStore((s) => s.outlineLayouts[paneId].collapsed);
+  const outlineWidth = useAppStore((s) => s.outlineLayouts[paneId].width);
+  const setOutlineWidth = useAppStore((s) => s.setOutlineWidth);
+  const toggleOutlineCollapsed = useAppStore((s) => s.toggleOutlineCollapsed);
+
   if (loading && !loadedOnceRef.current) {
     return <div style={{ padding: 24, color: "var(--boke-text-muted)" }}>{t("note.loading")}</div>;
   }
@@ -240,7 +253,24 @@ export const NotePane = memo(function NotePane({ path, mode, leafId, isActive = 
           </div>
         </EditorZoomHost>
       </div>
-      <OutlinePanel path={path} content={content} onHeadingClick={handleHeadingClick} />
+      <div
+        className={`boke-outline-shell${outlineCollapsed ? " is-collapsed" : ""}`}
+        style={
+          {
+            "--boke-outline-width": outlineCollapsed ? "0px" : `${outlineWidth}px`,
+          } as CSSProperties
+        }
+      >
+        <OutlineBoundaryControl
+          collapsed={outlineCollapsed}
+          width={outlineWidth}
+          onWidthChange={(width) => setOutlineWidth(paneId, width)}
+          onToggleCollapsed={() => toggleOutlineCollapsed(paneId)}
+        />
+        <div className="boke-outline-panel">
+          <OutlinePanel path={path} content={content} onHeadingClick={handleHeadingClick} />
+        </div>
+      </div>
     </div>
   );
 });

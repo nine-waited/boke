@@ -1,6 +1,16 @@
-export type LeafType = "empty" | "markdown" | "excalidraw" | "image" | "pdf" | "graph" | "settings" | "publish";
+export type LeafType =
+  | "empty"
+  | "markdown"
+  | "excalidraw"
+  | "image"
+  | "pdf"
+  | "graph"
+  | "settings"
+  | "publish";
 
 export type LeafMode = "live" | "source";
+
+export type PaneId = "left" | "right";
 
 export function normalizeLeafMode(mode?: string): LeafMode {
   return mode === "source" ? "source" : "live";
@@ -16,10 +26,25 @@ export interface Leaf {
 
 export type WorkspaceListener = () => void;
 
-export interface WorkspaceState {
+export interface PaneState {
   leaves: Leaf[];
   activeId: string;
   active: Leaf | null;
+}
+
+export interface WorkspaceState {
+  split: boolean;
+  focusedPane: PaneId;
+  panes: { left: PaneState; right: PaneState };
+  /** Focused pane leaves (compat for existing callers). */
+  leaves: Leaf[];
+  activeId: string;
+  active: Leaf | null;
+}
+
+interface PaneData {
+  leaves: Leaf[];
+  activeId: string;
 }
 
 let nextId = 1;
@@ -27,17 +52,52 @@ function uid(): string {
   return `leaf-${nextId++}`;
 }
 
+function emptyPane(): PaneData {
+  const leaf: Leaf = { id: uid(), type: "empty" };
+  return { leaves: [leaf], activeId: leaf.id };
+}
+
+function paneSnapshot(pane: PaneData): PaneState {
+  return {
+    leaves: [...pane.leaves],
+    activeId: pane.activeId,
+    active: pane.leaves.find((l) => l.id === pane.activeId) ?? null,
+  };
+}
+
+function otherPaneId(paneId: PaneId): PaneId {
+  return paneId === "left" ? "right" : "left";
+}
+
+function leafPathKey(leaf: Leaf): string | null {
+  if (leaf.path) return `path:${leaf.path}`;
+  if (leaf.type === "graph" || leaf.type === "settings" || leaf.type === "publish") {
+    return `type:${leaf.type}`;
+  }
+  return null;
+}
+
 export class WorkspaceStore {
-  private leaves: Leaf[] = [{ id: uid(), type: "empty" }];
-  private activeId: string = this.leaves[0].id;
+  private split = false;
+  private focusedPane: PaneId = "left";
+  private panes: { left: PaneData; right: PaneData } = {
+    left: emptyPane(),
+    right: emptyPane(),
+  };
   private listeners = new Set<WorkspaceListener>();
   private snapshot: WorkspaceState = this.buildSnapshot();
 
   private buildSnapshot(): WorkspaceState {
+    const left = paneSnapshot(this.panes.left);
+    const right = paneSnapshot(this.panes.right);
+    const focused = this.focusedPane === "left" ? left : right;
     return {
-      leaves: [...this.leaves],
-      activeId: this.activeId,
-      active: this.leaves.find((l) => l.id === this.activeId) ?? null,
+      split: this.split,
+      focusedPane: this.focusedPane,
+      panes: { left, right },
+      leaves: focused.leaves,
+      activeId: focused.activeId,
+      active: focused.active,
     };
   }
 
@@ -55,228 +115,390 @@ export class WorkspaceStore {
     for (const l of this.listeners) l();
   }
 
-  openFile(path: string, opts?: { newTab?: boolean; mode?: LeafMode }): string {
-    const mode = opts?.mode ?? "live";
+  getFocusedPane(): PaneId {
+    return this.focusedPane;
+  }
 
-    // Prefer an existing tab for this path so keep-alive panes stay bound.
-    if (!opts?.newTab) {
-      const existing = this.leaves.find((l) => l.type === "markdown" && l.path === path);
-      if (existing) {
-        this.activeId = existing.id;
-        existing.mode = mode;
-        this.notify();
-        return existing.id;
+  isSplit(): boolean {
+    return this.split;
+  }
+
+  setFocusedPane(paneId: PaneId): void {
+    if (!this.split && paneId === "right") return;
+    if (this.focusedPane === paneId) return;
+    this.focusedPane = paneId;
+    this.notify();
+  }
+
+  toggleSplit(): void {
+    if (this.split) this.exitSplit();
+    else this.enterSplit();
+  }
+
+  setSplit(enabled: boolean): void {
+    if (enabled === this.split) return;
+    if (enabled) this.enterSplit();
+    else this.exitSplit();
+  }
+
+  private enterSplit(): void {
+    const left = this.panes.left;
+    const active = left.leaves.find((l) => l.id === left.activeId) ?? null;
+    const contentCount = left.leaves.filter((l) => l.type !== "empty").length;
+
+    if (active && active.type !== "empty" && contentCount > 1) {
+      const activeIndex = left.leaves.findIndex((l) => l.id === active.id);
+      left.leaves = left.leaves.filter((l) => l.id !== active.id);
+      if (left.leaves.length === 0) {
+        const empty = emptyPane();
+        left.leaves = empty.leaves;
+        left.activeId = empty.activeId;
+      } else {
+        left.activeId = this.pickNeighborActiveId(left.leaves, activeIndex, active.id);
       }
+      this.panes.right = { leaves: [active], activeId: active.id };
+      this.focusedPane = "right";
+    } else {
+      this.panes.right = emptyPane();
+      this.focusedPane = "left";
+    }
+    this.split = true;
+    this.notify();
+  }
 
-      // Only reuse an empty welcome leaf — never rewrite another note's path
-      // (that remounts/reloads the editor and drops undo).
-      const active = this.leaves.find((l) => l.id === this.activeId);
-      if (active && !active.pinned && active.type === "empty") {
-        active.type = "markdown";
-        active.path = path;
-        active.mode = mode;
-        this.notify();
-        return active.id;
+  private exitSplit(): void {
+    const focused = this.focusedPane;
+    const focusActive =
+      this.panes[focused].leaves.find((l) => l.id === this.panes[focused].activeId) ?? null;
+    const order: PaneId[] = focused === "left" ? ["left", "right"] : ["right", "left"];
+    const merged: Leaf[] = [];
+    const seen = new Set<string>();
+
+    for (const paneId of order) {
+      for (const leaf of this.panes[paneId].leaves) {
+        if (leaf.type === "empty") continue;
+        const key = leafPathKey(leaf);
+        if (key) {
+          if (seen.has(key)) continue;
+          seen.add(key);
+        }
+        merged.push(leaf);
       }
     }
 
-    const leaf: Leaf = { id: uid(), type: "markdown", path, mode };
-    this.leaves.push(leaf);
-    this.activeId = leaf.id;
-    this.notify();
-    return leaf.id;
-  }
-
-  openExcalidraw(path: string, opts?: { newTab?: boolean }): string {
-    if (!opts?.newTab) {
-      const active = this.leaves.find((l) => l.id === this.activeId);
-      if (active && !active.pinned && (active.type === "empty" || active.type === "excalidraw")) {
-        active.type = "excalidraw";
-        active.path = path;
-        this.notify();
-        return active.id;
+    if (merged.length === 0) {
+      this.panes.left = emptyPane();
+    } else {
+      let activeId = merged[0].id;
+      if (focusActive) {
+        const byId = merged.find((l) => l.id === focusActive.id);
+        if (byId) activeId = byId.id;
+        else if (focusActive.path) {
+          const byPath = merged.find((l) => l.path === focusActive.path);
+          if (byPath) activeId = byPath.id;
+        } else {
+          const byType = merged.find((l) => l.type === focusActive.type && !l.path);
+          if (byType) activeId = byType.id;
+        }
       }
-      const existing = this.leaves.find((l) => l.type === "excalidraw" && l.path === path);
-      if (existing) {
-        this.activeId = existing.id;
-        this.notify();
-        return existing.id;
-      }
+      this.panes.left = { leaves: merged, activeId };
     }
-    const leaf: Leaf = { id: uid(), type: "excalidraw", path };
-    this.leaves.push(leaf);
-    this.activeId = leaf.id;
+    this.panes.right = emptyPane();
+    this.split = false;
+    this.focusedPane = "left";
     this.notify();
-    return leaf.id;
   }
 
-  openImage(path: string, opts?: { newTab?: boolean }): string {
+  /** Prefer the tab left of the removed index; else the tab that landed at that index. */
+  private pickNeighborActiveId(leaves: Leaf[], removedIndex: number, _removedId: string): string {
+    for (let i = Math.min(removedIndex - 1, leaves.length - 1); i >= 0; i--) {
+      if (leaves[i]) return leaves[i].id;
+    }
+    return leaves[0]?.id ?? emptyPane().activeId;
+  }
+
+  private findPaneIdForLeaf(leafId: string): PaneId | null {
+    if (this.panes.left.leaves.some((l) => l.id === leafId)) return "left";
+    if (this.panes.right.leaves.some((l) => l.id === leafId)) return "right";
+    return null;
+  }
+
+  private findLeafByPath(
+    path: string,
+    type: LeafType,
+  ): { paneId: PaneId; leaf: Leaf } | null {
+    for (const paneId of ["left", "right"] as PaneId[]) {
+      const leaf = this.panes[paneId].leaves.find((l) => l.type === type && l.path === path);
+      if (leaf) return { paneId, leaf };
+    }
+    return null;
+  }
+
+  private findSingleton(type: "graph" | "settings" | "publish"): { paneId: PaneId; leaf: Leaf } | null {
+    for (const paneId of ["left", "right"] as PaneId[]) {
+      const leaf = this.panes[paneId].leaves.find((l) => l.type === type);
+      if (leaf) return { paneId, leaf };
+    }
+    return null;
+  }
+
+  private activateLeaf(paneId: PaneId, leafId: string): void {
+    this.focusedPane = paneId;
+    this.panes[paneId].activeId = leafId;
+  }
+
+  private openPathLeaf(
+    type: "markdown" | "excalidraw" | "image" | "pdf",
+    path: string,
+    opts?: { newTab?: boolean; mode?: LeafMode; pane?: PaneId },
+  ): string {
+    const targetPane = opts?.pane ?? this.focusedPane;
+
+    // Never open the same path on both panes (even with newTab).
+    const existing = this.findLeafByPath(path, type);
+    if (existing && !opts?.newTab) {
+      if (type === "markdown" && opts?.mode) {
+        existing.leaf.mode = normalizeLeafMode(opts.mode);
+      }
+      this.activateLeaf(existing.paneId, existing.leaf.id);
+      this.notify();
+      return existing.leaf.id;
+    }
+    if (existing && opts?.newTab) {
+      if (type === "markdown" && opts?.mode) {
+        existing.leaf.mode = normalizeLeafMode(opts.mode);
+      }
+      this.activateLeaf(existing.paneId, existing.leaf.id);
+      this.notify();
+      return existing.leaf.id;
+    }
+
+    if (!this.split && targetPane === "right") {
+      return this.openPathLeaf(type, path, { ...opts, pane: "left" });
+    }
+
+    const pane = this.panes[targetPane];
+    this.focusedPane = targetPane;
+
     if (!opts?.newTab) {
-      const active = this.leaves.find((l) => l.id === this.activeId);
-      if (active && !active.pinned && (active.type === "empty" || active.type === "image")) {
-        active.type = "image";
+      const active = pane.leaves.find((l) => l.id === pane.activeId);
+      if (type === "markdown") {
+        if (active && !active.pinned && active.type === "empty") {
+          active.type = "markdown";
+          active.path = path;
+          active.mode = opts?.mode ?? "live";
+          this.notify();
+          return active.id;
+        }
+      } else if (active && !active.pinned && (active.type === "empty" || active.type === type)) {
+        active.type = type;
         active.path = path;
         active.mode = undefined;
         this.notify();
         return active.id;
       }
-      const existing = this.leaves.find((l) => l.type === "image" && l.path === path);
-      if (existing) {
-        this.activeId = existing.id;
-        this.notify();
-        return existing.id;
-      }
     }
-    const leaf: Leaf = { id: uid(), type: "image", path };
-    this.leaves.push(leaf);
-    this.activeId = leaf.id;
+
+    const leaf: Leaf = {
+      id: uid(),
+      type,
+      path,
+      mode: type === "markdown" ? (opts?.mode ?? "live") : undefined,
+    };
+    pane.leaves.push(leaf);
+    pane.activeId = leaf.id;
     this.notify();
     return leaf.id;
   }
 
-  openPdf(path: string, opts?: { newTab?: boolean }): string {
-    if (!opts?.newTab) {
-      const active = this.leaves.find((l) => l.id === this.activeId);
-      if (active && !active.pinned && (active.type === "empty" || active.type === "pdf")) {
-        active.type = "pdf";
-        active.path = path;
-        active.mode = undefined;
-        this.notify();
-        return active.id;
-      }
-      const existing = this.leaves.find((l) => l.type === "pdf" && l.path === path);
-      if (existing) {
-        this.activeId = existing.id;
-        this.notify();
-        return existing.id;
-      }
+  openFile(path: string, opts?: { newTab?: boolean; mode?: LeafMode; pane?: PaneId }): string {
+    return this.openPathLeaf("markdown", path, opts);
+  }
+
+  openExcalidraw(path: string, opts?: { newTab?: boolean; pane?: PaneId }): string {
+    return this.openPathLeaf("excalidraw", path, opts);
+  }
+
+  openImage(path: string, opts?: { newTab?: boolean; pane?: PaneId }): string {
+    return this.openPathLeaf("image", path, opts);
+  }
+
+  openPdf(path: string, opts?: { newTab?: boolean; pane?: PaneId }): string {
+    return this.openPathLeaf("pdf", path, opts);
+  }
+
+  private openSingleton(type: "graph" | "settings" | "publish"): string {
+    const existing = this.findSingleton(type);
+    if (existing) {
+      this.activateLeaf(existing.paneId, existing.leaf.id);
+      this.notify();
+      return existing.leaf.id;
     }
-    const leaf: Leaf = { id: uid(), type: "pdf", path };
-    this.leaves.push(leaf);
-    this.activeId = leaf.id;
+    const paneId = this.focusedPane;
+    const pane = this.panes[paneId];
+    const leaf: Leaf = { id: uid(), type };
+    pane.leaves.push(leaf);
+    pane.activeId = leaf.id;
     this.notify();
     return leaf.id;
   }
 
   openGraph(): string {
-    const existing = this.leaves.find((l) => l.type === "graph");
-    if (existing) {
-      this.activeId = existing.id;
-      this.notify();
-      return existing.id;
-    }
-    const leaf: Leaf = { id: uid(), type: "graph" };
-    this.leaves.push(leaf);
-    this.activeId = leaf.id;
-    this.notify();
-    return leaf.id;
+    return this.openSingleton("graph");
   }
 
   openSettings(): string {
-    const existing = this.leaves.find((l) => l.type === "settings");
-    if (existing) {
-      this.activeId = existing.id;
-      this.notify();
-      return existing.id;
-    }
-    const leaf: Leaf = { id: uid(), type: "settings" };
-    this.leaves.push(leaf);
-    this.activeId = leaf.id;
-    this.notify();
-    return leaf.id;
+    return this.openSingleton("settings");
   }
 
   openPublish(): string {
-    const existing = this.leaves.find((l) => l.type === "publish");
-    if (existing) {
-      this.activeId = existing.id;
-      this.notify();
-      return existing.id;
-    }
-    const leaf: Leaf = { id: uid(), type: "publish" };
-    this.leaves.push(leaf);
-    this.activeId = leaf.id;
-    this.notify();
-    return leaf.id;
+    return this.openSingleton("publish");
   }
 
   setActive(id: string): void {
-    if (this.leaves.some((l) => l.id === id)) {
-      this.activeId = id;
-      this.notify();
-    }
+    const paneId = this.findPaneIdForLeaf(id);
+    if (!paneId) return;
+    this.activateLeaf(paneId, id);
+    this.notify();
   }
 
   closeTab(id: string): void {
-    if (this.leaves.length <= 1) {
-      const leaf = this.leaves[0];
+    const paneId = this.findPaneIdForLeaf(id);
+    if (!paneId) return;
+    const pane = this.panes[paneId];
+    if (pane.leaves.length <= 1) {
+      const leaf = pane.leaves[0];
       if (!leaf || leaf.id !== id || leaf.type === "empty") return;
       const empty: Leaf = { id: uid(), type: "empty" };
-      this.leaves = [empty];
-      this.activeId = empty.id;
+      pane.leaves = [empty];
+      pane.activeId = empty.id;
       this.notify();
       return;
     }
-    this.closeTabs([id]);
+    this.closeTabsInPane(paneId, [id]);
   }
 
   closeOtherTabs(id: string): void {
-    const toClose = this.leaves.filter((l) => l.id !== id).map((l) => l.id);
+    const paneId = this.findPaneIdForLeaf(id);
+    if (!paneId) return;
+    const pane = this.panes[paneId];
+    const toClose = pane.leaves.filter((l) => l.id !== id).map((l) => l.id);
     if (toClose.length === 0) return;
-    this.activeId = id;
-    this.closeTabs(toClose);
+    pane.activeId = id;
+    this.closeTabsInPane(paneId, toClose);
   }
 
   closeTabsToLeft(id: string): void {
-    const idx = this.leaves.findIndex((l) => l.id === id);
+    const paneId = this.findPaneIdForLeaf(id);
+    if (!paneId) return;
+    const pane = this.panes[paneId];
+    const idx = pane.leaves.findIndex((l) => l.id === id);
     if (idx <= 0) return;
-    this.closeTabs(this.leaves.slice(0, idx).map((l) => l.id));
+    this.closeTabsInPane(
+      paneId,
+      pane.leaves.slice(0, idx).map((l) => l.id),
+    );
   }
 
   closeTabsToRight(id: string): void {
-    const idx = this.leaves.findIndex((l) => l.id === id);
-    if (idx < 0 || idx >= this.leaves.length - 1) return;
-    this.closeTabs(this.leaves.slice(idx + 1).map((l) => l.id));
+    const paneId = this.findPaneIdForLeaf(id);
+    if (!paneId) return;
+    const pane = this.panes[paneId];
+    const idx = pane.leaves.findIndex((l) => l.id === id);
+    if (idx < 0 || idx >= pane.leaves.length - 1) return;
+    this.closeTabsInPane(
+      paneId,
+      pane.leaves.slice(idx + 1).map((l) => l.id),
+    );
   }
 
-  closeAllTabs(): void {
-    const toClose = this.leaves.map((l) => l.id);
-    this.closeTabs(toClose);
+  /** Close all tabs in one pane. Does not exit split. Defaults to focused pane. */
+  closeAllTabs(paneId?: PaneId): void {
+    const id = paneId ?? this.focusedPane;
+    this.closeTabsInPane(
+      id,
+      this.panes[id].leaves.map((l) => l.id),
+    );
   }
 
-  private closeTabs(idsToClose: string[]): void {
+  private closeTabsInPane(paneId: PaneId, idsToClose: string[]): void {
     if (idsToClose.length === 0) return;
+    const pane = this.panes[paneId];
     const closeSet = new Set(idsToClose);
-    const next = this.leaves.filter((l) => !closeSet.has(l.id));
-    if (next.length === this.leaves.length) return;
+    const next = pane.leaves.filter((l) => !closeSet.has(l.id));
+    if (next.length === pane.leaves.length) return;
 
     if (next.length === 0) {
       const empty: Leaf = { id: uid(), type: "empty" };
-      this.leaves = [empty];
-      this.activeId = empty.id;
+      pane.leaves = [empty];
+      pane.activeId = empty.id;
       this.notify();
       return;
     }
 
-    if (closeSet.has(this.activeId)) {
-      const oldIdx = this.leaves.findIndex((l) => l.id === this.activeId);
+    if (closeSet.has(pane.activeId)) {
+      const oldIdx = pane.leaves.findIndex((l) => l.id === pane.activeId);
       let nextActiveId = next[0].id;
       for (let i = oldIdx; i >= 0; i--) {
-        const leaf = this.leaves[i];
+        const leaf = pane.leaves[i];
         if (!closeSet.has(leaf.id)) {
           nextActiveId = leaf.id;
           break;
         }
       }
-      this.activeId = nextActiveId;
+      pane.activeId = nextActiveId;
     }
 
-    this.leaves = next;
+    pane.leaves = next;
+    this.notify();
+  }
+
+  /**
+   * Move a tab to another pane. Same-path conflict activates the existing tab
+   * on the target and removes the dragged leaf from the source.
+   */
+  moveLeafToPane(leafId: string, to: PaneId): void {
+    if (!this.split) return;
+    const from = this.findPaneIdForLeaf(leafId);
+    if (!from || from === to) return;
+    const fromPane = this.panes[from];
+    const toPane = this.panes[to];
+    const leafIndex = fromPane.leaves.findIndex((l) => l.id === leafId);
+    if (leafIndex < 0) return;
+    const leaf = fromPane.leaves[leafIndex];
+    if (leaf.type === "empty") return;
+
+    const key = leafPathKey(leaf);
+    if (key) {
+      const conflict = toPane.leaves.find((l) => leafPathKey(l) === key);
+      if (conflict) {
+        this.closeTabsInPane(from, [leafId]);
+        this.activateLeaf(to, conflict.id);
+        this.notify();
+        return;
+      }
+    }
+
+    fromPane.leaves.splice(leafIndex, 1);
+    if (fromPane.leaves.length === 0) {
+      const empty: Leaf = { id: uid(), type: "empty" };
+      fromPane.leaves = [empty];
+      fromPane.activeId = empty.id;
+    } else if (fromPane.activeId === leafId) {
+      fromPane.activeId = this.pickNeighborActiveId(fromPane.leaves, leafIndex, leafId);
+    }
+
+    toPane.leaves = toPane.leaves.filter((l) => l.type !== "empty");
+    toPane.leaves.push(leaf);
+    toPane.activeId = leaf.id;
+    this.focusedPane = to;
     this.notify();
   }
 
   setMode(id: string, mode: LeafMode): void {
-    const leaf = this.leaves.find((l) => l.id === id);
+    const paneId = this.findPaneIdForLeaf(id);
+    if (!paneId) return;
+    const leaf = this.panes[paneId].leaves.find((l) => l.id === id);
     if (leaf && leaf.type === "markdown") {
       leaf.mode = normalizeLeafMode(mode);
       this.notify();
@@ -284,57 +506,106 @@ export class WorkspaceStore {
   }
 
   updatePath(leafId: string, newPath: string): void {
-    const leaf = this.leaves.find((l) => l.id === leafId);
+    const paneId = this.findPaneIdForLeaf(leafId);
+    if (!paneId) return;
+    const leaf = this.panes[paneId].leaves.find((l) => l.id === leafId);
     if (leaf && leaf.path) {
+      const other = otherPaneId(paneId);
+      const conflict = this.panes[other].leaves.find((l) => l.path === newPath);
+      if (conflict) {
+        leaf.type = "empty";
+        leaf.path = undefined;
+        leaf.mode = undefined;
+        this.notify();
+        return;
+      }
       leaf.path = newPath;
       this.notify();
     }
   }
 
+  private forEachLeaf(fn: (leaf: Leaf) => void): void {
+    for (const leaf of this.panes.left.leaves) fn(leaf);
+    for (const leaf of this.panes.right.leaves) fn(leaf);
+  }
+
   renamePath(oldPath: string, newPath: string): void {
     let changed = false;
-    for (const leaf of this.leaves) {
+    this.forEachLeaf((leaf) => {
       if (leaf.path === oldPath) {
         leaf.path = newPath;
         changed = true;
       }
-    }
-    if (changed) this.notify();
+    });
+    if (changed) this.dedupeAfterPathChange();
   }
 
   renamePathPrefix(oldPrefix: string, newPrefix: string): void {
     let changed = false;
     const prefix = `${oldPrefix}/`;
-    for (const leaf of this.leaves) {
-      if (!leaf.path) continue;
+    this.forEachLeaf((leaf) => {
+      if (!leaf.path) return;
       if (leaf.path === oldPrefix || leaf.path.startsWith(prefix)) {
         leaf.path = `${newPrefix}${leaf.path.slice(oldPrefix.length)}`;
         changed = true;
       }
+    });
+    if (changed) this.dedupeAfterPathChange();
+  }
+
+  /** After renames, drop duplicate paths keeping left-first order then notify. */
+  private dedupeAfterPathChange(): void {
+    const seen = new Set<string>();
+    for (const paneId of ["left", "right"] as PaneId[]) {
+      const pane = this.panes[paneId];
+      const next: Leaf[] = [];
+      for (const leaf of pane.leaves) {
+        if (leaf.path && seen.has(leaf.path)) continue;
+        if (leaf.path) seen.add(leaf.path);
+        next.push(leaf);
+      }
+      if (next.length === 0) {
+        const empty = emptyPane();
+        pane.leaves = empty.leaves;
+        pane.activeId = empty.activeId;
+      } else {
+        if (!next.some((l) => l.id === pane.activeId)) {
+          pane.activeId = next[0].id;
+        }
+        pane.leaves = next;
+      }
     }
-    if (changed) this.notify();
+    this.notify();
   }
 
   clearPathsForDelete(deletedPath: string, isDirectory: boolean): void {
     let changed = false;
     const prefix = `${deletedPath}/`;
-    for (const leaf of this.leaves) {
-      if (!leaf.path) continue;
+    this.forEachLeaf((leaf) => {
+      if (!leaf.path) return;
       const hit = isDirectory
         ? leaf.path === deletedPath || leaf.path.startsWith(prefix)
         : leaf.path === deletedPath;
-      if (!hit) continue;
+      if (!hit) return;
       leaf.type = "empty";
       leaf.path = undefined;
       leaf.mode = undefined;
       changed = true;
-    }
+    });
     if (changed) this.notify();
   }
 
   getActivePath(): string | null {
-    const active = this.leaves.find((l) => l.id === this.activeId);
+    const pane = this.panes[this.focusedPane];
+    const active = pane.leaves.find((l) => l.id === pane.activeId);
     return active?.path ?? null;
+  }
+
+  /** All markdown leaves across panes (for editor keep-alive). */
+  getAllMarkdownLeaves(): Leaf[] {
+    return [...this.panes.left.leaves, ...this.panes.right.leaves].filter(
+      (l) => l.type === "markdown" && l.path,
+    );
   }
 }
 

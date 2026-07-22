@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type MouseEvent } from "react";
+import type { PaneId } from "@chestnut/core";
 import { useT } from "../i18n/index.js";
 import { useAppStore, workspaceStore } from "../store.js";
 import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
@@ -6,12 +7,16 @@ import { focusMainContent, isFileContentTab } from "../focus-main-content.js";
 import { createAndOpenNote } from "../note-actions.js";
 import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
+const TAB_DRAG_MIME = "application/x-chestnut-tab";
+
 function TabContextMenu({
+  paneId,
   tabId,
   tabIndex,
   tabCount,
   onClose,
 }: {
+  paneId: PaneId;
   tabId: string;
   tabIndex: number;
   tabCount: number;
@@ -24,7 +29,7 @@ function TabContextMenu({
     action();
   };
 
-  const leaf = workspaceStore.getState().leaves.find((l) => l.id === tabId);
+  const leaf = workspaceStore.getState().panes[paneId].leaves.find((l) => l.id === tabId);
   const canCloseThis = !(tabCount === 1 && leaf?.type === "empty");
   const canCloseOthers = tabCount > 1;
   const canCloseLeft = tabIndex > 0;
@@ -49,12 +54,12 @@ function TabContextMenu({
       {item(t("tab.closeOthers"), !canCloseOthers, () => workspaceStore.closeOtherTabs(tabId))}
       {item(t("tab.closeToLeft"), !canCloseLeft, () => workspaceStore.closeTabsToLeft(tabId))}
       {item(t("tab.closeToRight"), !canCloseRight, () => workspaceStore.closeTabsToRight(tabId))}
-      {item(t("tab.closeAll"), !canCloseThis, () => workspaceStore.closeAllTabs())}
+      {item(t("tab.closeAll"), !canCloseThis, () => workspaceStore.closeAllTabs(paneId))}
     </>
   );
 }
 
-export function TabBar() {
+export function TabBar({ paneId = "left" }: { paneId?: PaneId }) {
   const t = useT();
   const tabsRef = useRef<HTMLDivElement>(null);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
@@ -70,7 +75,9 @@ export function TabBar() {
     tabIndex: number;
   } | null>(null);
 
-  const visibleLeaves = state.leaves.filter((leaf) => leaf.type !== "empty");
+  const pane = state.panes[paneId];
+  const visibleLeaves = pane.leaves.filter((leaf) => leaf.type !== "empty");
+  const isFocused = !state.split || state.focusedPane === paneId;
 
   useEffect(() => {
     const el = tabsRef.current;
@@ -102,7 +109,7 @@ export function TabBar() {
     };
   }, [contextMenu]);
 
-  const label = (leaf: (typeof state.leaves)[0]) => {
+  const label = (leaf: (typeof pane.leaves)[0]) => {
     switch (leaf.type) {
       case "markdown":
         return leaf.path?.split("/").pop() ?? t("tab.note");
@@ -130,32 +137,63 @@ export function TabBar() {
     setContextMenu({ x: event.clientX, y: event.clientY, tabId, tabIndex });
   };
 
+  const onDragStart = (event: DragEvent, leafId: string) => {
+    if (!state.split) return;
+    event.dataTransfer.setData(TAB_DRAG_MIME, leafId);
+    event.dataTransfer.setData("text/plain", leafId);
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  const onDragOver = (event: DragEvent) => {
+    if (!state.split) return;
+    if (![...event.dataTransfer.types].includes(TAB_DRAG_MIME) && !event.dataTransfer.types.includes("text/plain")) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const onDrop = (event: DragEvent) => {
+    if (!state.split) return;
+    event.preventDefault();
+    const leafId = event.dataTransfer.getData(TAB_DRAG_MIME) || event.dataTransfer.getData("text/plain");
+    if (!leafId) return;
+    workspaceStore.moveLeafToPane(leafId, paneId);
+  };
+
   return (
     <>
       <div
-        className="boke-tabs"
+        className={`boke-tabs${isFocused ? " is-focused-pane" : ""}`}
         ref={tabsRef}
+        data-pane={paneId}
+        onMouseDown={() => workspaceStore.setFocusedPane(paneId)}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
         onDoubleClick={(event) => {
           const target = event.target as HTMLElement | null;
           if (target?.closest(".boke-tab")) return;
           event.preventDefault();
+          workspaceStore.setFocusedPane(paneId);
           void createAndOpenNote();
         }}
       >
         {visibleLeaves.map((leaf, index) => (
           <div
             key={leaf.id}
-            className={`boke-tab${leaf.id === state.activeId ? " active" : ""}${contextMenu?.tabId === leaf.id ? " context-target" : ""}`}
+            className={`boke-tab${leaf.id === pane.activeId ? " active" : ""}${contextMenu?.tabId === leaf.id ? " context-target" : ""}`}
+            draggable={state.split}
+            onDragStart={(e) => onDragStart(e, leaf.id)}
             onClick={() => {
               workspaceStore.setActive(leaf.id);
-              if (isFileContentTab(leaf.type)) focusMainContent();
+              if (isFileContentTab(leaf.type)) focusMainContent(paneId);
             }}
             onDoubleClick={() => {
               if (!isFileContentTab(leaf.type)) return;
               workspaceStore.setActive(leaf.id);
               const nextCollapsed = !sidebarCollapsed;
               setSidebarCollapsed(nextCollapsed);
-              focusMainContent();
+              focusMainContent(paneId);
             }}
             onContextMenu={(e) => openContextMenu(e, leaf.id, index)}
           >
@@ -200,6 +238,7 @@ export function TabBar() {
           onMouseDown={(e) => e.stopPropagation()}
         >
           <TabContextMenu
+            paneId={paneId}
             tabId={contextMenu.tabId}
             tabIndex={contextMenu.tabIndex}
             tabCount={visibleLeaves.length}

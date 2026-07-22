@@ -643,6 +643,53 @@ body.boke-sidebar-resizing * {
   width: 100%;
 }
 
+.boke-editor-area.is-split {
+  display: grid;
+  align-items: stretch;
+}
+
+.boke-editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.boke-editor-area.is-split .boke-editor-pane {
+  flex: unset;
+  width: auto;
+  max-width: none;
+}
+
+.boke-editor-area.is-split .boke-editor-pane.is-focused {
+  outline: 1px solid color-mix(in srgb, var(--boke-accent) 45%, transparent);
+  outline-offset: -1px;
+}
+
+.boke-split-resize-handle {
+  flex: 0 0 5px;
+  width: 5px;
+  margin: 0 -1px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 2;
+  touch-action: none;
+}
+
+.boke-split-resize-handle::before {
+  content: "";
+  position: absolute;
+  inset: 0 1px;
+  background: var(--boke-border);
+}
+
+.boke-split-resize-handle:hover::before,
+.boke-split-resize-handle:active::before {
+  background: var(--boke-accent);
+}
+
 .boke-tabs {
   --boke-tab-scroll-size: 2px;
   --boke-tabs-row-height: 32px;
@@ -873,12 +920,154 @@ body.boke-sidebar-resizing * {
 }
 
 .boke-note-toc {
-  width: 220px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--boke-border);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-left: none;
   background: var(--boke-bg-secondary);
   overflow: auto;
   padding: 12px 8px;
+}
+
+.boke-outline-shell {
+  display: flex;
+  flex-shrink: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.boke-outline-shell.is-collapsed .boke-outline-panel {
+  overflow: hidden;
+  border-left: none;
+}
+
+.boke-outline-panel {
+  display: flex;
+  flex-direction: column;
+  width: var(--boke-outline-width, 220px);
+  flex-shrink: 0;
+  min-height: 0;
+  min-width: 0;
+  border-left: 1px solid var(--boke-border);
+  background: var(--boke-bg-secondary);
+  overflow: hidden;
+}
+
+.boke-outline-boundary {
+  position: relative;
+  flex-shrink: 0;
+  width: 1px;
+  margin: 0;
+  z-index: 2;
+  align-self: stretch;
+  overflow: visible;
+}
+
+.boke-outline-boundary.is-collapsed {
+  width: 1px;
+  margin: 0;
+  background: transparent;
+}
+
+.boke-outline-collapse-tab-slot {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 120px;
+  z-index: 4;
+  pointer-events: auto;
+}
+
+.boke-outline-collapse-tab {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--boke-text-muted);
+  cursor: pointer;
+  box-shadow: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.boke-outline-collapse-tab.is-visible,
+.boke-outline-collapse-tab-slot.is-collapsed .boke-outline-collapse-tab {
+  opacity: 1;
+}
+
+.boke-outline-collapse-tab-svg {
+  display: block;
+  filter: drop-shadow(-1px 0 2px rgb(0 0 0 / 5%));
+}
+
+.boke-outline-collapse-tab-shape {
+  fill: color-mix(in srgb, var(--boke-bg-secondary) 72%, transparent);
+  stroke: color-mix(in srgb, var(--boke-border) 85%, transparent);
+  stroke-width: 1;
+  stroke-linejoin: miter;
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.boke-outline-collapse-tab-chevron {
+  pointer-events: none;
+}
+
+.boke-outline-collapse-tab:hover {
+  color: var(--boke-text);
+}
+
+.boke-outline-collapse-tab:hover .boke-outline-collapse-tab-shape,
+.boke-outline-collapse-tab:focus-visible .boke-outline-collapse-tab-shape {
+  fill: color-mix(in srgb, var(--boke-surface) 82%, transparent);
+  stroke: color-mix(in srgb, var(--boke-text-muted) 28%, var(--boke-border));
+}
+
+.boke-outline-resizer {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  bottom: 0;
+  width: 12px;
+  z-index: 2;
+  margin: 0;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.boke-outline-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 3px;
+  bottom: 0;
+  width: 1px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.boke-outline-resizer:hover,
+body.boke-outline-resizing .boke-outline-resizer {
+  background: transparent;
+}
+
+.boke-outline-resizer:hover::after,
+body.boke-outline-resizing .boke-outline-resizer::after {
+  background: var(--boke-accent);
+}
+
+body.boke-outline-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.boke-outline-resizing * {
+  cursor: col-resize !important;
 }
 
 .boke-note-toc-title {

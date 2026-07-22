@@ -26,6 +26,12 @@ import {
 } from "./keyboard-shortcuts.js";
 import { applyDocumentLang, detectLocale, type Locale } from "./i18n/messages.js";
 import { SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth } from "./sidebar-layout.js";
+import {
+  clampOutlineWidth,
+  type OutlineLayouts,
+  normalizeOutlineLayouts,
+} from "./outline-layout.js";
+import type { PaneId } from "@chestnut/core";
 import { fileTreeSelection } from "./file-tree-selection.js";
 import { DEFAULT_UI_FONT, applyUiFont, resolveUiFont, type UiFont } from "./ui-font.js";
 import { DEFAULT_APP_THEME, applyAppTheme, resolveAppTheme, type AppTheme } from "./ui-theme.js";
@@ -71,10 +77,12 @@ export interface AppState {
   statusText: string;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  outlineLayouts: OutlineLayouts;
   showNotePicFolders: boolean;
   pinnedFilePaths: string[];
   fileTreeExpandedPaths: string[];
   fileTreeChildOrder: FileTreeChildOrderMap;
+  splitRatio: number;
 }
 
 export interface AppActions {
@@ -98,6 +106,11 @@ export interface AppActions {
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
+  setOutlineWidth: (paneId: PaneId, width: number) => void;
+  setOutlineCollapsed: (paneId: PaneId, collapsed: boolean) => void;
+  toggleOutlineCollapsed: (paneId: PaneId) => void;
+  /** Collapse both outlines in split; expand left outline in single pane. */
+  syncOutlineDefaultsForSplit: (split: boolean) => void;
   setShowNotePicFolders: (show: boolean) => void;
   toggleShowNotePicFolders: () => void;
   pinFilePath: (path: string) => void;
@@ -126,6 +139,7 @@ export interface AppActions {
   remapFileTreeChildOrderPath: (oldPath: string, newPath: string) => void;
   remapFileTreeChildOrderPrefix: (oldPrefix: string, newPrefix: string) => void;
   removeFileTreeChildOrderUnder: (path: string, isDirectory: boolean) => void;
+  setSplitRatio: (ratio: number) => void;
 }
 
 const SETTINGS_KEY = "chestnut-app-settings";
@@ -143,10 +157,16 @@ interface PersistedSettings {
   deleteImageFilesOnRemove?: boolean;
   sidebarWidth?: number;
   sidebarCollapsed?: boolean;
+  outlineLayouts?: OutlineLayouts;
+  /** @deprecated migrated into outlineLayouts.left */
+  outlineWidth?: number;
+  /** @deprecated migrated into outlineLayouts.left */
+  outlineCollapsed?: boolean;
   showNotePicFolders?: boolean;
   pinnedFilePaths?: string[];
   fileTreeExpandedPaths?: string[];
   fileTreeChildOrder?: FileTreeChildOrderMap;
+  splitRatio?: number;
 }
 
 function loadSettings(): PersistedSettings {
@@ -174,12 +194,19 @@ function saveSettings(state: AppState): void {
       deleteImageFilesOnRemove: state.deleteImageFilesOnRemove,
       sidebarWidth: state.sidebarWidth,
       sidebarCollapsed: state.sidebarCollapsed,
+      outlineLayouts: state.outlineLayouts,
       showNotePicFolders: state.showNotePicFolders,
       pinnedFilePaths: state.pinnedFilePaths,
       fileTreeExpandedPaths: state.fileTreeExpandedPaths,
       fileTreeChildOrder: state.fileTreeChildOrder,
+      splitRatio: state.splitRatio,
     }),
   );
+}
+
+function clampSplitRatio(ratio: number): number {
+  if (!Number.isFinite(ratio)) return 0.5;
+  return Math.min(0.8, Math.max(0.2, ratio));
 }
 
 const pluginHost = new PluginHost({
@@ -311,10 +338,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   statusText: "",
   sidebarWidth: clampSidebarWidth(saved.sidebarWidth ?? SIDEBAR_WIDTH_DEFAULT),
   sidebarCollapsed: saved.sidebarCollapsed ?? false,
+  outlineLayouts: normalizeOutlineLayouts(saved.outlineLayouts, {
+    width: saved.outlineWidth,
+    collapsed: saved.outlineCollapsed,
+  }),
   showNotePicFolders: saved.showNotePicFolders ?? true,
   pinnedFilePaths: normalizePinnedFilePaths(saved.pinnedFilePaths),
   fileTreeExpandedPaths: normalizeFileTreeExpandedPaths(saved.fileTreeExpandedPaths),
   fileTreeChildOrder: normalizeFileTreeChildOrder(saved.fileTreeChildOrder),
+  splitRatio: clampSplitRatio(saved.splitRatio ?? 0.5),
 
   mountVault: async (adapter) => {
     await vaultService.mount(adapter);
@@ -435,6 +467,60 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
   toggleSidebarCollapsed: () => {
     set({ sidebarCollapsed: !get().sidebarCollapsed });
+    saveSettings(get());
+  },
+  setOutlineWidth: (paneId, width) => {
+    const nextWidth = clampOutlineWidth(width);
+    const prev = get().outlineLayouts[paneId];
+    if (prev.width === nextWidth) return;
+    set({
+      outlineLayouts: {
+        ...get().outlineLayouts,
+        [paneId]: { ...prev, width: nextWidth },
+      },
+    });
+    saveSettings(get());
+  },
+  setOutlineCollapsed: (paneId, collapsed) => {
+    const prev = get().outlineLayouts[paneId];
+    if (prev.collapsed === collapsed) return;
+    set({
+      outlineLayouts: {
+        ...get().outlineLayouts,
+        [paneId]: { ...prev, collapsed },
+      },
+    });
+    saveSettings(get());
+  },
+  toggleOutlineCollapsed: (paneId) => {
+    const prev = get().outlineLayouts[paneId];
+    set({
+      outlineLayouts: {
+        ...get().outlineLayouts,
+        [paneId]: { ...prev, collapsed: !prev.collapsed },
+      },
+    });
+    saveSettings(get());
+  },
+  syncOutlineDefaultsForSplit: (split) => {
+    const layouts = get().outlineLayouts;
+    if (split) {
+      if (layouts.left.collapsed && layouts.right.collapsed) return;
+      set({
+        outlineLayouts: {
+          left: { ...layouts.left, collapsed: true },
+          right: { ...layouts.right, collapsed: true },
+        },
+      });
+    } else {
+      if (!layouts.left.collapsed) return;
+      set({
+        outlineLayouts: {
+          ...layouts,
+          left: { ...layouts.left, collapsed: false },
+        },
+      });
+    }
     saveSettings(get());
   },
   setShowNotePicFolders: (show) => {
@@ -565,6 +651,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     );
     if (fileTreeChildOrderEquals(fileTreeChildOrder, get().fileTreeChildOrder)) return;
     set({ fileTreeChildOrder });
+    saveSettings(get());
+  },
+  setSplitRatio: (ratio) => {
+    const splitRatio = clampSplitRatio(ratio);
+    if (splitRatio === get().splitRatio) return;
+    set({ splitRatio });
     saveSettings(get());
   },
 }));
