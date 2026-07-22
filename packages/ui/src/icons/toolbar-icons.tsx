@@ -119,3 +119,51 @@ export function ImportIcon() {
     </svg>
   );
 }
+
+/**
+ * Vertical pushpin from Tabler Icons "pinned" (MIT).
+ * @see https://tabler.io/icons/icon/pinned
+ * When `slashed`, draws a diagonal cancel line (default off).
+ */
+export function AlwaysOnTopIcon({ slashed = false }: { slashed?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      focusable="false"
+      aria-hidden="true"
+      className="boke-toolbar-always-on-top-icon"
+    >
+      <path
+        d="M9 4v6l-2 4v2h10v-2l-2-4V4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 16v5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 4h8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+      {slashed ? (
+        <path
+          d="M5 5l14 14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+        />
+      ) : null}
+    </svg>
+  );
+}

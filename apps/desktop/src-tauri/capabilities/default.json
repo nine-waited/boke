@@ -5,6 +5,8 @@
   "windows": ["*"],
   "permissions": [
     "core:default",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-is-always-on-top",
     "dialog:default",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",

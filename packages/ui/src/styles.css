@@ -287,9 +287,23 @@ button {
   height: 16px;
 }
 
+.boke-toolbar-icon-btn .boke-toolbar-always-on-top-icon {
+  transform: translateX(-1px);
+}
+
 .boke-toolbar-icon-btn:hover {
   background: var(--boke-surface);
   color: var(--boke-accent);
+}
+
+.boke-toolbar-icon-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--boke-accent) 14%, transparent);
+  color: var(--boke-accent);
+}
+
+.boke-toolbar-icon-btn[aria-pressed="true"]:hover {
+  background: color-mix(in srgb, var(--boke-accent) 20%, transparent);
+  color: var(--boke-accent-hover);
 }
 
 .boke-toolbar-icon-btn[data-tooltip]::after {

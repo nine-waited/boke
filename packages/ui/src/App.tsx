@@ -27,6 +27,7 @@ import { SearchPanel } from "./components/SearchPanel.js";
 import { GlobalKeyboardShortcuts } from "./components/GlobalKeyboardShortcuts.js";
 import { ToolbarVaultPath } from "./components/ToolbarVaultPath.js";
 import { ToolbarIconButton } from "./components/ToolbarIconButton.js";
+import { ToolbarAlwaysOnTopButton } from "./components/ToolbarAlwaysOnTopButton.js";
 import { ToolbarImportMarkdownButton } from "./components/ToolbarImportMarkdownButton.js";
 import { QuickOpenIcon, SearchIcon, SettingsIcon } from "./icons/toolbar-icons.js";
 import { formatShortcutLabel } from "./keyboard-shortcuts.js";
@@ -296,6 +297,7 @@ export function App() {
               <SettingsIcon />
             </ToolbarIconButton>
             <ToolbarImportMarkdownButton />
+            <ToolbarAlwaysOnTopButton />
           </div>
         </div>
       </div>
