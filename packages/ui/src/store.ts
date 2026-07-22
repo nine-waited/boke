@@ -47,6 +47,10 @@ import {
   removeFileTreeChildOrderUnder as removeChildOrderUnder,
   reorderFileTreeChildPaths,
 } from "./file-tree-order.js";
+import {
+  fileTreeExpanded,
+  normalizeFileTreeExpandedPaths,
+} from "./file-tree-expanded.js";
 
 export interface AppState {
   vaultMounted: boolean;
@@ -69,6 +73,7 @@ export interface AppState {
   sidebarCollapsed: boolean;
   showNotePicFolders: boolean;
   pinnedFilePaths: string[];
+  fileTreeExpandedPaths: string[];
   fileTreeChildOrder: FileTreeChildOrderMap;
 }
 
@@ -140,6 +145,7 @@ interface PersistedSettings {
   sidebarCollapsed?: boolean;
   showNotePicFolders?: boolean;
   pinnedFilePaths?: string[];
+  fileTreeExpandedPaths?: string[];
   fileTreeChildOrder?: FileTreeChildOrderMap;
 }
 
@@ -170,6 +176,7 @@ function saveSettings(state: AppState): void {
       sidebarCollapsed: state.sidebarCollapsed,
       showNotePicFolders: state.showNotePicFolders,
       pinnedFilePaths: state.pinnedFilePaths,
+      fileTreeExpandedPaths: state.fileTreeExpandedPaths,
       fileTreeChildOrder: state.fileTreeChildOrder,
     }),
   );
@@ -306,6 +313,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   sidebarCollapsed: saved.sidebarCollapsed ?? false,
   showNotePicFolders: saved.showNotePicFolders ?? true,
   pinnedFilePaths: normalizePinnedFilePaths(saved.pinnedFilePaths),
+  fileTreeExpandedPaths: normalizeFileTreeExpandedPaths(saved.fileTreeExpandedPaths),
   fileTreeChildOrder: normalizeFileTreeChildOrder(saved.fileTreeChildOrder),
 
   mountVault: async (adapter) => {
@@ -562,5 +570,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 }));
 
 export const editorPaneLru = new EditorPaneLru();
+
+fileTreeExpanded.hydrate(useAppStore.getState().fileTreeExpandedPaths);
+fileTreeExpanded.setPersistHandler((paths) => {
+  const next = normalizeFileTreeExpandedPaths(paths);
+  const prev = useAppStore.getState().fileTreeExpandedPaths;
+  if (
+    next.length === prev.length &&
+    next.every((path) => prev.includes(path)) &&
+    prev.every((path) => next.includes(path))
+  ) {
+    return;
+  }
+  useAppStore.setState({ fileTreeExpandedPaths: next });
+  saveSettings(useAppStore.getState());
+});
 
 export { pluginHost, commandRegistry, workspaceStore, vaultService, metadataCache, searchIndex, eventBus };
