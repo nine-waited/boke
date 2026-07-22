@@ -34,7 +34,13 @@ export function canDropFileTreeEntry(
   if (sourceKind === "directory") {
     if (target === source || target.startsWith(`${source}/`)) return false;
   }
+  // Real FS move requires a different parent directory.
   return parentDir(source) !== target;
+}
+
+/** True when dropping would change the on-disk parent directory. */
+export function isCrossDirectoryDrop(sourcePath: string, targetDir: string): boolean {
+  return parentDir(normalizePath(sourcePath)) !== normalizePath(targetDir);
 }
 
 export const FILE_TREE_DRAG_MIME = "application/x-chestnut-file-tree";

@@ -37,6 +37,16 @@ import {
   removePinnedFilePathsUnder as removePinnedUnder,
   reorderPinnedFilePaths as reorderPinnedPaths,
 } from "./file-tree-pinned.js";
+import {
+  type FileTreeChildOrderMap,
+  fileTreeChildOrderEquals,
+  normalizeFileTreeChildOrder,
+  placeFileTreeChildAfterMove as placeChildAfterMove,
+  remapFileTreeChildOrderPath as remapChildOrderPath,
+  remapFileTreeChildOrderPrefix as remapChildOrderPrefix,
+  removeFileTreeChildOrderUnder as removeChildOrderUnder,
+  reorderFileTreeChildPaths,
+} from "./file-tree-order.js";
 
 export interface AppState {
   vaultMounted: boolean;
@@ -59,6 +69,7 @@ export interface AppState {
   sidebarCollapsed: boolean;
   showNotePicFolders: boolean;
   pinnedFilePaths: string[];
+  fileTreeChildOrder: FileTreeChildOrderMap;
 }
 
 export interface AppActions {
@@ -85,6 +96,7 @@ export interface AppActions {
   setShowNotePicFolders: (show: boolean) => void;
   toggleShowNotePicFolders: () => void;
   pinFilePath: (path: string) => void;
+  pinFilePathToTop: (path: string) => void;
   unpinFilePath: (path: string) => void;
   unpinFilePaths: (paths: string[]) => void;
   togglePinnedFilePath: (path: string) => void;
@@ -92,6 +104,23 @@ export interface AppActions {
   remapPinnedFilePathPrefix: (oldPrefix: string, newPrefix: string) => void;
   removePinnedFilePathsUnder: (path: string, isDirectory: boolean) => void;
   reorderPinnedFilePaths: (path: string, insertBeforeIndex: number) => void;
+  reorderFileTreeChild: (
+    parentDir: string,
+    displayPaths: string[],
+    path: string,
+    insertBeforePath: string | null,
+    pathKind: "file" | "directory",
+    kindByPath: Record<string, "file" | "directory">,
+  ) => void;
+  placeFileTreeChildAfterMove: (
+    oldPath: string,
+    newPath: string,
+    insertBeforePath: string | null,
+    pathKind: "file" | "directory",
+  ) => void;
+  remapFileTreeChildOrderPath: (oldPath: string, newPath: string) => void;
+  remapFileTreeChildOrderPrefix: (oldPrefix: string, newPrefix: string) => void;
+  removeFileTreeChildOrderUnder: (path: string, isDirectory: boolean) => void;
 }
 
 const SETTINGS_KEY = "chestnut-app-settings";
@@ -111,6 +140,7 @@ interface PersistedSettings {
   sidebarCollapsed?: boolean;
   showNotePicFolders?: boolean;
   pinnedFilePaths?: string[];
+  fileTreeChildOrder?: FileTreeChildOrderMap;
 }
 
 function loadSettings(): PersistedSettings {
@@ -140,6 +170,7 @@ function saveSettings(state: AppState): void {
       sidebarCollapsed: state.sidebarCollapsed,
       showNotePicFolders: state.showNotePicFolders,
       pinnedFilePaths: state.pinnedFilePaths,
+      fileTreeChildOrder: state.fileTreeChildOrder,
     }),
   );
 }
@@ -275,6 +306,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   sidebarCollapsed: saved.sidebarCollapsed ?? false,
   showNotePicFolders: saved.showNotePicFolders ?? true,
   pinnedFilePaths: normalizePinnedFilePaths(saved.pinnedFilePaths),
+  fileTreeChildOrder: normalizeFileTreeChildOrder(saved.fileTreeChildOrder),
 
   mountVault: async (adapter) => {
     await vaultService.mount(adapter);
@@ -415,6 +447,19 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set({ pinnedFilePaths: [path, ...pinnedFilePaths] });
     saveSettings(get());
   },
+  pinFilePathToTop: (path) => {
+    if (!isPinnableVaultFile(path)) return;
+    const pinnedFilePaths = get().pinnedFilePaths;
+    if (pinnedFilePaths[0] === path) return;
+    if (pinnedFilePaths.includes(path)) {
+      const next = reorderPinnedPaths(pinnedFilePaths, path, 0);
+      if (next.join("\0") === pinnedFilePaths.join("\0")) return;
+      set({ pinnedFilePaths: next });
+    } else {
+      set({ pinnedFilePaths: [path, ...pinnedFilePaths] });
+    }
+    saveSettings(get());
+  },
   unpinFilePath: (path) => {
     const pinnedFilePaths = get().pinnedFilePaths.filter((item) => item !== path);
     if (pinnedFilePaths.length === get().pinnedFilePaths.length) return;
@@ -460,6 +505,58 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (pinnedFilePaths === get().pinnedFilePaths) return;
     if (pinnedFilePaths.join("\0") === get().pinnedFilePaths.join("\0")) return;
     set({ pinnedFilePaths });
+    saveSettings(get());
+  },
+  reorderFileTreeChild: (parentDir, displayPaths, path, insertBeforePath, pathKind, kindByPath) => {
+    const fileTreeChildOrder = reorderFileTreeChildPaths(
+      get().fileTreeChildOrder,
+      parentDir,
+      displayPaths,
+      path,
+      insertBeforePath,
+      pathKind,
+      kindByPath,
+    );
+    if (fileTreeChildOrderEquals(fileTreeChildOrder, get().fileTreeChildOrder)) return;
+    set({ fileTreeChildOrder });
+    saveSettings(get());
+  },
+  placeFileTreeChildAfterMove: (oldPath, newPath, insertBeforePath, pathKind) => {
+    const fileTreeChildOrder = placeChildAfterMove(
+      get().fileTreeChildOrder,
+      oldPath,
+      newPath,
+      insertBeforePath,
+      pathKind,
+    );
+    if (fileTreeChildOrderEquals(fileTreeChildOrder, get().fileTreeChildOrder)) return;
+    set({ fileTreeChildOrder });
+    saveSettings(get());
+  },
+  remapFileTreeChildOrderPath: (oldPath, newPath) => {
+    const fileTreeChildOrder = remapChildOrderPath(get().fileTreeChildOrder, oldPath, newPath);
+    if (fileTreeChildOrderEquals(fileTreeChildOrder, get().fileTreeChildOrder)) return;
+    set({ fileTreeChildOrder });
+    saveSettings(get());
+  },
+  remapFileTreeChildOrderPrefix: (oldPrefix, newPrefix) => {
+    const fileTreeChildOrder = remapChildOrderPrefix(
+      get().fileTreeChildOrder,
+      oldPrefix,
+      newPrefix,
+    );
+    if (fileTreeChildOrderEquals(fileTreeChildOrder, get().fileTreeChildOrder)) return;
+    set({ fileTreeChildOrder });
+    saveSettings(get());
+  },
+  removeFileTreeChildOrderUnder: (path, isDirectory) => {
+    const fileTreeChildOrder = removeChildOrderUnder(
+      get().fileTreeChildOrder,
+      path,
+      isDirectory,
+    );
+    if (fileTreeChildOrderEquals(fileTreeChildOrder, get().fileTreeChildOrder)) return;
+    set({ fileTreeChildOrder });
     saveSettings(get());
   },
 }));

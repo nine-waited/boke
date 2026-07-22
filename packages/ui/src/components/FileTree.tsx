@@ -47,10 +47,14 @@ import {
 import {
   createPointerDragSession,
   FILE_TREE_DRAG_LONG_PRESS_MS,
-  findDropFolderAt,
+  normalizeReorderInsertBefore,
   pointerDragMovedEnough,
+  resolveFileTreeDropIntent,
+  FILE_TREE_PIN_DROP_SELECTOR,
+  type FileTreeDropIntent,
   type FileTreePointerDragSession,
 } from "../file-tree-pointer-dnd.js";
+import { applyFileTreeChildOrder, parentDirOfFileTreePath } from "../file-tree-order.js";
 import { useT } from "../i18n/index.js";
 import { isTauri } from "@chestnut/storage-adapters";
 import { vaultService, workspaceStore, useAppStore } from "../store.js";
@@ -75,6 +79,8 @@ interface FileTreeContextValue {
   renamingPath: string | null;
   dragging: FileTreeDragPayload | null;
   dropTarget: string | null;
+  dropBeforePath: string | null;
+  dropAfterPath: string | null;
   expandFolderRequest: string | null;
   consumeClickAfterDrag: () => boolean;
   isSelected: (path: string) => boolean;
@@ -136,6 +142,12 @@ function fileTreeItemClassName(
   }
   if (kind === "directory" && ctx?.dropTarget === path) {
     classes.push("boke-file-tree-item--drop-target");
+  }
+  if (ctx?.dropBeforePath === path) {
+    classes.push("boke-file-tree-item--drop-before");
+  }
+  if (ctx?.dropAfterPath === path) {
+    classes.push("boke-file-tree-item--drop-after");
   }
   return classes.join(" ");
 }
@@ -636,6 +648,7 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   const { revealGeneration, revealTargetPath } = useFileTreeReveal();
   const treeVersion = useAppStore((s) => s.treeVersion);
   const showNotePicFolders = useAppStore((s) => s.showNotePicFolders);
+  const fileTreeChildOrder = useAppStore((s) => s.fileTreeChildOrder);
   const folderName = dir.split("/").pop() || dir;
 
   useEffect(() => {
@@ -657,9 +670,9 @@ function FileTreeNode({ dir = "", depth = 0 }: FileTreeProps) {
   useEffect(() => {
     vaultService.listTree(dir).then((list) => {
       const visible = list.filter((e) => isFileTreeEntryVisible(e, showNotePicFolders));
-      setEntries(sortFileTreeEntries(visible, dir));
+      setEntries(applyFileTreeChildOrder(sortFileTreeEntries(visible, dir), dir, fileTreeChildOrder));
     });
-  }, [dir, treeVersion, showNotePicFolders]);
+  }, [dir, treeVersion, showNotePicFolders, fileTreeChildOrder]);
 
   if (!expanded && dir) {
     return (
@@ -1005,23 +1018,37 @@ export function FileTree() {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [dragging, setDragging] = useState<FileTreeDragPayload | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [dropBeforePath, setDropBeforePath] = useState<string | null>(null);
+  const [dropAfterPath, setDropAfterPath] = useState<string | null>(null);
+  const [dropIntent, setDropIntent] = useState<FileTreeDropIntent | null>(null);
   const [expandFolderRequest, setExpandFolderRequest] = useState<string | null>(null);
   const draggingRef = useRef<FileTreeDragPayload | null>(null);
   const pointerSessionRef = useRef<FileTreePointerDragSession | null>(null);
   const suppressClickRef = useRef(false);
+  const dropIntentRef = useRef<FileTreeDropIntent | null>(null);
 
   useEffect(() => {
     draggingRef.current = dragging;
   }, [dragging]);
 
+  useEffect(() => {
+    dropIntentRef.current = dropIntent;
+  }, [dropIntent]);
+
   const endPointerDrag = useCallback(() => {
     pointerSessionRef.current = null;
     draggingRef.current = null;
+    dropIntentRef.current = null;
     setDragging(null);
     setDropTarget(null);
+    setDropBeforePath(null);
+    setDropAfterPath(null);
+    setDropIntent(null);
     setExpandFolderRequest(null);
+    document.querySelector(FILE_TREE_PIN_DROP_SELECTOR)?.classList.remove("is-pin-drop-target");
     detachFileTreeDragGhost();
     document.body.classList.remove("boke-file-tree-dragging");
+    document.body.classList.remove("boke-file-tree-dragging-pinnable");
   }, []);
 
   const beginPointerDrag = useCallback((session: FileTreePointerDragSession, clientX: number, clientY: number) => {
@@ -1030,25 +1057,47 @@ export function FileTree() {
     draggingRef.current = session.payload;
     setDragging(session.payload);
     setDropTarget(null);
+    setDropBeforePath(null);
+    setDropAfterPath(null);
+    setDropIntent(null);
     attachFileTreeDragGhost(session.sourceElement, clientX, clientY);
     document.body.classList.add("boke-file-tree-dragging");
+    if (session.payload.kind === "file" && isPinnableVaultFile(session.payload.path)) {
+      document.body.classList.add("boke-file-tree-dragging-pinnable");
+    }
+  }, []);
+
+  const applyDropIntent = useCallback((intent: FileTreeDropIntent) => {
+    dropIntentRef.current = intent;
+    setDropIntent(intent);
+    const pinZone = document.querySelector(FILE_TREE_PIN_DROP_SELECTOR);
+    if (pinZone instanceof HTMLElement) {
+      pinZone.classList.toggle("is-pin-drop-target", intent.type === "pin");
+    }
+    if (intent.type === "invalid" || intent.type === "pin") {
+      setDropTarget(null);
+      setDropBeforePath(null);
+      setDropAfterPath(null);
+      return;
+    }
+    if (intent.type === "moveInto") {
+      setDropTarget(intent.targetDir);
+      setDropBeforePath(null);
+      setDropAfterPath(null);
+      if (intent.targetDir) setExpandFolderRequest(intent.targetDir);
+      return;
+    }
+    setDropTarget(null);
+    setDropBeforePath(intent.highlightBeforePath);
+    setDropAfterPath(intent.highlightAfterPath);
+    if (intent.type === "moveBefore" && intent.targetDir) {
+      setExpandFolderRequest(intent.targetDir);
+    }
   }, []);
 
   const updateDropTargetAt = useCallback((clientX: number, clientY: number, payload: FileTreeDragPayload) => {
-    const folderPath = findDropFolderAt(clientX, clientY);
-    if (folderPath === null) {
-      setDropTarget(null);
-      return;
-    }
-    if (!canDropFileTreeEntry(payload.path, payload.kind, folderPath)) {
-      setDropTarget(null);
-      return;
-    }
-    setDropTarget(folderPath);
-    if (folderPath) {
-      setExpandFolderRequest(folderPath);
-    }
-  }, []);
+    applyDropIntent(resolveFileTreeDropIntent(clientX, clientY, payload));
+  }, [applyDropIntent]);
 
   const consumeClickAfterDrag = useCallback(() => {
     if (!suppressClickRef.current) return false;
@@ -1151,10 +1200,12 @@ export function FileTree() {
             fileTreeSelection.remapVaultPathPrefix(path, newPath);
             fileTreeExpanded.remapVaultPathPrefix(path, newPath);
             useAppStore.getState().remapPinnedFilePathPrefix(path, newPath);
+            useAppStore.getState().remapFileTreeChildOrderPrefix(path, newPath);
           } else {
             workspaceStore.renamePath(path, newPath);
             fileTreeSelection.remapVaultPath(path, newPath);
             useAppStore.getState().remapPinnedFilePath(path, newPath);
+            useAppStore.getState().remapFileTreeChildOrderPath(path, newPath);
           }
           refreshTree();
         }
@@ -1168,20 +1219,31 @@ export function FileTree() {
   );
 
   const performMove = useCallback(
-    async (payload: FileTreeDragPayload, targetDir: string) => {
+    async (
+      payload: FileTreeDragPayload,
+      targetDir: string,
+      insertBeforePath: string | null,
+    ) => {
       if (!canDropFileTreeEntry(payload.path, payload.kind, targetDir)) return;
       try {
-        const newPath = await vaultService.moveEntry(payload.path, payload.kind, targetDir);
+        const oldPath = payload.path;
+        const newPath = await vaultService.moveEntry(oldPath, payload.kind, targetDir);
         if (payload.kind === "directory") {
-          workspaceStore.renamePathPrefix(payload.path, newPath);
-          fileTreeSelection.remapVaultPathPrefix(payload.path, newPath);
-          fileTreeExpanded.remapVaultPathPrefix(payload.path, newPath);
-          useAppStore.getState().remapPinnedFilePathPrefix(payload.path, newPath);
+          workspaceStore.renamePathPrefix(oldPath, newPath);
+          fileTreeSelection.remapVaultPathPrefix(oldPath, newPath);
+          fileTreeExpanded.remapVaultPathPrefix(oldPath, newPath);
+          useAppStore.getState().remapPinnedFilePathPrefix(oldPath, newPath);
         } else {
-          workspaceStore.renamePath(payload.path, newPath);
-          fileTreeSelection.remapVaultPath(payload.path, newPath);
-          useAppStore.getState().remapPinnedFilePath(payload.path, newPath);
+          workspaceStore.renamePath(oldPath, newPath);
+          fileTreeSelection.remapVaultPath(oldPath, newPath);
+          useAppStore.getState().remapPinnedFilePath(oldPath, newPath);
         }
+        useAppStore.getState().placeFileTreeChildAfterMove(
+          oldPath,
+          newPath,
+          insertBeforePath,
+          payload.kind,
+        );
         refreshTree();
         await revealFileInTreeWhenReady(newPath);
       } catch (err) {
@@ -1191,6 +1253,33 @@ export function FileTree() {
     },
     [refreshTree, setStatusText, t],
   );
+
+  const performReorder = useCallback((payload: FileTreeDragPayload, intent: Extract<FileTreeDropIntent, { type: "reorder" }>) => {
+    const parentDir = intent.parentDir;
+    const displayPaths: string[] = [];
+    const kindByPath: Record<string, "file" | "directory"> = {};
+    for (const el of document.querySelectorAll<HTMLElement>("[data-file-tree-path]")) {
+      const path = el.getAttribute("data-file-tree-path");
+      const kindAttr = el.getAttribute("data-file-tree-kind");
+      if (!path || (kindAttr !== "file" && kindAttr !== "directory")) continue;
+      const rowParent =
+        kindAttr === "file"
+          ? (el.getAttribute("data-file-tree-parent") ?? parentDirOfFileTreePath(path))
+          : parentDirOfFileTreePath(path);
+      if (rowParent !== parentDir) continue;
+      displayPaths.push(path);
+      kindByPath[path] = kindAttr;
+    }
+    const insertBeforePath = normalizeReorderInsertBefore(intent, displayPaths, payload.path);
+    useAppStore.getState().reorderFileTreeChild(
+      parentDir,
+      displayPaths,
+      payload.path,
+      insertBeforePath,
+      payload.kind,
+      kindByPath,
+    );
+  }, []);
 
   const handlePointerDown = useCallback(
     (event: PointerEvent, path: string, kind: FileTreeDragKind) => {
@@ -1224,11 +1313,17 @@ export function FileTree() {
 
         if (session.active) {
           suppressClickRef.current = true;
-          const targetDir = findDropFolderAt(ev.clientX, ev.clientY);
+          const intent = resolveFileTreeDropIntent(ev.clientX, ev.clientY, session.payload);
           const payload = session.payload;
           endPointerDrag();
-          if (targetDir !== null && canDropFileTreeEntry(payload.path, payload.kind, targetDir)) {
-            void performMove(payload, targetDir);
+          if (intent.type === "reorder") {
+            performReorder(payload, intent);
+          } else if (intent.type === "moveInto") {
+            void performMove(payload, intent.targetDir, null);
+          } else if (intent.type === "moveBefore") {
+            void performMove(payload, intent.targetDir, intent.insertBeforePath);
+          } else if (intent.type === "pin") {
+            useAppStore.getState().pinFilePathToTop(payload.path);
           }
         } else {
           pointerSessionRef.current = null;
@@ -1257,7 +1352,7 @@ export function FileTree() {
       document.addEventListener("pointerup", finish);
       document.addEventListener("pointercancel", finish);
     },
-    [beginPointerDrag, endPointerDrag, performMove, updateDropTargetAt],
+    [beginPointerDrag, endPointerDrag, performMove, performReorder, updateDropTargetAt],
   );
 
   const contextMenuPath =
@@ -1270,6 +1365,8 @@ export function FileTree() {
     renamingPath,
     dragging,
     dropTarget,
+    dropBeforePath,
+    dropAfterPath,
     expandFolderRequest,
     consumeClickAfterDrag,
     isSelected: (path) => fileTreeSelection.isSelected(path),

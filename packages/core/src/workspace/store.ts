@@ -239,10 +239,8 @@ export class WorkspaceStore {
     this.closeTabs(this.leaves.slice(idx + 1).map((l) => l.id));
   }
 
-  closeAllTabs(keepId: string): void {
-    const toClose = this.leaves.filter((l) => l.id !== keepId).map((l) => l.id);
-    if (toClose.length === 0) return;
-    this.activeId = keepId;
+  closeAllTabs(): void {
+    const toClose = this.leaves.map((l) => l.id);
     this.closeTabs(toClose);
   }
 

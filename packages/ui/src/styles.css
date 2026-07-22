@@ -1011,6 +1011,12 @@ body.boke-sidebar-resizing * {
   box-shadow: 0 2px 0 0 var(--boke-accent);
 }
 
+.boke-file-tree-pinned.is-pin-drop-target {
+  background: color-mix(in srgb, var(--boke-accent) 14%, var(--boke-bg-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--boke-accent) 55%, transparent);
+  border-radius: 4px;
+}
+
 body.boke-file-tree-pinned-dragging {
   cursor: grabbing;
   user-select: none;
@@ -1273,6 +1279,14 @@ body.boke-file-tree-dragging .boke-file-tree-item {
 .boke-file-tree-item--drop-target {
   background: color-mix(in srgb, var(--boke-accent) 18%, var(--boke-surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--boke-accent) 55%, transparent);
+}
+
+.boke-file-tree-item--drop-before {
+  box-shadow: 0 -2px 0 0 var(--boke-accent);
+}
+
+.boke-file-tree-item--drop-after {
+  box-shadow: 0 2px 0 0 var(--boke-accent);
 }
 
 .boke-file-tree--drop-root {

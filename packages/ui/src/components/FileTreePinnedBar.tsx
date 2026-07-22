@@ -25,6 +25,17 @@ import { reorderPinnedFilePaths as computeReorder } from "../file-tree-pinned.js
 import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
 const PINNED_PATH_ATTR = "data-pinned-path";
+const PINNABLE_DRAG_BODY_CLASS = "boke-file-tree-dragging-pinnable";
+
+function subscribePinnableTreeDrag(onStoreChange: () => void): () => void {
+  const observer = new MutationObserver(onStoreChange);
+  observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
+
+function isPinnableTreeDragActive(): boolean {
+  return document.body.classList.contains(PINNABLE_DRAG_BODY_CLASS);
+}
 
 function PinnedFileIcon({ path }: { path: string }) {
   if (isExcalidraw(path)) {
@@ -243,7 +254,20 @@ export function FileTreePinnedBar() {
     [beginDrag, endDrag, reorderPinnedFilePaths],
   );
 
-  if (pinnedFilePaths.length === 0) return null;
+  const dropTargetActive =
+    draggingPath !== null &&
+    insertBeforeIndex !== null &&
+    computeReorder(pinnedFilePaths, draggingPath, insertBeforeIndex).join("\0") !==
+      pinnedFilePaths.join("\0");
+
+  const hasSelection = selectedPaths.length > 0;
+  const pinnableTreeDragActive = useSyncExternalStore(
+    subscribePinnableTreeDrag,
+    isPinnableTreeDragActive,
+    () => false,
+  );
+
+  if (pinnedFilePaths.length === 0 && !pinnableTreeDragActive) return null;
 
   const openMenu = (event: MouseEvent, path: string) => {
     event.preventDefault();
@@ -278,55 +302,53 @@ export function FileTreePinnedBar() {
     openVaultEntry(path);
   };
 
-  const dropTargetActive =
-    draggingPath !== null &&
-    insertBeforeIndex !== null &&
-    computeReorder(pinnedFilePaths, draggingPath, insertBeforeIndex).join("\0") !==
-      pinnedFilePaths.join("\0");
-
-  const hasSelection = selectedPaths.length > 0;
-
   return (
     <>
-      <div className="boke-file-tree-pinned" aria-label={t("fileTree.pinned")}>
+      <div
+        className="boke-file-tree-pinned"
+        aria-label={t("fileTree.pinned")}
+        data-file-tree-pin-drop=""
+      >
         <div className="boke-file-tree-pinned-label">{t("fileTree.pinned")}</div>
-        <ul className="boke-file-tree-pinned-list">
-          {pinnedFilePaths.map((path, index) => {
-            const name = fileBaseName(path);
-            const selected = selectedPaths.includes(path);
-            const highlighted = selected || (!hasSelection && activePath === path);
-            const isDragging = draggingPath === path;
-            const dropBefore = dropTargetActive && insertBeforeIndex === index;
-            const dropAfter =
-              dropTargetActive &&
-              insertBeforeIndex === pinnedFilePaths.length &&
-              index === pinnedFilePaths.length - 1;
-            return (
-              <li key={path} className="boke-file-tree-pinned-row">
-                <button
-                  type="button"
-                  className={[
-                    "boke-file-tree-pinned-item",
-                    highlighted ? "is-active" : "",
-                    isDragging ? "is-dragging" : "",
-                    dropBefore ? "is-drop-before" : "",
-                    dropAfter ? "is-drop-after" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  title={path}
-                  data-pinned-path={path}
-                  onClick={(event) => handleClick(event, path)}
-                  onContextMenu={(event) => openMenu(event, path)}
-                  onPointerDown={(event) => handlePointerDown(event, path)}
-                >
-                  <PinnedFileIcon path={path} />
-                  <span className="boke-file-tree-pinned-name">{name}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {pinnedFilePaths.length > 0 && (
+          <ul className="boke-file-tree-pinned-list">
+            {pinnedFilePaths.map((path, index) => {
+              const name = fileBaseName(path);
+              const selected = selectedPaths.includes(path);
+              const highlighted = selected || (!hasSelection && activePath === path);
+              const isDragging = draggingPath === path;
+              const dropBefore = dropTargetActive && insertBeforeIndex === index;
+              const dropAfter =
+                dropTargetActive &&
+                insertBeforeIndex === pinnedFilePaths.length &&
+                index === pinnedFilePaths.length - 1;
+              return (
+                <li key={path} className="boke-file-tree-pinned-row">
+                  <button
+                    type="button"
+                    className={[
+                      "boke-file-tree-pinned-item",
+                      highlighted ? "is-active" : "",
+                      isDragging ? "is-dragging" : "",
+                      dropBefore ? "is-drop-before" : "",
+                      dropAfter ? "is-drop-after" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    title={path}
+                    data-pinned-path={path}
+                    onClick={(event) => handleClick(event, path)}
+                    onContextMenu={(event) => openMenu(event, path)}
+                    onPointerDown={(event) => handlePointerDown(event, path)}
+                  >
+                    <PinnedFileIcon path={path} />
+                    <span className="boke-file-tree-pinned-name">{name}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
       {menu && (
         <ContextMenuFrame x={menu.x} y={menu.y}>

@@ -49,7 +49,7 @@ function TabContextMenu({
       {item(t("tab.closeOthers"), !canCloseOthers, () => workspaceStore.closeOtherTabs(tabId))}
       {item(t("tab.closeToLeft"), !canCloseLeft, () => workspaceStore.closeTabsToLeft(tabId))}
       {item(t("tab.closeToRight"), !canCloseRight, () => workspaceStore.closeTabsToRight(tabId))}
-      {item(t("tab.closeAll"), !canCloseOthers, () => workspaceStore.closeAllTabs(tabId))}
+      {item(t("tab.closeAll"), !canCloseThis, () => workspaceStore.closeAllTabs())}
     </>
   );
 }

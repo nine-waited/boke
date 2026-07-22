@@ -95,6 +95,7 @@ export async function deleteVaultPath(path: string, kind: "file" | "directory"):
   await vaultService.deletePath(path, kind);
   workspaceStore.clearPathsForDelete(path, kind === "directory");
   useAppStore.getState().removePinnedFilePathsUnder(path, kind === "directory");
+  useAppStore.getState().removeFileTreeChildOrderUnder(path, kind === "directory");
   if (picDir) {
     workspaceStore.clearPathsForDelete(picDir, true);
   }
@@ -109,6 +110,7 @@ async function deleteVaultEntryWithoutRefresh(
   await vaultService.deletePath(path, kind);
   workspaceStore.clearPathsForDelete(path, kind === "directory");
   useAppStore.getState().removePinnedFilePathsUnder(path, kind === "directory");
+  useAppStore.getState().removeFileTreeChildOrderUnder(path, kind === "directory");
   if (picDir) {
     workspaceStore.clearPathsForDelete(picDir, true);
   }
