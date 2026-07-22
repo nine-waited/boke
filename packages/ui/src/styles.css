@@ -812,12 +812,49 @@ body.boke-sidebar-resizing * {
 }
 
 .boke-tab-close {
-  background: none;
+  appearance: none;
+  background: transparent;
   border: none;
+  box-shadow: none;
+  outline: none;
   color: inherit;
   padding: 0 4px;
+  margin: 0;
   font-size: 14px;
   line-height: 1;
+  border-radius: 0;
+}
+
+.boke-tab-close:hover,
+.boke-tab-close:focus,
+.boke-tab-close:focus-visible,
+.boke-tab-close:active {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+.boke-tab.is-draggable {
+  touch-action: none;
+}
+
+.boke-tab.is-dragging {
+  opacity: 0.28;
+}
+
+body.boke-tab-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+body.boke-tab-dragging * {
+  cursor: grabbing !important;
+}
+
+.boke-editor-pane.is-tab-drop-target {
+  outline: 2px solid color-mix(in srgb, var(--boke-accent) 55%, transparent);
+  outline-offset: -2px;
 }
 
 .boke-content {

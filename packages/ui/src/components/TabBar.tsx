@@ -1,13 +1,60 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import type { PaneId } from "@chestnut/core";
 import { useT } from "../i18n/index.js";
 import { useAppStore, workspaceStore } from "../store.js";
 import { ExcalidrawGrayIcon, ImageGrayIcon, MarkdownGrayIcon, PdfGrayIcon } from "../icons/sidebar-icons.js";
 import { focusMainContent, isFileContentTab } from "../focus-main-content.js";
 import { createAndOpenNote } from "../note-actions.js";
+import {
+  attachFileTreeDragGhost,
+  detachFileTreeDragGhost,
+  moveFileTreeDragGhost,
+} from "../file-tree-drag-ghost.js";
+import {
+  FILE_TREE_DRAG_LONG_PRESS_MS,
+  FILE_TREE_DRAG_MOVE_PX,
+} from "../file-tree-pointer-dnd.js";
 import { ContextMenuFrame } from "./ContextMenuFrame.js";
 
-const TAB_DRAG_MIME = "application/x-chestnut-tab";
+type TabDragSession = {
+  leafId: string;
+  fromPane: PaneId;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  lastClientX: number;
+  lastClientY: number;
+  sourceElement: HTMLElement;
+  active: boolean;
+  longPressTimer: ReturnType<typeof setTimeout> | null;
+};
+
+function findDropPaneId(clientX: number, clientY: number): PaneId | null {
+  const el = document.elementFromPoint(clientX, clientY);
+  if (!el || !(el instanceof Element)) return null;
+  const host = el.closest<HTMLElement>(".boke-editor-pane[data-pane], .boke-tabs[data-pane]");
+  const id = host?.getAttribute("data-pane");
+  if (id === "left" || id === "right") return id;
+  return null;
+}
+
+function setTabDropTarget(paneId: PaneId | null): void {
+  document.querySelectorAll(".boke-editor-pane.is-tab-drop-target").forEach((node) => {
+    node.classList.remove("is-tab-drop-target");
+  });
+  if (!paneId) return;
+  document
+    .querySelector(`.boke-editor-pane[data-pane="${paneId}"]`)
+    ?.classList.add("is-tab-drop-target");
+}
 
 function TabContextMenu({
   paneId,
@@ -62,6 +109,8 @@ function TabContextMenu({
 export function TabBar({ paneId = "left" }: { paneId?: PaneId }) {
   const t = useT();
   const tabsRef = useRef<HTMLDivElement>(null);
+  const sessionRef = useRef<TabDragSession | null>(null);
+  const suppressClickRef = useRef(false);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
   const state = useSyncExternalStore(
@@ -74,10 +123,12 @@ export function TabBar({ paneId = "left" }: { paneId?: PaneId }) {
     tabId: string;
     tabIndex: number;
   } | null>(null);
+  const [draggingLeafId, setDraggingLeafId] = useState<string | null>(null);
 
   const pane = state.panes[paneId];
   const visibleLeaves = pane.leaves.filter((leaf) => leaf.type !== "empty");
   const isFocused = !state.split || state.focusedPane === paneId;
+  const split = state.split;
 
   useEffect(() => {
     const el = tabsRef.current;
@@ -109,6 +160,17 @@ export function TabBar({ paneId = "left" }: { paneId?: PaneId }) {
     };
   }, [contextMenu]);
 
+  useEffect(() => {
+    return () => {
+      const session = sessionRef.current;
+      if (session?.longPressTimer) clearTimeout(session.longPressTimer);
+      sessionRef.current = null;
+      detachFileTreeDragGhost();
+      document.body.classList.remove("boke-tab-dragging");
+      setTabDropTarget(null);
+    };
+  }, []);
+
   const label = (leaf: (typeof pane.leaves)[0]) => {
     switch (leaf.type) {
       case "markdown":
@@ -137,29 +199,101 @@ export function TabBar({ paneId = "left" }: { paneId?: PaneId }) {
     setContextMenu({ x: event.clientX, y: event.clientY, tabId, tabIndex });
   };
 
-  const onDragStart = (event: DragEvent, leafId: string) => {
-    if (!state.split) return;
-    event.dataTransfer.setData(TAB_DRAG_MIME, leafId);
-    event.dataTransfer.setData("text/plain", leafId);
-    event.dataTransfer.effectAllowed = "move";
-  };
+  const endDrag = useCallback(() => {
+    sessionRef.current = null;
+    setDraggingLeafId(null);
+    detachFileTreeDragGhost();
+    document.body.classList.remove("boke-tab-dragging");
+    setTabDropTarget(null);
+  }, []);
 
-  const onDragOver = (event: DragEvent) => {
-    if (!state.split) return;
-    if (![...event.dataTransfer.types].includes(TAB_DRAG_MIME) && !event.dataTransfer.types.includes("text/plain")) {
-      return;
-    }
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  };
+  const beginDrag = useCallback((session: TabDragSession, clientX: number, clientY: number) => {
+    session.active = true;
+    setDraggingLeafId(session.leafId);
+    attachFileTreeDragGhost(session.sourceElement, clientX, clientY);
+    document.body.classList.add("boke-tab-dragging");
+    const dropPane = findDropPaneId(clientX, clientY);
+    setTabDropTarget(dropPane && dropPane !== session.fromPane ? dropPane : null);
+  }, []);
 
-  const onDrop = (event: DragEvent) => {
-    if (!state.split) return;
-    event.preventDefault();
-    const leafId = event.dataTransfer.getData(TAB_DRAG_MIME) || event.dataTransfer.getData("text/plain");
-    if (!leafId) return;
-    workspaceStore.moveLeafToPane(leafId, paneId);
-  };
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, leafId: string) => {
+      if (!split) return;
+      if (event.button !== 0) return;
+      if ((event.target as HTMLElement | null)?.closest(".boke-tab-close")) return;
+      if (sessionRef.current) return;
+
+      const sourceElement = event.currentTarget;
+      const session: TabDragSession = {
+        leafId,
+        fromPane: paneId,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
+        sourceElement,
+        active: false,
+        longPressTimer: null,
+      };
+      sessionRef.current = session;
+
+      session.longPressTimer = setTimeout(() => {
+        if (sessionRef.current !== session || session.active) return;
+        beginDrag(session, session.lastClientX, session.lastClientY);
+      }, FILE_TREE_DRAG_LONG_PRESS_MS);
+
+      const finish = (ev: globalThis.PointerEvent) => {
+        if (ev.pointerId !== session.pointerId) return;
+        if (session.longPressTimer) {
+          clearTimeout(session.longPressTimer);
+          session.longPressTimer = null;
+        }
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", finish);
+        document.removeEventListener("pointercancel", finish);
+
+        if (session.active) {
+          const dropPane = findDropPaneId(ev.clientX, ev.clientY);
+          endDrag();
+          suppressClickRef.current = true;
+          if (dropPane && dropPane !== session.fromPane) {
+            workspaceStore.moveLeafToPane(session.leafId, dropPane);
+          }
+        } else {
+          sessionRef.current = null;
+        }
+      };
+
+      const onMove = (ev: globalThis.PointerEvent) => {
+        if (ev.pointerId !== session.pointerId) return;
+        session.lastClientX = ev.clientX;
+        session.lastClientY = ev.clientY;
+        if (!session.active) {
+          const dx = ev.clientX - session.startX;
+          const dy = ev.clientY - session.startY;
+          if (Math.hypot(dx, dy) >= FILE_TREE_DRAG_MOVE_PX) {
+            if (session.longPressTimer) {
+              clearTimeout(session.longPressTimer);
+              session.longPressTimer = null;
+            }
+            beginDrag(session, ev.clientX, ev.clientY);
+          }
+          return;
+        }
+
+        ev.preventDefault();
+        moveFileTreeDragGhost(ev.clientX, ev.clientY);
+        const dropPane = findDropPaneId(ev.clientX, ev.clientY);
+        setTabDropTarget(dropPane && dropPane !== session.fromPane ? dropPane : null);
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", finish);
+      document.addEventListener("pointercancel", finish);
+    },
+    [beginDrag, endDrag, paneId, split],
+  );
 
   return (
     <>
@@ -168,8 +302,6 @@ export function TabBar({ paneId = "left" }: { paneId?: PaneId }) {
         ref={tabsRef}
         data-pane={paneId}
         onMouseDown={() => workspaceStore.setFocusedPane(paneId)}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
         onDoubleClick={(event) => {
           const target = event.target as HTMLElement | null;
           if (target?.closest(".boke-tab")) return;
@@ -181,10 +313,21 @@ export function TabBar({ paneId = "left" }: { paneId?: PaneId }) {
         {visibleLeaves.map((leaf, index) => (
           <div
             key={leaf.id}
-            className={`boke-tab${leaf.id === pane.activeId ? " active" : ""}${contextMenu?.tabId === leaf.id ? " context-target" : ""}`}
-            draggable={state.split}
-            onDragStart={(e) => onDragStart(e, leaf.id)}
+            className={[
+              "boke-tab",
+              leaf.id === pane.activeId ? "active" : "",
+              contextMenu?.tabId === leaf.id ? "context-target" : "",
+              draggingLeafId === leaf.id ? "is-dragging" : "",
+              split ? "is-draggable" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onPointerDown={(e) => handlePointerDown(e, leaf.id)}
             onClick={() => {
+              if (suppressClickRef.current) {
+                suppressClickRef.current = false;
+                return;
+              }
               workspaceStore.setActive(leaf.id);
               if (isFileContentTab(leaf.type)) focusMainContent(paneId);
             }}

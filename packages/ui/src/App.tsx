@@ -242,20 +242,6 @@ function EditorColumn({ paneId }: { paneId: PaneId }) {
       className={`boke-editor-pane${isFocused ? " is-focused" : ""}`}
       data-pane={paneId}
       onMouseDownCapture={() => workspaceStore.setFocusedPane(paneId)}
-      onDragOver={(event) => {
-        if (!split) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={(event) => {
-        if (!split) return;
-        event.preventDefault();
-        const leafId =
-          event.dataTransfer.getData("application/x-chestnut-tab") ||
-          event.dataTransfer.getData("text/plain");
-        if (!leafId) return;
-        workspaceStore.moveLeafToPane(leafId, paneId);
-      }}
     >
       <TabBar paneId={paneId} />
       <div className="boke-content" data-pane={paneId} tabIndex={-1}>
